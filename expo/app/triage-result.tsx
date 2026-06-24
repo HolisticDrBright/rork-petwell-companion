@@ -15,7 +15,7 @@ import React, { useMemo } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { Card, Disclaimer, PrimaryButton, UrgencyBand } from "@/components/ui";
+import { Card, Disclaimer, PrimaryButton } from "@/components/ui";
 import Colors, { Fonts, Radius, Space, Urgency, cardShadow, type UrgencyKey } from "@/constants/colors";
 import { CONCERNS, getFlow } from "@/constants/triage";
 import { usePets } from "@/providers/PetProvider";

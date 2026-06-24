@@ -1,6 +1,5 @@
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
-import { useEffect } from "react";
 import {
   Activity,
   Bell,
@@ -19,7 +18,7 @@ import {
   Syringe,
   X,
 } from "lucide-react-native";
-import React, { memo, useCallback, useMemo, useState } from "react";
+import React, { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -222,7 +221,7 @@ export default function TodayScreen() {
             <QuickAction
               label="Log food"
               icon={<Bone size={22} color={Colors.teal700} />}
-              onPress={() => router.push("/timeline")}
+              onPress={() => router.push({ pathname: "/log", params: { type: "food" } })}
             />
             <QuickAction
               label="Vet report"
@@ -267,7 +266,7 @@ export default function TodayScreen() {
       {fabOpen ? (
         <Pressable style={styles.fabBackdrop} onPress={() => setFabOpen(false)}>
           <View style={[styles.fabMenu, { bottom: insets.bottom + 150 }]}>
-            <FabItem label="Log" icon={<Bone size={18} color={Colors.teal700} />} onPress={() => fabAction("/timeline")} />
+            <FabItem label="Log" icon={<Bone size={18} color={Colors.teal700} />} onPress={() => fabAction("/log")} />
             <FabItem label="Scan" icon={<Camera size={18} color={Colors.teal700} />} onPress={() => fabAction("/scan")} />
             <FabItem label="Ask" icon={<MessageCircleQuestion size={18} color={Colors.teal700} />} onPress={() => fabAction("/ask")} />
           </View>

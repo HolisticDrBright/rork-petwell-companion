@@ -1,22 +1,19 @@
 import { useRouter } from "expo-router";
 import {
-  AlertTriangle,
   Bluetooth,
   ChevronRight,
   FileText,
   FolderOpen,
   Plus,
   Settings,
-  Share2,
   ShieldCheck,
-  Syringe,
 } from "lucide-react-native";
 import React, { memo, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { PetSwitcher } from "@/components/PetSwitcher";
-import { Card, PrimaryButton } from "@/components/ui";
+import { Card } from "@/components/ui";
 import Colors, { Fonts, Radius, Space, cardShadow } from "@/constants/colors";
 import { RECORDS } from "@/constants/mockData";
 import { usePets } from "@/providers/PetProvider";

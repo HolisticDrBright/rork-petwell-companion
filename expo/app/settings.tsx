@@ -16,7 +16,7 @@ import React from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { Card } from "@/components/ui";
-import Colors, { Fonts, Radius, Space, cardShadow } from "@/constants/colors";
+import Colors, { Fonts, Radius, Space } from "@/constants/colors";
 import { usePets } from "@/providers/PetProvider";
 
 interface Row {

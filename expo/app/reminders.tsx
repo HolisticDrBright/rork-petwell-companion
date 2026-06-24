@@ -5,7 +5,7 @@ import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-nat
 
 import { PetSwitcher } from "@/components/PetSwitcher";
 import { Card } from "@/components/ui";
-import Colors, { Fonts, Radius, Space, cardShadow } from "@/constants/colors";
+import Colors, { Fonts, Radius, Space } from "@/constants/colors";
 import { usePets } from "@/providers/PetProvider";
 
 export default function RemindersScreen() {

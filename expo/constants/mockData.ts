@@ -8,6 +8,13 @@ import type {
   ConnectedDevice,
 } from "@/types/pet";
 
+/**
+ * The demo is frozen around late June 2026 so the seeded timeline reads
+ * coherently. TODAY_ISO is the single source of truth for "today" — new
+ * logs are stamped with it and the timeline groups against it.
+ */
+export const TODAY_ISO = "2026-06-25";
+
 export const PETS: Pet[] = [
   {
     id: "buddy",

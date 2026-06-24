@@ -8,10 +8,10 @@ import {
   Wind,
 } from "lucide-react-native";
 import React, { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 
 import { Card } from "@/components/ui";
-import Colors, { Fonts, Radius, Space, cardShadow } from "@/constants/colors";
+import Colors, { Fonts, Radius, Space } from "@/constants/colors";
 import { DEVICES } from "@/constants/mockData";
 
 const DATA_TYPES = [

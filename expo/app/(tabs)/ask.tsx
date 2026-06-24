@@ -1,6 +1,5 @@
 import { useRouter } from "expo-router";
 import {
-  Activity,
   Battery,
   Bone,
   ChevronRight,

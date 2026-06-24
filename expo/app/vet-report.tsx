@@ -1,19 +1,11 @@
 import { Image } from "expo-image";
 import { Stack } from "expo-router";
-import {
-  Check,
-  Download,
-  FileText,
-  HelpCircle,
-  Minus,
-  Share2,
-  X,
-} from "lucide-react-native";
+import { Download, FileText, HelpCircle, Minus, Share2, X } from "lucide-react-native";
 import React, { memo } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { Card, Disclaimer, PrimaryButton } from "@/components/ui";
-import Colors, { Fonts, Radius, Space, cardShadow } from "@/constants/colors";
+import Colors, { Fonts, Radius, Space } from "@/constants/colors";
 import { usePets } from "@/providers/PetProvider";
 
 const RED_FLAGS = [

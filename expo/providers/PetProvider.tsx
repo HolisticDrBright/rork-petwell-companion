@@ -10,10 +10,11 @@ import {
   REMINDERS,
   SMART_INSIGHT,
   TIMELINE,
+  TODAY_ISO,
   TRENDS,
   UPCOMING,
 } from "@/constants/mockData";
-import type { CareItem, Pet, Reminder } from "@/types/pet";
+import type { CareItem, Pet, Reminder, TimelineEntry } from "@/types/pet";
 
 const STORAGE_KEY = "petwell.state.v1";
 const ONBOARD_KEY = "petwell.onboarded.v1";
@@ -22,6 +23,7 @@ interface PersistedState {
   selectedPetId: string;
   careDone: Record<string, string[]>; // petId -> done care item ids
   reminderState: Record<string, boolean>; // reminderId(petId+id) -> enabled
+  logs: Record<string, TimelineEntry[]>; // petId -> user-added timeline entries (newest first)
   premium: boolean;
 }
 
@@ -29,11 +31,15 @@ const DEFAULT_STATE: PersistedState = {
   selectedPetId: PETS[0].id,
   careDone: {},
   reminderState: {},
+  logs: {},
   premium: false,
 };
 
 export const [PetProvider, usePets] = createContextHook(() => {
-  const [state, setState] = useState<PersistedState>(DEFAULT_STATE);
+  // `local` holds the user's in-session edits. It stays null until the first
+  // edit so that freshly-loaded persisted state wins on startup (initialising
+  // it to DEFAULT_STATE would clobber what we just read from storage).
+  const [local, setLocal] = useState<PersistedState | null>(null);
 
   const stateQuery = useQuery({
     queryKey: ["petwell-state"],
@@ -57,11 +63,10 @@ export const [PetProvider, usePets] = createContextHook(() => {
   });
 
   const loaded = stateQuery.isSuccess;
-  const resolved = loaded ? { ...DEFAULT_STATE, ...stateQuery.data, ...state } : null;
-  const current = resolved ?? DEFAULT_STATE;
+  const current: PersistedState = local ?? stateQuery.data ?? DEFAULT_STATE;
 
   const persist = useCallback(async (next: PersistedState) => {
-    setState(next);
+    setLocal(next);
     try {
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
     } catch {
@@ -102,6 +107,17 @@ export const [PetProvider, usePets] = createContextHook(() => {
     [current, persist]
   );
 
+  const addLog = useCallback(
+    (petId: string, entry: TimelineEntry) => {
+      const prev = current.logs[petId] ?? [];
+      persist({
+        ...current,
+        logs: { ...current.logs, [petId]: [entry, ...prev] },
+      });
+    },
+    [current, persist]
+  );
+
   const setPremium = useCallback(
     (value: boolean) => {
       persist({ ...current, premium: value });
@@ -110,7 +126,6 @@ export const [PetProvider, usePets] = createContextHook(() => {
   );
 
   const completeOnboarding = useCallback(async () => {
-    onboardQuery.refetch;
     try {
       await AsyncStorage.setItem(ONBOARD_KEY, "true");
       await onboardQuery.refetch();
@@ -140,6 +155,14 @@ export const [PetProvider, usePets] = createContextHook(() => {
     });
   }, [selectedPet.id, current.reminderState]);
 
+  // User-added logs (newest first) merged ahead of the seeded timeline so the
+  // closed-loop care story is visible: log something, see it land instantly.
+  const timeline: TimelineEntry[] = useMemo(() => {
+    const base = TIMELINE[selectedPet.id] ?? [];
+    const extra = current.logs[selectedPet.id] ?? [];
+    return [...extra, ...base];
+  }, [selectedPet.id, current.logs]);
+
   return useMemo(
     () => ({
       isLoading: !loaded || onboardQuery.isLoading,
@@ -151,13 +174,15 @@ export const [PetProvider, usePets] = createContextHook(() => {
       toggleCareItem,
       reminders,
       toggleReminder,
+      addLog,
+      todayIso: TODAY_ISO,
       premium: current.premium,
       setPremium,
       completeOnboarding,
       trends: TRENDS[selectedPet.id],
       smartInsight: SMART_INSIGHT[selectedPet.id],
       insightCards: INSIGHT_CARDS[selectedPet.id] ?? [],
-      timeline: TIMELINE[selectedPet.id] ?? [],
+      timeline,
       upcoming: UPCOMING[selectedPet.id] ?? [],
     }),
     [
@@ -170,9 +195,11 @@ export const [PetProvider, usePets] = createContextHook(() => {
       toggleCareItem,
       reminders,
       toggleReminder,
+      addLog,
       current.premium,
       setPremium,
       completeOnboarding,
+      timeline,
     ]
   );
 });

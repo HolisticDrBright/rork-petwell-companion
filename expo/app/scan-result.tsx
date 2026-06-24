@@ -1,17 +1,10 @@
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import {
-  Check,
-  FileText,
-  Link2,
-  Pencil,
-  Save,
-  TriangleAlert,
-} from "lucide-react-native";
+import { FileText, Link2, Pencil, Save } from "lucide-react-native";
 import React, { useMemo } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { Card, Disclaimer, PrimaryButton, UrgencyBand } from "@/components/ui";
-import Colors, { Fonts, Radius, Space, cardShadow } from "@/constants/colors";
+import Colors, { Fonts, Radius, Space } from "@/constants/colors";
 import { getScanResult } from "@/constants/scans";
 import { usePets } from "@/providers/PetProvider";
 

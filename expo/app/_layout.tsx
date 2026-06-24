@@ -29,6 +29,7 @@ function RootLayoutNav() {
       <Stack.Screen name="add-pet" options={{ title: "Add a pet", presentation: "modal" }} />
       <Stack.Screen name="ask-flow" options={{ headerShown: false, presentation: "card" }} />
       <Stack.Screen name="triage-result" options={{ headerShown: false, presentation: "card" }} />
+      <Stack.Screen name="log" options={{ title: "Add a log", presentation: "modal" }} />
       <Stack.Screen name="scan-flow" options={{ title: "Scan", presentation: "card" }} />
       <Stack.Screen name="scan-result" options={{ headerShown: false, presentation: "card" }} />
       <Stack.Screen name="vet-report" options={{ title: "Vet-ready summary", presentation: "modal" }} />

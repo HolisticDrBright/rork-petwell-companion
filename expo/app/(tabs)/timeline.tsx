@@ -6,6 +6,7 @@ import {
   Droplet,
   HeartPulse,
   Pill,
+  Plus,
   Scale,
   Sparkles,
   Stethoscope,
@@ -20,6 +21,7 @@ import { BarChart, LineChart } from "@/components/Charts";
 import { PetSwitcher } from "@/components/PetSwitcher";
 import { Card } from "@/components/ui";
 import Colors, { Fonts, Radius, Space, cardShadow } from "@/constants/colors";
+import { TODAY_ISO } from "@/constants/mockData";
 import { usePets } from "@/providers/PetProvider";
 import type { LogCategory, TimelineEntry } from "@/types/pet";
 
@@ -46,6 +48,7 @@ const FILTERS: (LogCategory | "all")[] = [
   "weight",
   "activity",
   "meds",
+  "symptom",
   "vet",
   "scan",
 ];
@@ -58,7 +61,7 @@ const INSIGHT_META = {
 
 function formatDateHeader(iso: string): string {
   const d = new Date(iso + "T00:00:00");
-  const today = new Date("2026-06-25T00:00:00");
+  const today = new Date(TODAY_ISO + "T00:00:00");
   const diff = Math.round((today.getTime() - d.getTime()) / 86400000);
   const label = d.toLocaleDateString("en-US", { month: "long", day: "numeric" });
   if (diff === 0) return `Today · ${label}`;
@@ -118,7 +121,17 @@ export default function TimelineScreen() {
         <PetSwitcher onAddPet={() => router.push("/add-pet")} />
       </View>
 
-      <Text style={styles.title}>{selectedPet.name}&apos;s health timeline</Text>
+      <View style={styles.titleRow}>
+        <Text style={styles.title}>{selectedPet.name}&apos;s timeline</Text>
+        <Pressable
+          testID="timeline-add-log"
+          onPress={() => router.push("/log")}
+          style={({ pressed }) => [styles.logBtn, pressed && { opacity: 0.85 }]}
+        >
+          <Plus size={16} color="#fff" strokeWidth={2.5} />
+          <Text style={styles.logBtnText}>Log</Text>
+        </Pressable>
+      </View>
 
       {/* Insight cards */}
       <ScrollView
@@ -223,7 +236,24 @@ export default function TimelineScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.cream },
   header: { paddingHorizontal: Space.md, marginBottom: Space.sm },
-  title: { ...Fonts.title, paddingHorizontal: Space.md, marginBottom: Space.md },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: Space.md,
+    marginBottom: Space.md,
+  },
+  title: { ...Fonts.title, flex: 1 },
+  logBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: Colors.coral500,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: Radius.pill,
+  },
+  logBtnText: { color: "#fff", fontWeight: "800", fontSize: 14 },
   insightCard: { width: 250, borderRadius: Radius.md, padding: Space.md, gap: 8 },
   insightHead: { flexDirection: "row", alignItems: "center", gap: 6 },
   insightLabel: { fontSize: 13, fontWeight: "800" },
