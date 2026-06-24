@@ -23,10 +23,8 @@ export default function ScanFlowScreen() {
   const [photo, setPhoto] = useState<string | null>(null);
   const [notes, setNotes] = useState<string>("");
 
-  const category = useMemo(
-    () => SCAN_CATEGORIES.find((c) => c.id === type),
-    [type]
-  );
+  const category = useMemo(() => SCAN_CATEGORIES.find((c) => c.id === type), [type]);
+  const isFood = category?.group === "food";
 
   const pickImage = useCallback(async () => {
     try {
@@ -52,6 +50,14 @@ export default function ScanFlowScreen() {
     >
       <Stack.Screen options={{ title: category?.label ?? "Scan" }} />
 
+      <View style={styles.badgeWrap}>
+        <View style={[styles.badge, { backgroundColor: isFood ? Colors.amber100 : Colors.teal50 }]}>
+          <Text style={[styles.badgeText, { color: isFood ? Colors.amber600 : Colors.teal700 }]}>
+            {isFood ? "Food scan" : "Health scan"}
+          </Text>
+        </View>
+      </View>
+
       <Text style={styles.title}>{category?.label ?? "Scan"}</Text>
       <Text style={styles.subtitle}>
         For {selectedPet.name} · {category?.hint}
@@ -66,7 +72,9 @@ export default function ScanFlowScreen() {
             <View style={styles.cameraCircle}>
               <Camera size={30} color={Colors.teal700} />
             </View>
-            <Text style={styles.photoTitle}>Take or upload a photo</Text>
+            <Text style={styles.photoTitle}>
+              {isFood ? "Take or upload a photo of the label" : "Take or upload a photo"}
+            </Text>
             <Text style={styles.photoHint}>Tap to choose from your library</Text>
           </>
         )}
@@ -88,28 +96,45 @@ export default function ScanFlowScreen() {
             <Text style={styles.guideText}>{g.text}</Text>
           </View>
         ))}
+        {isFood ? (
+          <View style={[styles.guideRow, { marginTop: 4 }]}>
+            <Text style={[styles.guideText, { color: Colors.inkFaint }]}>
+              Legible ingredient panels and guaranteed analysis tables get the best results.
+            </Text>
+          </View>
+        ) : null}
       </View>
 
       {/* Manual notes */}
       <Text style={styles.notesLabel}>Add notes (optional)</Text>
-      <Text style={styles.notesHint}>Smell, color, behavior, pain, appetite, duration…</Text>
+      <Text style={styles.notesHint}>
+        {isFood
+          ? "Brand, product name, how you found this food, anything you want to note…"
+          : "Smell, color, behavior, pain, appetite, duration…"}
+      </Text>
       <TextInput
         value={notes}
         onChangeText={setNotes}
-        placeholder="e.g. Softer than usual, slight smell, eating normally"
+        placeholder={
+          isFood
+            ? "e.g. Recommended by friend, pet store sample"
+            : "e.g. Softer than usual, slight smell, eating normally"
+        }
         placeholderTextColor={Colors.inkFaint}
         multiline
         style={styles.input}
       />
 
       <PrimaryButton
-        label="Analyze photo"
+        label={isFood ? "Analyze label" : "Analyze photo"}
         variant="coral"
         onPress={analyze}
         style={{ marginTop: Space.lg }}
       />
       <Text style={styles.footNote}>
-        You&apos;ll be able to correct anything we get wrong on the next screen.
+        {isFood
+          ? "You'll get nutrition fit, ingredient flags, and cleaner alternatives."
+          : "You'll be able to correct anything we get wrong on the next screen."}
       </Text>
     </ScrollView>
   );
@@ -117,57 +142,28 @@ export default function ScanFlowScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.cream },
+  badgeWrap: { flexDirection: "row", marginBottom: 8 },
+  badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: Radius.pill, alignSelf: "flex-start" },
+  badgeText: { fontSize: 11, fontWeight: "800" },
   title: { ...Fonts.title },
   subtitle: { ...Fonts.bodySoft, marginTop: 2, marginBottom: Space.lg },
   photoArea: {
-    height: 240,
-    borderRadius: Radius.lg,
-    backgroundColor: Colors.surface,
-    borderWidth: 2,
-    borderColor: Colors.hairline,
-    borderStyle: "dashed",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    overflow: "hidden",
+    height: 240, borderRadius: Radius.lg, backgroundColor: Colors.surface,
+    borderWidth: 2, borderColor: Colors.hairline, borderStyle: "dashed",
+    alignItems: "center", justifyContent: "center", gap: 6, overflow: "hidden",
   },
   photo: { width: "100%", height: "100%" },
-  cameraCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: Colors.teal50,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 6,
-  },
+  cameraCircle: { width: 64, height: 64, borderRadius: 32, backgroundColor: Colors.teal50, alignItems: "center", justifyContent: "center", marginBottom: 6 },
   photoTitle: { ...Fonts.h3 },
   photoHint: { ...Fonts.small },
   replaceRow: { flexDirection: "row", alignItems: "center", gap: 6, justifyContent: "center", marginTop: 12 },
   replaceText: { ...Fonts.small, color: Colors.teal700 },
-  guideCard: {
-    backgroundColor: Colors.teal50,
-    borderRadius: Radius.md,
-    padding: Space.md,
-    marginTop: Space.lg,
-    gap: 10,
-    borderWidth: 1,
-    borderColor: Colors.teal100,
-  },
+  guideCard: { backgroundColor: Colors.teal50, borderRadius: Radius.md, padding: Space.md, marginTop: Space.lg, gap: 10, borderWidth: 1, borderColor: Colors.teal100 },
   guideTitle: { ...Fonts.h3, color: Colors.teal900, marginBottom: 2 },
-  guideRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-  guideText: { ...Fonts.body, color: Colors.teal900, flex: 1 },
+  guideRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
+  guideText: { ...Fonts.body, color: Colors.teal900, flex: 1, lineHeight: 20 },
   notesLabel: { ...Fonts.h3, marginTop: Space.lg },
   notesHint: { ...Fonts.small, marginTop: 2, marginBottom: 8 },
-  input: {
-    backgroundColor: Colors.surface,
-    borderRadius: Radius.md,
-    padding: Space.md,
-    minHeight: 90,
-    textAlignVertical: "top",
-    fontSize: 15,
-    color: Colors.ink,
-    ...cardShadow,
-  },
+  input: { backgroundColor: Colors.surface, borderRadius: Radius.md, padding: Space.md, minHeight: 90, textAlignVertical: "top", fontSize: 15, color: Colors.ink, ...cardShadow },
   footNote: { ...Fonts.small, color: Colors.inkFaint, textAlign: "center", marginTop: 10 },
 });

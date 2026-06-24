@@ -4,8 +4,10 @@ import { useQuery } from "@tanstack/react-query";
 import { useCallback, useMemo, useState } from "react";
 
 import {
+  ATTENTION_ITEMS,
   CARE_ITEMS,
-  INSIGHT_CARDS,
+  HEALTH_SIGNALS,
+  PATTERN_CARDS,
   PETS,
   REMINDERS,
   SMART_INSIGHT,
@@ -13,15 +15,15 @@ import {
   TRENDS,
   UPCOMING,
 } from "@/constants/mockData";
-import type { CareItem, Pet, Reminder } from "@/types/pet";
+import type { AttentionItem, CareItem, HealthSignal, PatternCard, Pet, Reminder } from "@/types/pet";
 
 const STORAGE_KEY = "petwell.state.v1";
 const ONBOARD_KEY = "petwell.onboarded.v1";
 
 interface PersistedState {
   selectedPetId: string;
-  careDone: Record<string, string[]>; // petId -> done care item ids
-  reminderState: Record<string, boolean>; // reminderId(petId+id) -> enabled
+  careDone: Record<string, string[]>;
+  reminderState: Record<string, boolean>;
   premium: boolean;
 }
 
@@ -110,7 +112,6 @@ export const [PetProvider, usePets] = createContextHook(() => {
   );
 
   const completeOnboarding = useCallback(async () => {
-    onboardQuery.refetch;
     try {
       await AsyncStorage.setItem(ONBOARD_KEY, "true");
       await onboardQuery.refetch();
@@ -156,9 +157,12 @@ export const [PetProvider, usePets] = createContextHook(() => {
       completeOnboarding,
       trends: TRENDS[selectedPet.id],
       smartInsight: SMART_INSIGHT[selectedPet.id],
-      insightCards: INSIGHT_CARDS[selectedPet.id] ?? [],
+      insightCards: PATTERN_CARDS[selectedPet.id] ?? [],
       timeline: TIMELINE[selectedPet.id] ?? [],
       upcoming: UPCOMING[selectedPet.id] ?? [],
+      attentionItems: ATTENTION_ITEMS[selectedPet.id] ?? [],
+      healthSignals: HEALTH_SIGNALS[selectedPet.id] ?? [],
+      patternCards: PATTERN_CARDS[selectedPet.id] ?? [],
     }),
     [
       loaded,

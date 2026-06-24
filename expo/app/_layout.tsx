@@ -36,6 +36,7 @@ function RootLayoutNav() {
       <Stack.Screen name="premium" options={{ headerShown: false, presentation: "modal" }} />
       <Stack.Screen name="settings" options={{ title: "Settings & privacy", presentation: "card" }} />
       <Stack.Screen name="devices" options={{ title: "Connected devices", presentation: "card" }} />
+      <Stack.Screen name="food-intelligence" options={{ title: "Food Intelligence", presentation: "modal" }} />
     </Stack>
   );
 }

@@ -5,6 +5,7 @@ import {
   Check,
   ChevronLeft,
   FileText,
+  Info,
   Minus,
   Phone,
   Stethoscope,
@@ -43,7 +44,7 @@ export default function TriageResultScreen() {
   );
   const result = flow.result;
   const confidence = redCount >= 2 ? "High" : result.confidence;
-  const escalated = urgency !== "green" && urgency !== "amber";
+  const escalated = urgency === "orange" || urgency === "red";
   const needsVet = urgency !== "green";
 
   const u = Urgency[urgency];
@@ -78,7 +79,14 @@ export default function TriageResultScreen() {
                 key={c}
                 style={[
                   styles.confDot,
-                  { backgroundColor: c === confidence ? u.color : "rgba(0,0,0,0.08)" },
+                  {
+                    backgroundColor:
+                      c === confidence
+                        ? u.color
+                        : confidence === "High" && c === "Moderate"
+                          ? u.color
+                          : "rgba(0,0,0,0.08)",
+                  },
                 ]}
               />
             ))}
@@ -94,8 +102,8 @@ export default function TriageResultScreen() {
             <View key={c.rank}>
               {i > 0 ? <View style={styles.divider} /> : null}
               <View style={styles.causeRow}>
-                <View style={styles.rankCircle}>
-                  <Text style={styles.rankText}>{c.rank}</Text>
+                <View style={[styles.rankCircle, { backgroundColor: i === 0 ? Colors.teal800 : Colors.teal50 }]}>
+                  <Text style={[styles.rankText, { color: i === 0 ? "#fff" : Colors.teal700 }]}>{c.rank}</Text>
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={Fonts.h3}>{c.name}</Text>
@@ -106,28 +114,45 @@ export default function TriageResultScreen() {
           ))}
         </Card>
 
-        {/* What supports this */}
-        <View style={styles.twoCol}>
-          <Card style={styles.colCard}>
-            <Text style={styles.colTitle}>What supports this</Text>
-            {result.supports.map((s) => (
+        {/* Evidence: supports / does not support */}
+        <Text style={styles.sectionTitle}>Evidence</Text>
+        <View style={styles.evidenceGrid}>
+          {/* What supports this */}
+          <View style={[styles.evidenceCard, { backgroundColor: Colors.green100 }]}>
+            <Text style={[styles.evidenceTitle, { color: Colors.green600 }]}>What supports this</Text>
+            {result.evidence.supports.map((s) => (
               <View key={s} style={styles.bulletRow}>
-                <View style={styles.checkMini}>
-                  <Check size={11} color="#fff" strokeWidth={3} />
+                <View style={[styles.bulletDot, { backgroundColor: Colors.green600 }]}>
+                  <Check size={10} color="#fff" strokeWidth={3} />
                 </View>
                 <Text style={styles.bulletText}>{s}</Text>
               </View>
             ))}
-          </Card>
+          </View>
+          {/* What does not support this */}
+          <View style={[styles.evidenceCard, { backgroundColor: Colors.amber100 }]}>
+            <Text style={[styles.evidenceTitle, { color: Colors.amber600 }]}>What doesn't support this</Text>
+            {result.evidence.doesNotSupport.map((s) => (
+              <View key={s} style={styles.bulletRow}>
+                <View style={[styles.bulletDot, { backgroundColor: Colors.amber500 }]}>
+                  <Minus size={10} color="#fff" strokeWidth={3} />
+                </View>
+                <Text style={styles.bulletText}>{s}</Text>
+              </View>
+            ))}
+          </View>
         </View>
 
         {/* What would change urgency */}
-        <Card style={[styles.colCard, styles.warnCard]}>
-          <Text style={[styles.colTitle, { color: Colors.amber600 }]}>What would change the urgency</Text>
-          {result.changesUrgency.map((s) => (
+        <Card style={[styles.warnCard, { marginTop: Space.md }]}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <Info size={17} color={Colors.red600} />
+            <Text style={[Fonts.h3, { color: Colors.red600 }]}>What would change the urgency</Text>
+          </View>
+          {result.evidence.changesUrgency.map((s) => (
             <View key={s} style={styles.bulletRow}>
-              <View style={styles.warnDot}>
-                <Minus size={11} color={Colors.amber600} strokeWidth={3} />
+              <View style={[styles.bulletDot, { backgroundColor: Colors.red500 }]}>
+                <Minus size={10} color="#fff" strokeWidth={3} />
               </View>
               <Text style={styles.bulletText}>{s}</Text>
             </View>
@@ -146,6 +171,13 @@ export default function TriageResultScreen() {
             </View>
           ))}
         </Card>
+
+        {result.disclaimerNote ? (
+          <View style={styles.specialNote}>
+            <Info size={16} color={Colors.teal800} />
+            <Text style={styles.specialNoteText}>{result.disclaimerNote}</Text>
+          </View>
+        ) : null}
 
         {/* Telehealth escalation */}
         {needsVet ? (
@@ -187,9 +219,9 @@ export default function TriageResultScreen() {
         {/* Ask next */}
         <Text style={styles.sectionTitle}>Ask next</Text>
         <View style={styles.chipRow}>
-          <NextChip label="Log stool photo" icon={<Camera size={16} color={Colors.teal700} />} onPress={() => router.push("/scan")} />
+          <NextChip label="Scan photo" icon={<Camera size={16} color={Colors.teal700} />} onPress={() => router.push("/scan")} />
           <NextChip label="Vet-ready report" icon={<FileText size={16} color={Colors.teal700} />} onPress={() => router.push("/vet-report")} />
-          <NextChip label="Book telehealth" icon={<Video size={16} color={Colors.teal700} />} onPress={() => {}} />
+          <NextChip label="Telehealth" icon={<Video size={16} color={Colors.teal700} />} onPress={() => {}} />
           <NextChip label="12-hour check-in" icon={<Bell size={16} color={Colors.teal700} />} onPress={() => router.push("/reminders")} />
         </View>
 
@@ -220,22 +252,8 @@ function NextChip({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.cream },
-  topbar: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: Space.md,
-    paddingVertical: Space.sm,
-  },
-  backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: Colors.surface,
-    alignItems: "center",
-    justifyContent: "center",
-    ...cardShadow,
-  },
+  topbar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: Space.md, paddingVertical: Space.sm },
+  backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.surface, alignItems: "center", justifyContent: "center", ...cardShadow },
   hero: { borderRadius: Radius.lg, padding: Space.lg, alignItems: "center", gap: 4 },
   heroLabel: { ...Fonts.tiny, letterSpacing: 1 },
   heroBig: { fontSize: 28, fontWeight: "800", letterSpacing: -0.5 },
@@ -247,61 +265,22 @@ const styles = StyleSheet.create({
   sectionHint: { ...Fonts.small, marginTop: 2 },
   divider: { height: 1, backgroundColor: Colors.hairline },
   causeRow: { flexDirection: "row", alignItems: "flex-start", gap: 12, paddingVertical: 12 },
-  rankCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: Colors.teal800,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  rankText: { color: "#fff", fontWeight: "800", fontSize: 14 },
-  twoCol: { marginTop: Space.md },
-  colCard: { gap: 10, marginTop: Space.md },
-  colTitle: { ...Fonts.h3, fontSize: 14.5, color: Colors.green600 },
-  warnCard: { backgroundColor: Colors.amber100 },
-  bulletRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
-  checkMini: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: Colors.green600,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 1,
-  },
-  warnDot: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: Colors.amber100,
-    borderWidth: 1.5,
-    borderColor: Colors.amber500,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 1,
-  },
-  bulletText: { ...Fonts.body, flex: 1, lineHeight: 20, color: Colors.inkSoft },
+  rankCircle: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
+  rankText: { fontWeight: "800", fontSize: 14 },
+  evidenceGrid: { flexDirection: "row", gap: Space.sm, marginTop: 8 },
+  evidenceCard: { flex: 1, borderRadius: Radius.md, padding: Space.sm, gap: 8 },
+  evidenceTitle: { fontSize: 12, fontWeight: "800", marginBottom: 2 },
+  bulletRow: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
+  bulletDot: { width: 18, height: 18, borderRadius: 9, alignItems: "center", justifyContent: "center", marginTop: 1 },
+  bulletText: { ...Fonts.small, flex: 1, lineHeight: 18, color: Colors.ink },
+  warnCard: { backgroundColor: Colors.red100, borderWidth: 1, borderColor: Colors.red100 },
   stepRow: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
-  stepNum: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: Colors.teal50,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  stepNum: { width: 26, height: 26, borderRadius: 13, backgroundColor: Colors.teal50, alignItems: "center", justifyContent: "center" },
   stepNumText: { color: Colors.teal700, fontWeight: "800", fontSize: 13 },
   stepText: { ...Fonts.body, flex: 1, lineHeight: 21 },
-  escalate: {
-    backgroundColor: Colors.teal50,
-    borderRadius: Radius.lg,
-    padding: Space.md,
-    marginTop: Space.lg,
-    borderWidth: 1,
-    borderColor: Colors.teal100,
-    gap: 12,
-  },
+  specialNote: { flexDirection: "row", gap: 10, backgroundColor: Colors.teal50, borderRadius: Radius.md, padding: Space.sm, marginTop: Space.md, borderWidth: 1, borderColor: Colors.teal100 },
+  specialNoteText: { ...Fonts.small, flex: 1, color: Colors.teal900, lineHeight: 18 },
+  escalate: { backgroundColor: Colors.teal50, borderRadius: Radius.lg, padding: Space.md, marginTop: Space.lg, borderWidth: 1, borderColor: Colors.teal100, gap: 12 },
   escalateHead: { flexDirection: "row", alignItems: "center", gap: 8 },
   escalateTitle: { ...Fonts.h3, color: Colors.teal900, flex: 1 },
   escalateBody: { ...Fonts.bodySoft, lineHeight: 20 },
@@ -309,15 +288,6 @@ const styles = StyleSheet.create({
   emergencyRow: { flexDirection: "row", alignItems: "center", gap: 8, justifyContent: "center", marginTop: 2 },
   emergencyText: { ...Fonts.small, color: Colors.red600, fontWeight: "700" },
   chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 10 },
-  chip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 7,
-    backgroundColor: Colors.surface,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    borderRadius: Radius.pill,
-    ...cardShadow,
-  },
+  chip: { flexDirection: "row", alignItems: "center", gap: 7, backgroundColor: Colors.surface, paddingHorizontal: 14, paddingVertical: 11, borderRadius: Radius.pill, ...cardShadow },
   chipText: { ...Fonts.small, color: Colors.ink },
 });

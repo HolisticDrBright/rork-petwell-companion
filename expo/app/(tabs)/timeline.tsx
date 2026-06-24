@@ -18,7 +18,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { BarChart, LineChart } from "@/components/Charts";
 import { PetSwitcher } from "@/components/PetSwitcher";
-import { Card } from "@/components/ui";
+import { Card, PatternCardView } from "@/components/ui";
 import Colors, { Fonts, Radius, Space, cardShadow } from "@/constants/colors";
 import { usePets } from "@/providers/PetProvider";
 import type { LogCategory, TimelineEntry } from "@/types/pet";
@@ -38,23 +38,7 @@ const CAT_META: Record<
   symptom: { label: "Symptoms", icon: HeartPulse, color: Colors.red500 },
 };
 
-const FILTERS: (LogCategory | "all")[] = [
-  "all",
-  "food",
-  "stool",
-  "skin",
-  "weight",
-  "activity",
-  "meds",
-  "vet",
-  "scan",
-];
-
-const INSIGHT_META = {
-  pattern: { icon: Sparkles, color: Colors.teal700, bg: Colors.teal50, label: "Possible pattern found" },
-  progress: { icon: TrendingUp, color: Colors.green600, bg: Colors.green100, label: "Progress" },
-  attention: { icon: TriangleAlert, color: Colors.amber600, bg: Colors.amber100, label: "Needs attention" },
-} as const;
+const FILTERS: (LogCategory | "all")[] = ["all", "food", "stool", "skin", "weight", "activity", "meds", "vet", "scan", "symptom"];
 
 function formatDateHeader(iso: string): string {
   const d = new Date(iso + "T00:00:00");
@@ -83,6 +67,13 @@ const EntryRow = memo(function EntryRow({ entry, isLast }: { entry: TimelineEntr
           <Text style={styles.entryTime}>{entry.time}</Text>
         </View>
         {entry.detail ? <Text style={styles.entryDetail}>{entry.detail}</Text> : null}
+        {entry.urgency ? (
+          <View style={[styles.urgencyPill, { backgroundColor: entry.urgency === "green" ? Colors.green100 : Colors.amber100 }]}>
+            <Text style={[styles.urgencyText, { color: entry.urgency === "green" ? Colors.green600 : Colors.amber600 }]}>
+              {entry.urgency === "green" ? "OK" : "Monitor"}
+            </Text>
+          </View>
+        ) : null}
       </View>
     </View>
   );
@@ -91,7 +82,7 @@ const EntryRow = memo(function EntryRow({ entry, isLast }: { entry: TimelineEntr
 export default function TimelineScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { selectedPet, timeline, insightCards, trends } = usePets();
+  const { selectedPet, timeline, patternCards, trends } = usePets();
   const [filter, setFilter] = useState<LogCategory | "all">("all");
 
   const filtered = useMemo(
@@ -118,28 +109,21 @@ export default function TimelineScreen() {
         <PetSwitcher onAddPet={() => router.push("/add-pet")} />
       </View>
 
-      <Text style={styles.title}>{selectedPet.name}&apos;s health timeline</Text>
+      <Text style={styles.title}>{selectedPet.name}'s health timeline</Text>
 
-      {/* Insight cards */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ gap: 12, paddingHorizontal: Space.md, paddingVertical: 4 }}
-        style={{ marginHorizontal: -Space.md }}
-      >
-        {insightCards.map((c, i) => {
-          const m = INSIGHT_META[c.type];
-          return (
-            <View key={i} style={[styles.insightCard, { backgroundColor: m.bg }]}>
-              <View style={styles.insightHead}>
-                <m.icon size={16} color={m.color} />
-                <Text style={[styles.insightLabel, { color: m.color }]}>{m.label}</Text>
-              </View>
-              <Text style={styles.insightBody}>{c.body}</Text>
-            </View>
-          );
-        })}
-      </ScrollView>
+      {/* Pattern cards */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>What the data shows</Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: 12, paddingVertical: 4 }}
+        >
+          {patternCards.map((p) => (
+            <PatternCardView key={p.id} pattern={p} compact />
+          ))}
+        </ScrollView>
+      </View>
 
       {/* Charts */}
       <View style={styles.section}>
@@ -154,11 +138,11 @@ export default function TimelineScreen() {
       </View>
 
       <View style={styles.chartsRow}>
-        <View style={[styles.chartCardSmall]}>
+        <View style={styles.chartCardSmall}>
           <Text style={styles.chartLabelSmall}>Itching</Text>
           <LineChart values={trends.itching} color={Colors.amber600} height={70} width={150} />
         </View>
-        <View style={[styles.chartCardSmall]}>
+        <View style={styles.chartCardSmall}>
           <Text style={styles.chartLabelSmall}>Weight (lb)</Text>
           <LineChart values={trends.weight} color={Colors.teal800} height={70} width={150} />
         </View>
@@ -170,35 +154,34 @@ export default function TimelineScreen() {
             <Text style={Fonts.h3}>Activity & sleep</Text>
             <Text style={[styles.chartTrend, { color: Colors.coral600 }]}>Active</Text>
           </View>
-          <BarChart
-            values={trends.activity}
-            color={Colors.coral500}
-            labels={["M", "T", "W", "T", "F", "S", "S"]}
-          />
+          <BarChart values={trends.activity} color={Colors.coral500} labels={["M", "T", "W", "T", "F", "S", "S"]} />
         </View>
       </View>
 
       {/* Filters */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ gap: 8, paddingHorizontal: Space.md }}
-        style={{ marginTop: Space.lg, marginHorizontal: -Space.md }}
-      >
-        {FILTERS.map((f) => {
-          const active = filter === f;
-          const label = f === "all" ? "All" : CAT_META[f].label;
-          return (
-            <Pressable
-              key={f}
-              onPress={() => setFilter(f)}
-              style={[styles.filterChip, active && styles.filterChipActive]}
-            >
-              <Text style={[styles.filterText, active && styles.filterTextActive]}>{label}</Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
+      <View style={styles.section}>
+        <Text style={styles.filterLabel}>Filter by category</Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: 8 }}
+          style={{ marginTop: 4 }}
+        >
+          {FILTERS.map((f) => {
+            const active = filter === f;
+            const label = f === "all" ? "All" : CAT_META[f].label;
+            return (
+              <Pressable
+                key={f}
+                onPress={() => setFilter(f)}
+                style={[styles.filterChip, active && styles.filterChipActive]}
+              >
+                <Text style={[styles.filterText, active && styles.filterTextActive]}>{label}</Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      </View>
 
       {/* Timeline */}
       <View style={styles.section}>
@@ -213,7 +196,7 @@ export default function TimelineScreen() {
           </View>
         ))}
         {grouped.length === 0 ? (
-          <Text style={styles.empty}>No {filter} logs yet.</Text>
+          <Text style={styles.empty}>No {filter === "all" ? "" : CAT_META[filter].label.toLowerCase() + " "}logs yet.</Text>
         ) : null}
       </View>
     </ScrollView>
@@ -224,31 +207,19 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.cream },
   header: { paddingHorizontal: Space.md, marginBottom: Space.sm },
   title: { ...Fonts.title, paddingHorizontal: Space.md, marginBottom: Space.md },
-  insightCard: { width: 250, borderRadius: Radius.md, padding: Space.md, gap: 8 },
-  insightHead: { flexDirection: "row", alignItems: "center", gap: 6 },
-  insightLabel: { fontSize: 13, fontWeight: "800" },
-  insightBody: { ...Fonts.body, lineHeight: 20, color: Colors.ink },
   section: { paddingHorizontal: Space.md, marginTop: Space.lg },
+  sectionTitle: { ...Fonts.h2, marginBottom: Space.sm },
   chartCard: { backgroundColor: Colors.surface, borderRadius: Radius.lg, padding: Space.md, ...cardShadow },
   chartHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 },
   chartTrend: { ...Fonts.small, color: Colors.green600, fontWeight: "800" },
   chartFoot: { ...Fonts.small, color: Colors.inkFaint, marginTop: 4 },
   chartsRow: { flexDirection: "row", gap: Space.sm, paddingHorizontal: Space.md, marginTop: Space.sm },
-  chartCardSmall: {
-    flex: 1,
-    backgroundColor: Colors.surface,
-    borderRadius: Radius.md,
-    padding: Space.sm,
-    ...cardShadow,
-  },
+  chartCardSmall: { flex: 1, backgroundColor: Colors.surface, borderRadius: Radius.md, padding: Space.sm, ...cardShadow },
   chartLabelSmall: { ...Fonts.small, marginBottom: 4 },
+  filterLabel: { ...Fonts.tiny, letterSpacing: 0.3 },
   filterChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 9,
-    borderRadius: Radius.pill,
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.hairline,
+    paddingHorizontal: 16, paddingVertical: 9, borderRadius: Radius.pill,
+    backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.hairline,
   },
   filterChipActive: { backgroundColor: Colors.teal800, borderColor: Colors.teal800 },
   filterText: { ...Fonts.small, color: Colors.inkSoft },
@@ -264,5 +235,7 @@ const styles = StyleSheet.create({
   entryTitle: { ...Fonts.h3, fontSize: 15, flex: 1 },
   entryTime: { ...Fonts.small, color: Colors.inkFaint },
   entryDetail: { ...Fonts.small, marginTop: 2, lineHeight: 18 },
+  urgencyPill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: Radius.pill, alignSelf: "flex-start", marginTop: 4 },
+  urgencyText: { fontSize: 10, fontWeight: "800" },
   empty: { ...Fonts.bodySoft, textAlign: "center", paddingVertical: Space.xl },
 });

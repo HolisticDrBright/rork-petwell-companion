@@ -5,11 +5,11 @@ import {
   ChevronRight,
   FileText,
   FolderOpen,
+  Phone,
   Plus,
   Settings,
   Share2,
   ShieldCheck,
-  Syringe,
 } from "lucide-react-native";
 import React, { memo, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -51,25 +51,15 @@ const RecordRow = memo(function RecordRow({ item, isLast }: { item: RecordItem; 
   );
 });
 
-const Section = memo(function Section({
-  title,
-  items,
-}: {
-  title: string;
-  items: RecordItem[];
-}) {
-  const [open, setOpen] = useState<boolean>(items.length > 0 && items.some((i) => i.status === "due"));
+const Section = memo(function Section({ title, items }: { title: string; items: RecordItem[] }) {
+  const [open, setOpen] = useState<boolean>(items.length > 0 && (items.some((i) => i.status === "due" || i.status === "overdue") || title === "Vaccines" || title === "Medications"));
   return (
     <View style={styles.sectionWrap}>
       <Pressable onPress={() => setOpen((v) => !v)} style={styles.sectionHeader}>
         <Text style={Fonts.h3}>{title}</Text>
         <View style={styles.sectionRight}>
           <Text style={styles.count}>{items.length}</Text>
-          <ChevronRight
-            size={18}
-            color={Colors.inkFaint}
-            style={{ transform: [{ rotate: open ? "90deg" : "0deg" }] }}
-          />
+          <ChevronRight size={18} color={Colors.inkFaint} style={{ transform: [{ rotate: open ? "90deg" : "0deg" }] }} />
         </View>
       </Pressable>
       {open ? (
@@ -97,6 +87,10 @@ export default function RecordsScreen() {
 
   const sections = useMemo(() => RECORDS[selectedPet.id] ?? {}, [selectedPet.id]);
 
+  // Separate emergency contacts for special treatment
+  const emergencyContacts = sections["Emergency contacts"] ?? [];
+  const otherSections = Object.entries(sections).filter(([key]) => key !== "Emergency contacts");
+
   return (
     <ScrollView
       style={styles.container}
@@ -122,7 +116,7 @@ export default function RecordsScreen() {
         </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.reportTitle}>Vet-ready summary</Text>
-          <Text style={styles.reportSub}>One tap to a complete, shareable report</Text>
+          <Text style={styles.reportSub}>One tap to a complete, shareable report for your next visit</Text>
         </View>
         <ChevronRight size={20} color="rgba(255,255,255,0.8)" />
       </Pressable>
@@ -143,18 +137,67 @@ export default function RecordsScreen() {
         </Pressable>
       </View>
 
+      {/* Vaccine/med status summary */}
+      <View style={styles.statusSummary}>
+        {["Vaccines", "Medications"].map((cat) => {
+          const items = sections[cat] ?? [];
+          const dueItems = items.filter((i) => i.status === "due" || i.status === "overdue");
+          const color = dueItems.length > 0 ? Colors.amber600 : Colors.green600;
+          const bg = dueItems.length > 0 ? Colors.amber100 : Colors.green100;
+          return (
+            <View key={cat} style={[styles.statusSummaryItem, { backgroundColor: bg }]}>
+              <Text style={[styles.statusSummaryCount, { color }]}>{dueItems.length > 0 ? dueItems.length : "✓"}</Text>
+              <Text style={[styles.statusSummaryLabel, { color }]}>
+                {cat} {dueItems.length > 0 ? `(${dueItems.length} due)` : "up to date"}
+              </Text>
+            </View>
+          );
+        })}
+      </View>
+
       {/* Sections */}
       <View style={{ paddingHorizontal: Space.md, marginTop: Space.sm }}>
-        {Object.entries(sections).map(([title, items]) => (
+        {otherSections.map(([title, items]) => (
           <Section key={title} title={title} items={items} />
         ))}
+      </View>
+
+      {/* Emergency contacts card */}
+      <View style={styles.emergencySection}>
+        <Text style={[Fonts.h2, { marginBottom: 10 }]}>Emergency contacts</Text>
+        <Card style={[styles.emergencyCard, { borderColor: Colors.red100 }]}>
+          {emergencyContacts.map((c, i) => (
+            <View key={c.id}>
+              {i > 0 ? <View style={styles.divider} /> : null}
+              <View style={styles.emergencyRow}>
+                <View style={[styles.emergencyIcon, { backgroundColor: c.date === "Emergency" ? Colors.red100 : Colors.teal50 }]}>
+                  {c.date === "Emergency" ? (
+                    <AlertTriangle size={18} color={Colors.red600} />
+                  ) : (
+                    <Phone size={18} color={Colors.teal700} />
+                  )}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={Fonts.h3}>{c.title}</Text>
+                  <Text style={Fonts.small}>{c.subtitle}</Text>
+                </View>
+                <PrimaryButton
+                  label={c.date === "Emergency" ? "Call" : "Call"}
+                  variant={c.date === "Emergency" ? "coral" : "ghost"}
+                  small
+                  onPress={() => {}}
+                />
+              </View>
+            </View>
+          ))}
+        </Card>
       </View>
 
       {/* Trust footer */}
       <View style={styles.trust}>
         <ShieldCheck size={18} color={Colors.teal700} />
         <Text style={styles.trustText}>
-          Your pet&apos;s records belong to you. Export and sharing are always free.
+          Your pet's records belong to you. Export and sharing are always free.
         </Text>
       </View>
     </ScrollView>
@@ -164,65 +207,30 @@ export default function RecordsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.cream },
   header: { flexDirection: "row", alignItems: "center", gap: Space.sm, paddingHorizontal: Space.md, marginBottom: Space.sm },
-  iconBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: Colors.surface,
-    alignItems: "center",
-    justifyContent: "center",
-    ...cardShadow,
-  },
+  iconBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.surface, alignItems: "center", justifyContent: "center", ...cardShadow },
   title: { ...Fonts.title, paddingHorizontal: Space.md, marginBottom: Space.md },
   reportBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Space.sm,
-    backgroundColor: Colors.teal800,
-    marginHorizontal: Space.md,
-    borderRadius: Radius.lg,
-    padding: Space.md,
+    flexDirection: "row", alignItems: "center", gap: Space.sm,
+    backgroundColor: Colors.teal800, marginHorizontal: Space.md, borderRadius: Radius.lg, padding: Space.md,
   },
-  reportIcon: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: "rgba(255,255,255,0.15)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  reportIcon: { width: 50, height: 50, borderRadius: 25, backgroundColor: "rgba(255,255,255,0.15)", alignItems: "center", justifyContent: "center" },
   reportTitle: { ...Fonts.h2, color: "#fff", fontSize: 17 },
   reportSub: { ...Fonts.small, color: Colors.teal100, marginTop: 1 },
   quickRow: { flexDirection: "row", gap: Space.sm, paddingHorizontal: Space.md, marginTop: Space.md },
-  quickBtn: {
-    flex: 1,
-    backgroundColor: Colors.surface,
-    borderRadius: Radius.md,
-    paddingVertical: 14,
-    alignItems: "center",
-    gap: 6,
-    ...cardShadow,
-  },
+  quickBtn: { flex: 1, backgroundColor: Colors.surface, borderRadius: Radius.md, paddingVertical: 14, alignItems: "center", gap: 6, ...cardShadow },
   quickText: { ...Fonts.small, color: Colors.ink },
+  statusSummary: { flexDirection: "row", gap: Space.sm, paddingHorizontal: Space.md, marginTop: Space.md },
+  statusSummaryItem: { flex: 1, borderRadius: Radius.md, padding: Space.sm, alignItems: "center", gap: 4 },
+  statusSummaryCount: { fontSize: 20, fontWeight: "800" },
+  statusSummaryLabel: { fontSize: 12, fontWeight: "700", textAlign: "center" },
+  emergencySection: { paddingHorizontal: Space.md, marginTop: Space.xl },
+  emergencyCard: { borderWidth: 1.5 },
+  emergencyRow: { flexDirection: "row", alignItems: "center", gap: Space.sm, paddingVertical: 6 },
+  emergencyIcon: { width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center" },
   sectionWrap: { marginBottom: 6 },
-  sectionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 14,
-  },
+  sectionHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 14 },
   sectionRight: { flexDirection: "row", alignItems: "center", gap: 8 },
-  count: {
-    ...Fonts.small,
-    color: Colors.inkFaint,
-    backgroundColor: Colors.cream2,
-    minWidth: 24,
-    textAlign: "center",
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: Radius.pill,
-    overflow: "hidden",
-  },
+  count: { ...Fonts.small, color: Colors.inkFaint, backgroundColor: Colors.cream2, minWidth: 24, textAlign: "center", paddingHorizontal: 7, paddingVertical: 2, borderRadius: Radius.pill, overflow: "hidden" },
   divider: { height: 1, backgroundColor: Colors.hairline },
   recordRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 12, gap: Space.sm },
   recordDate: { ...Fonts.small, color: Colors.inkSoft },
@@ -231,14 +239,9 @@ const styles = StyleSheet.create({
   emptyAdd: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 12, paddingLeft: 4 },
   emptyAddText: { ...Fonts.small, color: Colors.teal700 },
   trust: {
-    flexDirection: "row",
-    gap: 10,
-    alignItems: "center",
-    margin: Space.md,
-    marginTop: Space.lg,
-    backgroundColor: Colors.teal50,
-    borderRadius: Radius.md,
-    padding: Space.md,
+    flexDirection: "row", gap: 10, alignItems: "center",
+    margin: Space.md, marginTop: Space.lg,
+    backgroundColor: Colors.teal50, borderRadius: Radius.md, padding: Space.md,
   },
   trustText: { ...Fonts.small, color: Colors.teal900, flex: 1, lineHeight: 18 },
 });

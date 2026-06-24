@@ -4,12 +4,13 @@ export interface ConcernOption {
   id: string;
   label: string;
   icon: string;
+  category: "digestive" | "skin" | "eyeear" | "mobility" | "general" | "urinary";
 }
 
 export interface AnswerOption {
   id: string;
   label: string;
-  redFlag?: boolean; // selecting raises urgency
+  redFlag?: boolean;
 }
 
 export interface TriageQuestion {
@@ -18,6 +19,7 @@ export interface TriageQuestion {
   why: string;
   options: AnswerOption[];
   allowUnsure?: boolean;
+  category?: string; // groups questions
 }
 
 export interface PossibleCause {
@@ -26,13 +28,19 @@ export interface PossibleCause {
   note: string;
 }
 
+export interface EvidenceSection {
+  supports: string[];
+  doesNotSupport: string[];
+  changesUrgency: string[];
+}
+
 export interface TriageResult {
   urgency: UrgencyKey;
   confidence: "Low" | "Moderate" | "High";
   causes: PossibleCause[];
-  supports: string[];
-  changesUrgency: string[];
+  evidence: EvidenceSection;
   steps: string[];
+  disclaimerNote?: string;
 }
 
 export interface TriageFlow {
@@ -41,16 +49,16 @@ export interface TriageFlow {
 }
 
 export const CONCERNS: ConcernOption[] = [
-  { id: "diarrhea", label: "Diarrhea or poop concern", icon: "droplet" },
-  { id: "vomiting", label: "Vomiting", icon: "wave" },
-  { id: "skin", label: "Skin or itching", icon: "sparkle" },
-  { id: "ear", label: "Ear smell or discharge", icon: "ear" },
-  { id: "eye", label: "Eye redness or discharge", icon: "eye" },
-  { id: "limping", label: "Limping or stiffness", icon: "footprint" },
-  { id: "appetite", label: "Not eating", icon: "bone" },
-  { id: "energy", label: "Low energy", icon: "battery" },
-  { id: "urinary", label: "Urinary issue", icon: "toilet" },
-  { id: "other", label: "Something else", icon: "more" },
+  { id: "diarrhea", label: "Diarrhea or poop concern", icon: "droplet", category: "digestive" },
+  { id: "vomiting", label: "Vomiting", icon: "wave", category: "digestive" },
+  { id: "skin", label: "Skin or itching", icon: "sparkle", category: "skin" },
+  { id: "ear", label: "Ear smell or discharge", icon: "ear", category: "eyeear" },
+  { id: "eye", label: "Eye redness or discharge", icon: "eye", category: "eyeear" },
+  { id: "limping", label: "Limping or stiffness", icon: "footprint", category: "mobility" },
+  { id: "appetite", label: "Not eating", icon: "bone", category: "general" },
+  { id: "energy", label: "Low energy", icon: "battery", category: "general" },
+  { id: "urinary", label: "Urinary issue", icon: "toilet", category: "urinary" },
+  { id: "other", label: "Something else", icon: "more", category: "general" },
 ];
 
 export const FLOWS: Record<string, TriageFlow> = {
@@ -59,13 +67,14 @@ export const FLOWS: Record<string, TriageFlow> = {
       {
         id: "q1",
         question: "Is there blood in the stool?",
-        why: "Blood can signal a more serious GI problem and raises urgency right away.",
+        why: "Blood can signal a serious GI problem and raises urgency right away.",
         options: [
           { id: "no", label: "No blood" },
           { id: "streaks", label: "A few red streaks", redFlag: true },
           { id: "lots", label: "Lots of blood / very dark", redFlag: true },
         ],
         allowUnsure: true,
+        category: "Red flag check",
       },
       {
         id: "q2",
@@ -77,6 +86,7 @@ export const FLOWS: Record<string, TriageFlow> = {
           { id: "repeated", label: "Repeated vomiting", redFlag: true },
         ],
         allowUnsure: true,
+        category: "Red flag check",
       },
       {
         id: "q3",
@@ -87,6 +97,7 @@ export const FLOWS: Record<string, TriageFlow> = {
           { id: "quiet", label: "A little quiet" },
           { id: "weak", label: "Weak or very tired", redFlag: true },
         ],
+        category: "Red flag check",
       },
       {
         id: "q4",
@@ -97,6 +108,7 @@ export const FLOWS: Record<string, TriageFlow> = {
           { id: "little", label: "Drinking a little" },
           { id: "no", label: "Not drinking / can't keep down", redFlag: true },
         ],
+        category: "Hydration",
       },
       {
         id: "q5",
@@ -107,6 +119,7 @@ export const FLOWS: Record<string, TriageFlow> = {
           { id: "3-5", label: "3–5 times" },
           { id: "6+", label: "6 or more", redFlag: true },
         ],
+        category: "Pattern & history",
       },
       {
         id: "q6",
@@ -118,6 +131,7 @@ export const FLOWS: Record<string, TriageFlow> = {
           { id: "none", label: "Nothing new" },
         ],
         allowUnsure: true,
+        category: "Pattern & history",
       },
       {
         id: "q7",
@@ -128,32 +142,31 @@ export const FLOWS: Record<string, TriageFlow> = {
           { id: "no", label: "No" },
         ],
         allowUnsure: true,
+        category: "Pattern & history",
       },
     ],
     result: {
       urgency: "amber",
       confidence: "Moderate",
       causes: [
-        { rank: 1, name: "Diet change or treat intolerance", note: "Started right after new salmon treats." },
-        { rank: 2, name: "Mild GI upset", note: "Common and usually self-limiting with care." },
-        { rank: 3, name: "Parasites or infection", note: "Possible if recent park/boarding exposure." },
+        { rank: 1, name: "Diet change or treat intolerance", note: "Started right after new salmon treats — most likely cause." },
+        { rank: 2, name: "Mild GI upset", note: "Common and usually self-limiting with supportive home care." },
+        { rank: 3, name: "Parasites or infection", note: "Possible if recent park/boarding/daycare exposure." },
         { rank: 4, name: "Pancreatitis or toxin exposure", note: "Only if red flags appear — watch closely." },
       ],
-      supports: ["Started after new treats", "No blood reported", "Energy is normal"],
-      changesUrgency: [
-        "Blood in stool",
-        "Repeated vomiting",
-        "Weakness or pale gums",
-        "Puppy under 6 months",
-        "Not drinking water",
-      ],
+      evidence: {
+        supports: ["Started after new treats", "No blood reported", "Energy is normal", "Drinking water"],
+        doesNotSupport: ["Multiple episodes suggest more than a minor upset", "New treat timing aligns closely"],
+        changesUrgency: ["Blood in stool", "Repeated vomiting", "Weakness or pale gums", "Puppy under 6 months", "Not drinking water", "Fever"],
+      },
       steps: [
         "Offer fresh water at all times and watch that they keep it down.",
-        "Feed a bland diet (plain boiled chicken-free protein + rice) in small amounts.",
-        "Pause the new treats for now and note it in the timeline.",
+        "Feed a bland diet (plain boiled protein + rice) in small amounts.",
+        "Pause the new treats and log it in the timeline.",
         "Log each stool with a photo so you can track improvement.",
         "Recheck in 12 hours — book a vet if no improvement or red flags appear.",
       ],
+      disclaimerNote: "If diarrhea is severe, bloody, or your pet is a puppy or senior, seek veterinary care promptly. Parvo is life-threatening in unvaccinated puppies.",
     },
   },
   skin: {
@@ -168,6 +181,7 @@ export const FLOWS: Record<string, TriageFlow> = {
           { id: "all", label: "All over the body" },
           { id: "spot", label: "One focused spot", redFlag: true },
         ],
+        category: "Location & pattern",
       },
       {
         id: "q2",
@@ -180,6 +194,7 @@ export const FLOWS: Record<string, TriageFlow> = {
           { id: "none", label: "None of these" },
         ],
         allowUnsure: true,
+        category: "Visual signs",
       },
       {
         id: "q3",
@@ -192,6 +207,7 @@ export const FLOWS: Record<string, TriageFlow> = {
           { id: "none", label: "Nothing new" },
         ],
         allowUnsure: true,
+        category: "Pattern & history",
       },
       {
         id: "q4",
@@ -201,6 +217,7 @@ export const FLOWS: Record<string, TriageFlow> = {
           { id: "yes", label: "Yes, mostly paws" },
           { id: "no", label: "No, elsewhere" },
         ],
+        category: "Location & pattern",
       },
       {
         id: "q5",
@@ -211,6 +228,7 @@ export const FLOWS: Record<string, TriageFlow> = {
           { id: "no", label: "Ears seem fine" },
         ],
         allowUnsure: true,
+        category: "Visual signs",
       },
     ],
     result: {
@@ -219,29 +237,27 @@ export const FLOWS: Record<string, TriageFlow> = {
       causes: [
         { rank: 1, name: "Environmental or food allergy", note: "Paw licking + seasonal pattern fits allergy." },
         { rank: 2, name: "Flea irritation", note: "Check for flea dirt even with prevention." },
-        { rank: 3, name: "Hot spot", note: "If one focused, moist, angry area appears." },
+        { rank: 3, name: "Hot spot (acute moist dermatitis)", note: "If one focused, moist, angry area appears." },
         { rank: 4, name: "Yeast or bacterial skin infection", note: "Odor or greasy skin points here." },
-        { rank: 5, name: "Food sensitivity", note: "Consistent with Buddy's chicken history." },
+        { rank: 5, name: "Food sensitivity flare", note: "Consistent with Buddy's known chicken sensitivity." },
       ],
-      supports: ["Paw-focused licking", "History of seasonal flare-ups", "No fever or lethargy"],
-      changesUrgency: [
-        "Strong odor or greasy skin",
-        "Open, spreading sores",
-        "Ear pain or head shaking",
-        "Swelling of face or hives",
-      ],
+      evidence: {
+        supports: ["Paw-focused licking", "History of seasonal flare-ups", "No fever or lethargy", "Known food sensitivities"],
+        doesNotSupport: ["No odor detected — infection less likely", "No open sores or spreading lesions"],
+        changesUrgency: ["Strong odor or greasy skin", "Open, spreading sores", "Ear pain or head shaking", "Swelling of face or hives", "Fever or lethargy"],
+      },
       steps: [
         "Check the skin and paws in good light; note redness and any odor.",
         "Pause any new food, shampoo, or bedding introduced recently.",
         "Wipe paws after walks to reduce pollen contact.",
-        "Take a clear photo and save it to the timeline to track the area.",
+        "Take a clear photo and save it to the timeline to track the area over time.",
         "Book a vet soon if there's odor, spreading sores, or ear involvement.",
       ],
     },
   },
 };
 
-// Generic fallback flow for concerns without a bespoke script.
+// Generic fallback flow
 export const GENERIC_FLOW: TriageFlow = {
   questions: [
     {
@@ -253,16 +269,18 @@ export const GENERIC_FLOW: TriageFlow = {
         { id: "days", label: "A few days" },
         { id: "week", label: "A week or more", redFlag: true },
       ],
+      category: "Red flag check",
     },
     {
       id: "q2",
       question: "How is their energy and appetite?",
-      why: "Normal energy and eating are reassuring signs we can often monitor at home.",
+      why: "Normal energy and eating are reassuring signs we can monitor at home.",
       options: [
         { id: "normal", label: "Both normal" },
         { id: "off", label: "A little off" },
         { id: "poor", label: "Low energy & not eating", redFlag: true },
       ],
+      category: "Red flag check",
     },
     {
       id: "q3",
@@ -273,17 +291,21 @@ export const GENERIC_FLOW: TriageFlow = {
         { id: "same", label: "About the same" },
         { id: "worse", label: "Getting worse", redFlag: true },
       ],
+      category: "Pattern & history",
     },
   ],
   result: {
     urgency: "green",
     confidence: "Low",
     causes: [
-      { rank: 1, name: "Minor self-limiting issue", note: "Most mild signs resolve with monitoring." },
+      { rank: 1, name: "Minor self-limiting issue", note: "Most mild signs resolve with watchful monitoring." },
       { rank: 2, name: "Early-stage problem", note: "Worth tracking in case it develops." },
     ],
-    supports: ["Energy seems normal", "No severe red flags reported"],
-    changesUrgency: ["Worsening signs", "Not eating or drinking", "Lethargy or collapse", "Lasts more than a few days"],
+    evidence: {
+      supports: ["Energy seems normal", "No severe red flags reported", "Short duration"],
+      doesNotSupport: ["Limited information available — add more details in the timeline"],
+      changesUrgency: ["Worsening signs", "Not eating or drinking", "Lethargy or collapse", "Lasts more than a few days", "Any red-flag sign appears"],
+    },
     steps: [
       "Keep a close eye and log what you notice in the timeline.",
       "Make sure food and water intake stay normal.",
