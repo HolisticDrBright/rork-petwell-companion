@@ -32,6 +32,8 @@ function RootLayoutNav() {
       <Stack.Screen name="log" options={{ title: "Add a log", presentation: "modal" }} />
       <Stack.Screen name="scan-flow" options={{ title: "Scan", presentation: "card" }} />
       <Stack.Screen name="scan-result" options={{ headerShown: false, presentation: "card" }} />
+      <Stack.Screen name="food-scan" options={{ title: "Food Intelligence", presentation: "card" }} />
+      <Stack.Screen name="food-result" options={{ headerShown: false, presentation: "card" }} />
       <Stack.Screen name="vet-report" options={{ title: "Vet-ready summary", presentation: "modal" }} />
       <Stack.Screen name="reminders" options={{ title: "Reminders", presentation: "card" }} />
       <Stack.Screen name="premium" options={{ headerShown: false, presentation: "modal" }} />

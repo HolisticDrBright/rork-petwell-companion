@@ -1,5 +1,3 @@
-// Auto-generated from the Supabase schema (supabase gen types typescript).
-// Regenerate after migrations. Do not edit by hand.
 export type Json =
   | string
   | number
@@ -9,6 +7,8 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
@@ -62,34 +62,46 @@ export type Database = {
         Row: {
           brand_id: string | null
           created_at: string
+          evidence_source_id: string | null
           id: string
+          is_demo: boolean
           lab: string | null
           product_id: string | null
           result: string
           source_url: string | null
+          status: string | null
           substance: string
+          substance_category: string | null
           tested_at: string | null
         }
         Insert: {
           brand_id?: string | null
           created_at?: string
+          evidence_source_id?: string | null
           id?: string
+          is_demo?: boolean
           lab?: string | null
           product_id?: string | null
           result: string
           source_url?: string | null
+          status?: string | null
           substance: string
+          substance_category?: string | null
           tested_at?: string | null
         }
         Update: {
           brand_id?: string | null
           created_at?: string
+          evidence_source_id?: string | null
           id?: string
+          is_demo?: boolean
           lab?: string | null
           product_id?: string | null
           result?: string
           source_url?: string | null
+          status?: string | null
           substance?: string
+          substance_category?: string | null
           tested_at?: string | null
         }
         Relationships: [
@@ -98,6 +110,13 @@ export type Database = {
             columns: ["brand_id"]
             isOneToOne: false
             referencedRelation: "food_brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contaminant_tests_evidence_source_id_fkey"
+            columns: ["evidence_source_id"]
+            isOneToOne: false
+            referencedRelation: "evidence_sources"
             referencedColumns: ["id"]
           },
           {
@@ -167,6 +186,55 @@ export type Database = {
           },
         ]
       }
+      evidence_links: {
+        Row: {
+          brand_id: string | null
+          created_at: string
+          evidence_source_id: string
+          id: string
+          product_id: string | null
+          relation: string
+        }
+        Insert: {
+          brand_id?: string | null
+          created_at?: string
+          evidence_source_id: string
+          id?: string
+          product_id?: string | null
+          relation?: string
+        }
+        Update: {
+          brand_id?: string | null
+          created_at?: string
+          evidence_source_id?: string
+          id?: string
+          product_id?: string | null
+          relation?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "evidence_links_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "food_brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evidence_links_evidence_source_id_fkey"
+            columns: ["evidence_source_id"]
+            isOneToOne: false
+            referencedRelation: "evidence_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evidence_links_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "food_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       evidence_sources: {
         Row: {
           created_at: string
@@ -226,18 +294,21 @@ export type Database = {
           category: string | null
           created_at: string
           id: string
+          is_common_allergen: boolean
           name: string
         }
         Insert: {
           category?: string | null
           created_at?: string
           id?: string
+          is_common_allergen?: boolean
           name: string
         }
         Update: {
           category?: string | null
           created_at?: string
           id?: string
+          is_common_allergen?: boolean
           name?: string
         }
         Relationships: []
@@ -345,31 +416,40 @@ export type Database = {
       }
       food_products: {
         Row: {
+          aafco_statement: string | null
+          barcode: string | null
           brand_id: string | null
           calorie_density: string | null
           created_at: string
           form: string | null
           id: string
+          life_stage: string | null
           name: string
           product_type: string
           species: string
         }
         Insert: {
+          aafco_statement?: string | null
+          barcode?: string | null
           brand_id?: string | null
           calorie_density?: string | null
           created_at?: string
           form?: string | null
           id?: string
+          life_stage?: string | null
           name: string
           product_type?: string
           species?: string
         }
         Update: {
+          aafco_statement?: string | null
+          barcode?: string | null
           brand_id?: string | null
           calorie_density?: string | null
           created_at?: string
           form?: string | null
           id?: string
+          life_stage?: string | null
           name?: string
           product_type?: string
           species?: string
@@ -500,33 +580,60 @@ export type Database = {
       }
       food_scores: {
         Row: {
+          brand_transparency_score: number | null
+          contaminant_confidence_score: number | null
           created_at: string
           factors: Json
           food_scan_id: string | null
           grade: string
           id: string
+          ingredient_quality_score: number | null
+          nutrition_fit_score: number | null
+          overall_score: number | null
           owner_id: string | null
+          personal_outcome_score: number | null
+          pet_id: string | null
           product_id: string | null
+          recall_risk_score: number | null
+          recommendation: string | null
           summary: string | null
         }
         Insert: {
+          brand_transparency_score?: number | null
+          contaminant_confidence_score?: number | null
           created_at?: string
           factors?: Json
           food_scan_id?: string | null
           grade: string
           id?: string
+          ingredient_quality_score?: number | null
+          nutrition_fit_score?: number | null
+          overall_score?: number | null
           owner_id?: string | null
+          personal_outcome_score?: number | null
+          pet_id?: string | null
           product_id?: string | null
+          recall_risk_score?: number | null
+          recommendation?: string | null
           summary?: string | null
         }
         Update: {
+          brand_transparency_score?: number | null
+          contaminant_confidence_score?: number | null
           created_at?: string
           factors?: Json
           food_scan_id?: string | null
           grade?: string
           id?: string
+          ingredient_quality_score?: number | null
+          nutrition_fit_score?: number | null
+          overall_score?: number | null
           owner_id?: string | null
+          personal_outcome_score?: number | null
+          pet_id?: string | null
           product_id?: string | null
+          recall_risk_score?: number | null
+          recommendation?: string | null
           summary?: string | null
         }
         Relationships: [
@@ -542,6 +649,13 @@ export type Database = {
             columns: ["owner_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "food_scores_pet_id_fkey"
+            columns: ["pet_id"]
+            isOneToOne: false
+            referencedRelation: "pet_profiles"
             referencedColumns: ["id"]
           },
           {
@@ -603,6 +717,35 @@ export type Database = {
             columns: ["pet_id"]
             isOneToOne: false
             referencedRelation: "pet_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ingredient_aliases: {
+        Row: {
+          alias: string
+          created_at: string
+          id: string
+          ingredient_id: string
+        }
+        Insert: {
+          alias: string
+          created_at?: string
+          id?: string
+          ingredient_id: string
+        }
+        Update: {
+          alias?: string
+          created_at?: string
+          id?: string
+          ingredient_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ingredient_aliases_ingredient_id_fkey"
+            columns: ["ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "food_ingredients"
             referencedColumns: ["id"]
           },
         ]
@@ -934,6 +1077,7 @@ export type Database = {
         Row: {
           brand_id: string | null
           created_at: string
+          evidence_source_id: string | null
           id: string
           product_id: string | null
           reason: string
@@ -944,6 +1088,7 @@ export type Database = {
         Insert: {
           brand_id?: string | null
           created_at?: string
+          evidence_source_id?: string | null
           id?: string
           product_id?: string | null
           reason: string
@@ -954,6 +1099,7 @@ export type Database = {
         Update: {
           brand_id?: string | null
           created_at?: string
+          evidence_source_id?: string | null
           id?: string
           product_id?: string | null
           reason?: string
@@ -967,6 +1113,13 @@ export type Database = {
             columns: ["brand_id"]
             isOneToOne: false
             referencedRelation: "food_brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recall_events_evidence_source_id_fkey"
+            columns: ["evidence_source_id"]
+            isOneToOne: false
+            referencedRelation: "evidence_sources"
             referencedColumns: ["id"]
           },
           {
@@ -1519,11 +1672,125 @@ export type Database = {
   }
 }
 
-type DefaultSchema = Database["public"]
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
 
-export type Tables<T extends keyof DefaultSchema["Tables"]> =
-  DefaultSchema["Tables"][T]["Row"]
-export type TablesInsert<T extends keyof DefaultSchema["Tables"]> =
-  DefaultSchema["Tables"][T]["Insert"]
-export type TablesUpdate<T extends keyof DefaultSchema["Tables"]> =
-  DefaultSchema["Tables"][T]["Update"]
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+
+export type Tables<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      Row: infer R
+    }
+    ? R
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
+
+export type TablesInsert<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Insert: infer I
+    }
+    ? I
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
+
+export type TablesUpdate<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Update: infer U
+    }
+    ? U
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
+    : never
+
+export type Enums<
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
+
+export const Constants = {
+  public: {
+    Enums: {},
+  },
+} as const

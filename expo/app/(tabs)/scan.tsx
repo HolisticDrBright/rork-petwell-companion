@@ -1,15 +1,17 @@
 import { useRouter } from "expo-router";
 import {
   Bone,
+  ChevronRight,
   Droplet,
   Ear,
   Eye,
   Scale,
+  ScanBarcode,
   Smile,
   Sparkles,
   Tag,
 } from "lucide-react-native";
-import React, { memo } from "react";
+import React, { memo, useCallback } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -60,6 +62,16 @@ export default function ScanScreen() {
   const router = useRouter();
   const { selectedPet } = usePets();
 
+  const openCategory = useCallback(
+    (id: string) => {
+      // Food + treat labels run through Food Intelligence (barcode/search/label);
+      // everything else is a photo check.
+      if (id === "food" || id === "treat") router.push("/food-scan");
+      else router.push({ pathname: "/scan-flow", params: { type: id } });
+    },
+    [router]
+  );
+
   return (
     <ScrollView
       style={styles.container}
@@ -78,15 +90,27 @@ export default function ScanScreen() {
         </Text>
       </View>
 
+      {/* Food Intelligence hero */}
+      <Pressable
+        onPress={() => router.push("/food-scan")}
+        style={({ pressed }) => [styles.foodHero, pressed && { opacity: 0.9, transform: [{ scale: 0.99 }] }]}
+      >
+        <View style={styles.foodHeroIcon}>
+          <ScanBarcode size={24} color="#fff" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.foodHeroTitle}>Food Intelligence</Text>
+          <Text style={styles.foodHeroText}>
+            Scan a barcode, search, or read a label for a review tailored to {selectedPet.name}.
+          </Text>
+        </View>
+        <ChevronRight size={20} color={Colors.teal700} />
+      </Pressable>
+
+      <Text style={styles.gridLabel}>Photo checks</Text>
       <View style={styles.grid}>
         {SCAN_CATEGORIES.map((c) => (
-          <ScanCard
-            key={c.id}
-            label={c.label}
-            hint={c.hint}
-            icon={c.icon}
-            onPress={() => router.push({ pathname: "/scan-flow", params: { type: c.id } })}
-          />
+          <ScanCard key={c.id} label={c.label} hint={c.hint} icon={c.icon} onPress={() => openCategory(c.id)} />
         ))}
       </View>
 
@@ -106,6 +130,29 @@ const styles = StyleSheet.create({
   intro: { paddingHorizontal: Space.md, marginTop: Space.sm, marginBottom: Space.lg },
   title: { ...Fonts.title, marginBottom: 6 },
   subtitle: { ...Fonts.bodySoft, lineHeight: 22 },
+  foodHero: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    marginHorizontal: Space.md,
+    marginBottom: Space.lg,
+    backgroundColor: Colors.teal50,
+    borderRadius: Radius.lg,
+    padding: Space.md,
+    borderWidth: 1,
+    borderColor: Colors.teal100,
+  },
+  foodHeroIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: Colors.teal700,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  foodHeroTitle: { ...Fonts.h3, color: Colors.teal900 },
+  foodHeroText: { ...Fonts.small, color: Colors.teal900, marginTop: 2, lineHeight: 18 },
+  gridLabel: { ...Fonts.h3, marginHorizontal: Space.md, marginBottom: Space.sm },
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",

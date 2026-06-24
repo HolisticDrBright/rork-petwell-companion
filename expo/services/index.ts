@@ -9,5 +9,5 @@ export { remindersService, type NewReminder } from "./remindersService";
 export { recordsService, RECORD_CATEGORIES, type NewRecord } from "./recordsService";
 export { scanService } from "./scanService";
 export { triageService, type AnswerInput } from "./triageService";
-export { foodService, type FoodProductSummary, type IngredientFlag, type FoodScore } from "./foodService";
+export { foodService, type FoodProductSummary, type BarcodeLookupResult } from "./foodService";
 export { reportService, type ReportRow } from "./reportService";
