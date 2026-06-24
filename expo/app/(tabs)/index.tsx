@@ -24,7 +24,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { MiniTrend } from "@/components/Charts";
 import { PetSwitcher } from "@/components/PetSwitcher";
-import { Card, SectionTitle } from "@/components/ui";
+import { Card, EmptyState, SectionTitle } from "@/components/ui";
 import Colors, { Fonts, Radius, Space, cardShadow } from "@/constants/colors";
 import { usePets } from "@/providers/PetProvider";
 import type { CareItem, UpcomingItem } from "@/types/pet";
@@ -56,6 +56,9 @@ const CareRow = memo(function CareRow({
   return (
     <Pressable
       onPress={onToggle}
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked: item.done }}
+      accessibilityLabel={item.label}
       style={({ pressed }) => [styles.careRow, pressed && { opacity: 0.7 }]}
     >
       <View style={[styles.careIcon, item.done && styles.careIconDone]}>
@@ -133,7 +136,13 @@ export default function TodayScreen() {
       >
         <View style={styles.header}>
           <PetSwitcher onAddPet={() => router.push("/add-pet")} />
-          <Pressable onPress={() => router.push("/reminders")} style={styles.bellBtn} hitSlop={8}>
+          <Pressable
+            onPress={() => router.push("/reminders")}
+            accessibilityRole="button"
+            accessibilityLabel="Reminders"
+            style={styles.bellBtn}
+            hitSlop={8}
+          >
             <Bell size={22} color={Colors.teal800} />
             <View style={styles.bellDot} />
           </Pressable>
@@ -182,6 +191,20 @@ export default function TodayScreen() {
         <View style={styles.section}>
           <SectionTitle title="Today's care" />
           <Card style={{ gap: 2 }}>
+            {careItems.length === 0 ? (
+              <EmptyState
+                icon={<Heart size={22} color={Colors.teal700} />}
+                title="No care items yet"
+                subtitle={`Daily care reminders for ${selectedPet.name} will show up here.`}
+              />
+            ) : remaining === 0 ? (
+              <View style={styles.allDone}>
+                <View style={styles.allDoneIcon}>
+                  <Check size={16} color="#fff" strokeWidth={3} />
+                </View>
+                <Text style={styles.allDoneText}>All caught up — nice work today! 🎉</Text>
+              </View>
+            ) : null}
             {careItems.map((item, i) => (
               <View key={item.id}>
                 {i > 0 ? <View style={styles.rowDivider} /> : null}
@@ -252,12 +275,20 @@ export default function TodayScreen() {
         <View style={styles.section}>
           <SectionTitle title="Upcoming" action="Records" onAction={() => router.push("/records")} />
           <Card style={{ gap: 0 }}>
-            {upcoming.map((item, i) => (
-              <View key={item.id}>
-                {i > 0 ? <View style={styles.rowDivider} /> : null}
-                <UpcomingRow item={item} />
-              </View>
-            ))}
+            {upcoming.length === 0 ? (
+              <EmptyState
+                icon={<Calendar size={22} color={Colors.teal700} />}
+                title="Nothing upcoming"
+                subtitle="Vaccines, refills and appointments will appear here as you add records."
+              />
+            ) : (
+              upcoming.map((item, i) => (
+                <View key={item.id}>
+                  {i > 0 ? <View style={styles.rowDivider} /> : null}
+                  <UpcomingRow item={item} />
+                </View>
+              ))
+            )}
           </Card>
         </View>
       </ScrollView>
@@ -277,6 +308,9 @@ export default function TodayScreen() {
           if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
           setFabOpen((v) => !v);
         }}
+        accessibilityRole="button"
+        accessibilityLabel={fabOpen ? "Close quick actions" : "Quick actions: log, scan, or ask"}
+        accessibilityState={{ expanded: fabOpen }}
         style={({ pressed }) => [
           styles.fab,
           { bottom: insets.bottom + 90 },
@@ -302,6 +336,8 @@ const QuickAction = memo(function QuickAction({
   return (
     <Pressable
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
       style={({ pressed }) => [styles.quickItem, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
     >
       <View style={styles.quickIcon}>{icon}</View>
@@ -399,6 +435,16 @@ const styles = StyleSheet.create({
   },
   checkboxDone: { backgroundColor: Colors.teal600, borderColor: Colors.teal600 },
   rowDivider: { height: 1, backgroundColor: Colors.hairline },
+  allDone: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 8, paddingHorizontal: 2 },
+  allDoneIcon: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: Colors.green600,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  allDoneText: { ...Fonts.h3, fontSize: 14.5, color: Colors.green600 },
   insightCard: { backgroundColor: Colors.teal900, gap: Space.sm },
   insightHead: { flexDirection: "row", alignItems: "center", gap: 8 },
   sparkWrap: {

@@ -72,11 +72,23 @@ export default function TriageResultScreen() {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.topbar}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={10}>
+        <Pressable
+          onPress={() => router.back()}
+          style={styles.backBtn}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+        >
           <ChevronLeft size={24} color={Colors.ink} />
         </Pressable>
         <Text style={Fonts.h3}>Triage result</Text>
-        <Pressable onPress={() => router.replace("/(tabs)/ask")} style={styles.backBtn} hitSlop={10}>
+        <Pressable
+          onPress={() => router.replace("/(tabs)/ask")}
+          style={styles.backBtn}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel="Close"
+        >
           <X size={22} color={Colors.ink} />
         </Pressable>
       </View>

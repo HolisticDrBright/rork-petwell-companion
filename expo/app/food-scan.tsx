@@ -256,7 +256,13 @@ function ModeButton({
   onPress: () => void;
 }) {
   return (
-    <Pressable onPress={onPress} style={[styles.modeBtn, active && styles.modeBtnActive]}>
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="tab"
+      accessibilityLabel={`${label} lookup`}
+      accessibilityState={{ selected: active }}
+      style={[styles.modeBtn, active && styles.modeBtnActive]}
+    >
       <Icon size={18} color={active ? "#fff" : Colors.teal700} />
       <Text style={[styles.modeBtnText, active && { color: "#fff" }]}>{label}</Text>
     </Pressable>

@@ -381,7 +381,7 @@ export default function LogScreen() {
         onPress={save}
         style={[{ marginTop: Space.lg }, !valid && styles.disabled]}
       />
-      <Text style={styles.footNote}>Logs are yours — edit or remove them anytime.</Text>
+      <Text style={styles.footNote}>Logs are yours — saved straight to {selectedPet.name}&apos;s timeline.</Text>
     </ScrollView>
   );
 }

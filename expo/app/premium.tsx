@@ -21,8 +21,8 @@ import { usePets } from "@/providers/PetProvider";
 
 const FREE = [
   "Pet profile & care reminders",
-  "Basic records",
-  "Limited scans",
+  "Full records & history — always yours",
+  "Symptom triage & food checks",
   "Always-free vet report export",
 ];
 

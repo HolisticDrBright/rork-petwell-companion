@@ -1,5 +1,7 @@
+import { Image } from "expo-image";
+import * as ImagePicker from "expo-image-picker";
 import { Stack, useRouter } from "expo-router";
-import { Cat, Dog, PawPrint } from "lucide-react-native";
+import { Camera, Cat, Dog, PawPrint } from "lucide-react-native";
 import React, { useCallback, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
@@ -13,12 +15,16 @@ function Field({
   value,
   onChange,
   keyboard,
+  error,
+  onBlur,
 }: {
   label: string;
   placeholder: string;
   value: string;
   onChange: (v: string) => void;
   keyboard?: "default" | "numeric";
+  error?: string;
+  onBlur?: () => void;
 }) {
   return (
     <View style={styles.field}>
@@ -26,11 +32,14 @@ function Field({
       <TextInput
         value={value}
         onChangeText={onChange}
+        onBlur={onBlur}
         placeholder={placeholder}
         placeholderTextColor={Colors.inkFaint}
         keyboardType={keyboard ?? "default"}
-        style={styles.input}
+        accessibilityLabel={label}
+        style={[styles.input, error ? styles.inputError : null]}
       />
+      {error ? <Text style={styles.errorText}>{error}</Text> : null}
     </View>
   );
 }
@@ -44,11 +53,24 @@ export default function AddPetScreen() {
   const [age, setAge] = useState<string>("");
   const [weight, setWeight] = useState<string>("");
   const [conditions, setConditions] = useState<string>("");
+  const [photo, setPhoto] = useState<string>("");
+  const [touched, setTouched] = useState<boolean>(false);
   const [saving, setSaving] = useState<boolean>(false);
 
+  const nameError = touched && name.trim().length === 0;
   const canSave = name.trim().length > 0 && !saving;
 
+  const pickPhoto = useCallback(async () => {
+    try {
+      const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 0.7, allowsEditing: true, aspect: [1, 1] });
+      if (!res.canceled && res.assets[0]) setPhoto(res.assets[0].uri);
+    } catch {
+      // ignore picker errors
+    }
+  }, []);
+
   const handleSave = useCallback(async () => {
+    setTouched(true);
     if (!canSave) return;
     setSaving(true);
     await addPet({
@@ -57,13 +79,14 @@ export default function AddPetScreen() {
       breed: breed.trim(),
       ageYears: Number(age) || 0,
       weightLb: Number(weight) || 0,
+      photo: photo || undefined,
       conditions: conditions
         .split(/[,\n]/)
         .map((c) => c.trim())
         .filter(Boolean),
     });
     router.back();
-  }, [canSave, addPet, name, species, breed, age, weight, conditions, router]);
+  }, [canSave, addPet, name, species, breed, age, weight, photo, conditions, router]);
 
   return (
     <ScrollView
@@ -74,17 +97,32 @@ export default function AddPetScreen() {
     >
       <Stack.Screen options={{ title: "Add a pet" }} />
 
-      <View style={styles.photoPick}>
+      <Pressable
+        style={styles.photoPick}
+        onPress={pickPhoto}
+        accessibilityRole="button"
+        accessibilityLabel={photo ? "Change pet photo" : "Add a pet photo"}
+      >
         <View style={styles.photoCircle}>
-          <PawPrint size={32} color={Colors.teal700} />
+          {photo ? (
+            <Image source={{ uri: photo }} style={styles.photoImg} contentFit="cover" />
+          ) : (
+            <PawPrint size={32} color={Colors.teal700} />
+          )}
+          <View style={styles.photoBadge}>
+            <Camera size={13} color="#fff" />
+          </View>
         </View>
-        <Text style={styles.photoText}>Add a photo</Text>
-      </View>
+        <Text style={styles.photoText}>{photo ? "Change photo" : "Add a photo"}</Text>
+      </Pressable>
 
       <Text style={styles.label}>Species</Text>
       <View style={styles.speciesRow}>
         <Pressable
           onPress={() => setSpecies("dog")}
+          accessibilityRole="button"
+          accessibilityLabel="Dog"
+          accessibilityState={{ selected: species === "dog" }}
           style={[styles.speciesBtn, species === "dog" && styles.speciesActive]}
         >
           <Dog size={22} color={species === "dog" ? "#fff" : Colors.teal700} />
@@ -92,6 +130,9 @@ export default function AddPetScreen() {
         </Pressable>
         <Pressable
           onPress={() => setSpecies("cat")}
+          accessibilityRole="button"
+          accessibilityLabel="Cat"
+          accessibilityState={{ selected: species === "cat" }}
           style={[styles.speciesBtn, species === "cat" && styles.speciesActive]}
         >
           <Cat size={22} color={species === "cat" ? "#fff" : Colors.teal700} />
@@ -99,7 +140,14 @@ export default function AddPetScreen() {
         </Pressable>
       </View>
 
-      <Field label="Name" placeholder="e.g. Buddy" value={name} onChange={setName} />
+      <Field
+        label="Name"
+        placeholder="e.g. Buddy"
+        value={name}
+        onChange={setName}
+        onBlur={() => setTouched(true)}
+        error={nameError ? "Please enter a name" : undefined}
+      />
       <Field label="Breed / mix" placeholder="e.g. Golden Retriever" value={breed} onChange={setBreed} />
       <View style={styles.row}>
         <View style={{ flex: 1 }}>
@@ -125,9 +173,10 @@ export default function AddPetScreen() {
         label={saving ? "Saving…" : "Save pet"}
         variant="coral"
         onPress={handleSave}
-        style={[{ marginTop: Space.xl }, !canSave && { opacity: 0.5 }]}
+        accessibilityHint="Saves this pet and syncs it across your screens"
+        style={[{ marginTop: Space.xl }, !canSave && { opacity: 0.6 }]}
       />
-      <Text style={styles.note}>Your pet is saved to your Petwell account and synced across screens.</Text>
+      <Text style={styles.note}>Your pet is saved to Petwell and synced across your screens.</Text>
     </ScrollView>
   );
 }
@@ -146,7 +195,23 @@ const styles = StyleSheet.create({
     borderStyle: "dashed",
     borderColor: Colors.teal100,
   },
+  photoImg: { width: 96, height: 96, borderRadius: 48 },
+  photoBadge: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Colors.teal700,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: Colors.cream,
+  },
   photoText: { ...Fonts.small, color: Colors.teal700 },
+  inputError: { borderWidth: 1.5, borderColor: Colors.coral500 },
+  errorText: { ...Fonts.small, color: Colors.coral600, marginTop: 6 },
   label: { ...Fonts.h3, marginBottom: 8 },
   speciesRow: { flexDirection: "row", gap: Space.sm, marginBottom: Space.md },
   speciesBtn: {

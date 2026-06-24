@@ -19,11 +19,25 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { BarChart, LineChart } from "@/components/Charts";
 import { PetSwitcher } from "@/components/PetSwitcher";
-import { Card } from "@/components/ui";
+import { Card, EmptyState } from "@/components/ui";
 import Colors, { Fonts, Radius, Space, cardShadow } from "@/constants/colors";
 import { TODAY_ISO } from "@/constants/mockData";
 import { usePets } from "@/providers/PetProvider";
 import type { LogCategory, TimelineEntry } from "@/types/pet";
+
+/** Derive a trend label from data — never a hardcoded claim. */
+function trendInfo(values: number[], higherIsBetter: boolean, up: string, down: string) {
+  if (!values || values.length < 2) return { label: "Not enough data", color: Colors.inkFaint, delta: 0 };
+  const delta = Math.round((values[values.length - 1] - values[0]) * 10) / 10;
+  if (Math.abs(delta) < 0.3) return { label: "Steady →", color: Colors.inkFaint, delta };
+  const improving = higherIsBetter ? delta > 0 : delta < 0;
+  return { label: improving ? up : down, color: improving ? Colors.green600 : Colors.amber600, delta };
+}
+
+function deltaText(delta: number, unit = ""): string {
+  if (Math.abs(delta) < 0.05) return "No change since first log";
+  return `${delta > 0 ? "▲ +" : "▼ "}${delta}${unit} since first log`;
+}
 
 const CAT_META: Record<
   LogCategory,
@@ -111,6 +125,22 @@ export default function TimelineScreen() {
     return Object.entries(map).sort((a, b) => (a[0] < b[0] ? 1 : -1));
   }, [filtered]);
 
+  // Trends derived from the actual logged values (no hardcoded claims).
+  const stoolTrend = useMemo(() => trendInfo(trends.stool, true, "Improving ↑", "Softer ↓"), [trends.stool]);
+  const activityAvg = useMemo(
+    () => trends.activity.reduce((a, b) => a + b, 0) / (trends.activity.length || 1),
+    [trends.activity]
+  );
+  const activityLabel = activityAvg >= 6 ? "Active" : activityAvg >= 4 ? "Moderate" : "Calmer";
+  const weightDelta = useMemo(
+    () => Math.round((trends.weight[trends.weight.length - 1] - trends.weight[0]) * 10) / 10,
+    [trends.weight]
+  );
+  const itchDelta = useMemo(
+    () => Math.round((trends.itching[trends.itching.length - 1] - trends.itching[0]) * 10) / 10,
+    [trends.itching]
+  );
+
   return (
     <ScrollView
       style={styles.container}
@@ -126,6 +156,8 @@ export default function TimelineScreen() {
         <Pressable
           testID="timeline-add-log"
           onPress={() => router.push("/log")}
+          accessibilityRole="button"
+          accessibilityLabel="Add a log"
           style={({ pressed }) => [styles.logBtn, pressed && { opacity: 0.85 }]}
         >
           <Plus size={16} color="#fff" strokeWidth={2.5} />
@@ -159,21 +191,23 @@ export default function TimelineScreen() {
         <View style={styles.chartCard}>
           <View style={styles.chartHead}>
             <Text style={Fonts.h3}>Stool score</Text>
-            <Text style={styles.chartTrend}>Improving ↑</Text>
+            <Text style={[styles.chartTrend, { color: stoolTrend.color }]}>{stoolTrend.label}</Text>
           </View>
           <LineChart values={trends.stool} color={Colors.green600} height={120} width={300} />
-          <Text style={styles.chartFoot}>Last 7 logs · higher is firmer</Text>
+          <Text style={styles.chartFoot}>Higher is firmer · {deltaText(stoolTrend.delta)}</Text>
         </View>
       </View>
 
       <View style={styles.chartsRow}>
         <View style={[styles.chartCardSmall]}>
-          <Text style={styles.chartLabelSmall}>Itching</Text>
+          <Text style={styles.chartLabelSmall}>Itching (0–10)</Text>
           <LineChart values={trends.itching} color={Colors.amber600} height={70} width={150} />
+          <Text style={styles.smallDelta}>{deltaText(itchDelta)}</Text>
         </View>
         <View style={[styles.chartCardSmall]}>
           <Text style={styles.chartLabelSmall}>Weight (lb)</Text>
           <LineChart values={trends.weight} color={Colors.teal800} height={70} width={150} />
+          <Text style={styles.smallDelta}>{deltaText(weightDelta, " lb")}</Text>
         </View>
       </View>
 
@@ -181,7 +215,7 @@ export default function TimelineScreen() {
         <View style={styles.chartCard}>
           <View style={styles.chartHead}>
             <Text style={Fonts.h3}>Activity & sleep</Text>
-            <Text style={[styles.chartTrend, { color: Colors.coral600 }]}>Active</Text>
+            <Text style={[styles.chartTrend, { color: Colors.coral600 }]}>{activityLabel}</Text>
           </View>
           <BarChart
             values={trends.activity}
@@ -205,6 +239,9 @@ export default function TimelineScreen() {
             <Pressable
               key={f}
               onPress={() => setFilter(f)}
+              accessibilityRole="button"
+              accessibilityLabel={`Filter: ${label}`}
+              accessibilityState={{ selected: active }}
               style={[styles.filterChip, active && styles.filterChipActive]}
             >
               <Text style={[styles.filterText, active && styles.filterTextActive]}>{label}</Text>
@@ -226,7 +263,14 @@ export default function TimelineScreen() {
           </View>
         ))}
         {grouped.length === 0 ? (
-          <Text style={styles.empty}>No {filter} logs yet.</Text>
+          <EmptyState
+            title={filter === "all" ? "No logs yet" : `No ${CAT_META[filter].label.toLowerCase()} logs yet`}
+            subtitle={
+              filter === "all"
+                ? "Tap Log to capture meals, symptoms, weight and more — it builds the trends above."
+                : "Try another filter, or tap Log to add one."
+            }
+          />
         ) : null}
       </View>
     </ScrollView>
@@ -272,6 +316,7 @@ const styles = StyleSheet.create({
     ...cardShadow,
   },
   chartLabelSmall: { ...Fonts.small, marginBottom: 4 },
+  smallDelta: { ...Fonts.tiny, color: Colors.inkFaint, marginTop: 4 },
   filterChip: {
     paddingHorizontal: 16,
     paddingVertical: 9,
@@ -294,5 +339,4 @@ const styles = StyleSheet.create({
   entryTitle: { ...Fonts.h3, fontSize: 15, flex: 1 },
   entryTime: { ...Fonts.small, color: Colors.inkFaint },
   entryDetail: { ...Fonts.small, marginTop: 2, lineHeight: 18 },
-  empty: { ...Fonts.bodySoft, textAlign: "center", paddingVertical: Space.xl },
 });

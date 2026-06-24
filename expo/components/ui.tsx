@@ -1,6 +1,8 @@
 import { LinearGradient } from "expo-linear-gradient";
-import React, { memo } from "react";
+import * as Haptics from "expo-haptics";
+import React, { memo, useCallback } from "react";
 import {
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -67,7 +69,11 @@ export const UrgencyBand = memo(function UrgencyBand({
 }) {
   const u = Urgency[level];
   return (
-    <View style={[styles.band, { backgroundColor: u.bg }, compact && styles.bandCompact]}>
+    <View
+      style={[styles.band, { backgroundColor: u.bg }, compact && styles.bandCompact]}
+      accessibilityRole="text"
+      accessibilityLabel={`Urgency: ${u.label}`}
+    >
       <View style={[styles.bandDot, { backgroundColor: u.color }]} />
       <Text style={[styles.bandText, { color: u.color }]}>{u.label}</Text>
     </View>
@@ -80,26 +86,45 @@ export const PrimaryButton = memo(function PrimaryButton({
   icon,
   variant = "primary",
   style,
+  disabled = false,
+  accessibilityHint,
+  haptic = true,
 }: {
   label: string;
   onPress?: () => void;
   icon?: React.ReactNode;
   variant?: "primary" | "coral" | "ghost" | "outline";
   style?: StyleProp<ViewStyle>;
+  disabled?: boolean;
+  accessibilityHint?: string;
+  haptic?: boolean;
 }) {
   const isGhost = variant === "ghost";
   const isOutline = variant === "outline";
   const bg =
     variant === "coral" ? Colors.coral500 : variant === "primary" ? Colors.teal800 : "transparent";
   const fg = isGhost || isOutline ? Colors.teal800 : "#FFFFFF";
+
+  const handlePress = useCallback(() => {
+    if (disabled) return;
+    if (haptic && Platform.OS !== "web") Haptics.selectionAsync();
+    onPress?.();
+  }, [disabled, haptic, onPress]);
+
   return (
     <Pressable
-      onPress={onPress}
+      onPress={handlePress}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityHint={accessibilityHint}
+      accessibilityState={{ disabled }}
       style={({ pressed }) => [
         styles.button,
         { backgroundColor: bg },
         isOutline && styles.buttonOutline,
-        pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
+        pressed && !disabled && { opacity: 0.85, transform: [{ scale: 0.98 }] },
+        disabled && styles.buttonDisabled,
         style,
       ]}
     >
@@ -135,6 +160,24 @@ export const Disclaimer = memo(function Disclaimer() {
         Petwell does not replace veterinary care. If your pet has severe symptoms, seek emergency
         veterinary help.
       </Text>
+    </View>
+  );
+});
+
+export const EmptyState = memo(function EmptyState({
+  icon,
+  title,
+  subtitle,
+}: {
+  icon?: React.ReactNode;
+  title: string;
+  subtitle?: string;
+}) {
+  return (
+    <View style={styles.empty} accessibilityRole="text" accessibilityLabel={title}>
+      {icon ? <View style={styles.emptyIcon}>{icon}</View> : null}
+      <Text style={styles.emptyTitle}>{title}</Text>
+      {subtitle ? <Text style={styles.emptySub}>{subtitle}</Text> : null}
     </View>
   );
 });
@@ -182,6 +225,7 @@ const styles = StyleSheet.create({
     borderRadius: Radius.md,
   },
   buttonOutline: { borderWidth: 1.5, borderColor: Colors.teal800 },
+  buttonDisabled: { opacity: 0.45 },
   buttonText: { fontSize: 15, fontWeight: "700" },
   gradient: { borderRadius: Radius.lg },
   disclaimer: {
@@ -192,4 +236,16 @@ const styles = StyleSheet.create({
     borderColor: Colors.teal100,
   },
   disclaimerText: { fontSize: 12.5, lineHeight: 18, color: Colors.teal900, fontWeight: "500" },
+  empty: { alignItems: "center", paddingVertical: Space.lg, paddingHorizontal: Space.md, gap: 6 },
+  emptyIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: Colors.teal50,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 4,
+  },
+  emptyTitle: { ...Fonts.h3, textAlign: "center" },
+  emptySub: { ...Fonts.small, color: Colors.inkFaint, textAlign: "center", lineHeight: 18, maxWidth: 280 },
 });

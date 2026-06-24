@@ -198,11 +198,23 @@ export default function FoodResultScreen() {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.topbar}>
-        <Pressable onPress={() => router.back()} style={styles.iconBtn} hitSlop={10}>
+        <Pressable
+          onPress={() => router.back()}
+          style={styles.iconBtn}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+        >
           <ChevronLeft size={24} color={Colors.ink} />
         </Pressable>
         <Text style={Fonts.h3}>Food review</Text>
-        <Pressable onPress={() => router.replace("/(tabs)/scan")} style={styles.iconBtn} hitSlop={10}>
+        <Pressable
+          onPress={() => router.replace("/(tabs)/scan")}
+          style={styles.iconBtn}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel="Close"
+        >
           <X size={22} color={Colors.ink} />
         </Pressable>
       </View>
@@ -236,6 +248,16 @@ export default function FoodResultScreen() {
           </View>
         </View>
 
+        {/* Why this matters — plain-language explainability */}
+        <View style={styles.whyMatters}>
+          <Info size={14} color={Colors.teal700} />
+          <Text style={styles.whyMattersText}>
+            Personalized to {selectedPet.name}&apos;s profile, allergies, and conditions — weighing
+            ingredients, nutrition fit, recalls, lab evidence, and brand transparency. Guidance, not a
+            diagnosis.
+          </Text>
+        </View>
+
         {/* Allergy conflicts — safety first */}
         {review.allergyConflicts.length ? (
           <View style={[styles.alertCard, { backgroundColor: Colors.red100 }]}>
@@ -256,6 +278,7 @@ export default function FoodResultScreen() {
 
         {/* The six sub-scores */}
         <Text style={styles.sectionTitle}>Score breakdown</Text>
+        <Text style={styles.sectionHint}>Each factor is 0–100 — higher is better. Together they set the grade above.</Text>
         <Card style={{ gap: 14, marginTop: 8 }}>
           {review.subScores.map((s) => (
             <View key={s.key}>
@@ -540,6 +563,17 @@ const styles = StyleSheet.create({
   alertTitle: { ...Fonts.h3 },
   sectionTitle: { ...Fonts.h2, marginTop: Space.lg },
   sectionHint: { ...Fonts.small, marginTop: 2 },
+  whyMatters: {
+    flexDirection: "row",
+    gap: 8,
+    backgroundColor: Colors.teal50,
+    borderRadius: Radius.md,
+    padding: 12,
+    marginTop: Space.md,
+    borderWidth: 1,
+    borderColor: Colors.teal100,
+  },
+  whyMattersText: { ...Fonts.small, color: Colors.teal900, flex: 1, lineHeight: 18 },
   scoreHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   scoreLabel: { ...Fonts.h3, fontSize: 14.5 },
   scoreVal: { fontSize: 16, fontWeight: "800" },

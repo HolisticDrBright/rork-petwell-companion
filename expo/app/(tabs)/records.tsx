@@ -125,8 +125,12 @@ export default function RecordsScreen() {
   const [busy, setBusy] = useState<boolean>(false);
   const [status, setStatus] = useState<string | null>(null);
 
+  const remoteLoading = mode === "remote" && recordsQuery.isLoading;
+  const remoteError = mode === "remote" && recordsQuery.isError;
+
   const baseSections = useMemo(() => {
-    if (mode === "remote" && recordsQuery.data) return recordsQuery.data;
+    // In remote mode show the user's real records only (never the demo set).
+    if (mode === "remote") return recordsQuery.data ?? {};
     return RECORDS[selectedPet.demoKey ?? selectedPet.id] ?? {};
   }, [mode, recordsQuery.data, selectedPet.demoKey, selectedPet.id]);
 
@@ -232,9 +236,26 @@ export default function RecordsScreen() {
 
       {/* Sections */}
       <View style={{ paddingHorizontal: Space.md, marginTop: Space.sm }}>
-        {Object.entries(sections).map(([title, items]) => (
-          <Section key={title} title={title} items={items} onAdd={setAddCategory} />
-        ))}
+        {remoteLoading ? (
+          <View style={styles.loadingBox}>
+            <ActivityIndicator color={Colors.teal700} />
+            <Text style={styles.loadingText}>Loading {selectedPet.name}&apos;s records…</Text>
+          </View>
+        ) : remoteError ? (
+          <View style={styles.loadingBox}>
+            <Text style={styles.loadingText}>Couldn&apos;t load records.</Text>
+            <PrimaryButton
+              label="Retry"
+              variant="outline"
+              onPress={() => recordsQuery.refetch()}
+              style={{ marginTop: 10, alignSelf: "center" }}
+            />
+          </View>
+        ) : (
+          Object.entries(sections).map(([title, items]) => (
+            <Section key={title} title={title} items={items} onAdd={setAddCategory} />
+          ))
+        )}
       </View>
 
       {/* Trust footer */}
@@ -313,6 +334,8 @@ const styles = StyleSheet.create({
   },
   quickText: { ...Fonts.small, color: Colors.ink },
   statusText: { ...Fonts.small, color: Colors.teal700, textAlign: "center", marginTop: Space.sm, paddingHorizontal: Space.md },
+  loadingBox: { alignItems: "center", paddingVertical: Space.xl, gap: 10 },
+  loadingText: { ...Fonts.small, color: Colors.inkSoft },
   sectionWrap: { marginBottom: 6 },
   sectionHeader: {
     flexDirection: "row",
