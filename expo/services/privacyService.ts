@@ -109,6 +109,24 @@ export const privacyService = {
   async deleteAccountData(): Promise<void> {
     const uid = getUserId();
     if (!uid) return;
+
+    // Remove the user's storage objects FIRST — they aren't covered by row
+    // cascades, so deleting rows first would orphan the files. Best-effort.
+    try {
+      const { data: scans } = await supabase.from("scan_records").select("id").eq("owner_id", uid);
+      const scanIds = (scans ?? []).map((s) => s.id);
+      if (scanIds.length) {
+        const { data: imgs } = await supabase.from("scan_images").select("storage_path").in("scan_id", scanIds);
+        const paths = (imgs ?? []).map((i) => i.storage_path).filter(Boolean) as string[];
+        if (paths.length) await supabase.storage.from("scan-images").remove(paths);
+      }
+      const { data: docs } = await supabase.from("document_uploads").select("storage_path").eq("owner_id", uid);
+      const docPaths = (docs ?? []).map((d) => d.storage_path).filter(Boolean) as string[];
+      if (docPaths.length) await supabase.storage.from("documents").remove(docPaths);
+    } catch (e) {
+      console.warn("[petwell] storage cleanup during account delete skipped:", e);
+    }
+
     await supabase.from("pet_profiles").delete().eq("owner_id", uid);
     await supabase.from("vet_reports").delete().eq("owner_id", uid);
     await supabase.from("food_scans").delete().eq("owner_id", uid);

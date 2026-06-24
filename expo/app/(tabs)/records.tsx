@@ -149,16 +149,19 @@ export default function RecordsScreen() {
       return;
     }
     const item: RecordItem = { id: `local-${Date.now()}`, title, subtitle: `Added ${todayLabel()}`, date: todayLabel() };
-    setLocalAdds((prev) => ({ ...prev, [category]: [...(prev[category] ?? []), item] }));
     setAddCategory(null);
     setAddTitle("");
     if (mode === "remote") {
+      // Persist + refetch is the source of truth — don't also keep an optimistic
+      // copy in localAdds, or the record would render twice after the refetch.
       try {
         await recordsService.addRecord(selectedPet.id, { category, title, subtitle: item.subtitle, date: item.date });
         queryClient.invalidateQueries({ queryKey: ["records", selectedPet.id] });
       } catch (e) {
         console.warn("[petwell] add record failed:", e);
       }
+    } else {
+      setLocalAdds((prev) => ({ ...prev, [category]: [...(prev[category] ?? []), item] }));
     }
   }, [addTitle, addCategory, mode, selectedPet.id, queryClient]);
 

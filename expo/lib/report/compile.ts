@@ -9,22 +9,25 @@ import type {
   ReportTimelineItem,
 } from "./types";
 
-// The core OBSERVABLE critical red flags for the present/absent checklist.
-// (Contextual ones like young-pet-GI / senior-worsening are excluded — they're
-// pet-state qualifiers, not signs an owner checks off.)
-const RED_FLAG_KEYS = [
-  "breathing",
-  "collapse",
-  "seizure",
-  "paleGums",
-  "severeLethargy",
-  "toxin",
-  "trauma",
-  "repeatedVomiting",
-  "bloodStoolVomit",
-  "cantUrinate",
-] as const;
-const CANONICAL_RED_FLAGS = RED_FLAG_KEYS.map((k) => RED_FLAGS[k].label);
+// The core OBSERVABLE critical red flags for the present/absent checklist, each
+// with keyword matchers. Matchers (not fuzzy first-token matching) decide
+// present/absent so a relabeled flag like "Male cat unable to urinate —
+// possible urinary blockage" maps to the urinary flag (via "urinate"/"urinary")
+// and NOT to the toxin flag (it merely contains the word "possible").
+// Contextual qualifiers (young-pet-GI / senior-worsening) are intentionally
+// excluded — they're pet-state qualifiers, not signs an owner checks off.
+const CANONICAL_RED_FLAGS: { label: string; match: string[] }[] = [
+  { label: RED_FLAGS.breathing.label, match: ["breath"] },
+  { label: RED_FLAGS.collapse.label, match: ["collapse", "faint"] },
+  { label: RED_FLAGS.seizure.label, match: ["seizure"] },
+  { label: RED_FLAGS.paleGums.label, match: ["pale", "blue", "white"] },
+  { label: RED_FLAGS.severeLethargy.label, match: ["letharg", "rouse", "unrespons"] },
+  { label: RED_FLAGS.toxin.label, match: ["toxin", "poison"] },
+  { label: RED_FLAGS.trauma.label, match: ["trauma", "injur"] },
+  { label: RED_FLAGS.repeatedVomiting.label, match: ["vomit"] },
+  { label: RED_FLAGS.bloodStoolVomit.label, match: ["blood"] },
+  { label: RED_FLAGS.cantUrinate.label, match: ["urinate", "urinary", "urine", "straining"] },
+];
 
 export interface CompileInput {
   generatedAt: string;
@@ -49,16 +52,11 @@ function urgencyLabel(key: string): string {
   return (Urgency as Record<string, { label: string }>)[key]?.label ?? key;
 }
 
-function head(label: string): string {
-  return label.toLowerCase().split(/[ ,/]/)[0];
-}
-
 function splitRedFlags(present: string[]): { present: string[]; absent: string[] } {
   const presentLc = present.map((p) => p.toLowerCase());
-  const absent = CANONICAL_RED_FLAGS.filter(
-    (c) => !presentLc.some((p) => p.includes(head(c)) || c.toLowerCase().includes(head(p)))
-  );
-  return { present, absent };
+  const isPresent = (c: { match: string[] }) =>
+    presentLc.some((p) => c.match.some((m) => p.includes(m)));
+  return { present, absent: CANONICAL_RED_FLAGS.filter((c) => !isPresent(c)).map((c) => c.label) };
 }
 
 function dedupe(arr: string[]): string[] {

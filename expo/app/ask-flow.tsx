@@ -66,8 +66,10 @@ export default function AskFlowScreen() {
     if (!back()) router.back();
   }, [back, router]);
 
-  const step = ctx ? ctx.order.length + 1 : 1;
   const total = ready && ctx ? estimateTotal(module, ctx) : module.questions.length;
+  // While a question is showing we're on order.length + 1; once it's null the
+  // interview is done, so pin the label to the final total (never overshoot).
+  const step = !ctx ? 1 : q ? Math.min(ctx.order.length + 1, total) : total;
   const progress = Math.min(1, step / Math.max(total, 1));
 
   return (

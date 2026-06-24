@@ -95,8 +95,14 @@ export const triageService = {
       concernLabel,
       urgency: res.urgency,
       confidence: res.confidence,
-      causes: Array.isArray(res.causes) ? (res.causes as { name: string; note?: string }[]) : [],
-      redFlags: Array.isArray(res.red_flags) ? (res.red_flags as string[]) : [],
+      causes: Array.isArray(res.causes)
+        ? (res.causes as unknown[]).filter(
+            (c): c is { name: string; note?: string } => !!c && typeof c === "object" && "name" in c
+          )
+        : [],
+      redFlags: Array.isArray(res.red_flags)
+        ? (res.red_flags as unknown[]).filter((f): f is string => typeof f === "string")
+        : [],
       summary: res.summary,
       answers,
     };

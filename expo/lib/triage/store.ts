@@ -61,11 +61,9 @@ export const useTriage = create<TriageState>((set, get) => ({
     }
   },
 
-  answer: (q, option) => {
-    const { ctx, history } = get();
-    if (!ctx) return;
-    set({ ctx: applyAnswer(ctx, q, option), history: [...history, ctx] });
-  },
+  answer: (q, option) =>
+    // Functional update so two rapid taps each apply against the latest state.
+    set((s) => (s.ctx ? { ctx: applyAnswer(s.ctx, q, option), history: [...s.history, s.ctx] } : s)),
 
   back: () => {
     const { history } = get();

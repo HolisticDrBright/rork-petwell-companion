@@ -85,6 +85,11 @@ export default function FoodResultScreen() {
 
   useEffect(() => {
     let active = true;
+    // Clear the previous product's review while the new one loads (tapping an
+    // alternative re-runs this effect with a new productId).
+    setData(null);
+    setError(null);
+    setSaved(false);
     (async () => {
       try {
         const bundle = await foodService.getProductBundle(productId);

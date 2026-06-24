@@ -38,6 +38,9 @@ export const LineChart = memo(function LineChart({
   width?: number;
 }) {
   const pad = 10;
+  // Guard degenerate input: an empty series would make min/max ±Infinity and
+  // lastY NaN, producing an invalid <Circle/>.
+  if (!values || values.length === 0) return <Svg width={width} height={height} />;
   const { line, area } = buildPath(values, width, height, pad);
   const max = Math.max(...values);
   const min = Math.min(...values);

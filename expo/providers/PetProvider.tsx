@@ -112,14 +112,19 @@ export const [PetProvider, usePets] = createContextHook(() => {
   const loaded = stateQuery.isSuccess;
   const persisted: PersistedState = local ?? stateQuery.data ?? DEFAULT_STATE;
 
-  const persist = useCallback(async (next: PersistedState) => {
-    setLocal(next);
-    try {
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-    } catch {
-      // ignore write errors
-    }
-  }, []);
+  // Functional persist: each write computes from the latest committed state, so
+  // two mutations in the same tick can't clobber each other (lost-update race).
+  const persist = useCallback(
+    (updater: (prev: PersistedState) => PersistedState) => {
+      setLocal((prev) => {
+        const base = prev ?? stateQuery.data ?? DEFAULT_STATE;
+        const next = updater(base);
+        AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next)).catch(() => {});
+        return next;
+      });
+    },
+    [stateQuery.data]
+  );
 
   const pets: Pet[] = useMemo(
     () => (remoteReady ? (petsQuery.data as Pet[]) : [...PETS, ...extraPets]),
@@ -180,9 +185,9 @@ export const [PetProvider, usePets] = createContextHook(() => {
 
   const selectPet = useCallback(
     (id: string) => {
-      persist({ ...persisted, selectedPetId: id });
+      persist((prev) => ({ ...prev, selectedPetId: id }));
     },
-    [persisted, persist]
+    [persist]
   );
 
   const toggleCareItem = useCallback(
@@ -202,31 +207,35 @@ export const [PetProvider, usePets] = createContextHook(() => {
       }
       const base = CARE_ITEMS[pid] ?? [];
       const initialDone = base.filter((c) => c.done).map((c) => c.id);
-      const currentList = persisted.careDone[pid] ?? initialDone;
-      const nextList = currentList.includes(itemId)
-        ? currentList.filter((id) => id !== itemId)
-        : [...currentList, itemId];
-      persist({ ...persisted, careDone: { ...persisted.careDone, [pid]: nextList } });
+      persist((prev) => {
+        const currentList = prev.careDone[pid] ?? initialDone;
+        const nextList = currentList.includes(itemId)
+          ? currentList.filter((id) => id !== itemId)
+          : [...currentList, itemId];
+        return { ...prev, careDone: { ...prev.careDone, [pid]: nextList } };
+      });
     },
-    [remoteReady, queryClient, careItems, persisted, persist]
+    [remoteReady, queryClient, careItems, persist]
   );
 
   const toggleReminder = useCallback(
     (key: string, value: boolean) => {
       if (remoteReady) {
-        const reminderId = key.includes(":") ? key.split(":")[1] : key;
-        queryClient.setQueryData(["reminders", petId], (old: Reminder[] = []) =>
-          old.map((r) => (r.id === reminderId ? { ...r, enabled: value } : r))
+        // key is `${petId}:${reminderId}` — target the cache by the pet in the
+        // key, not the currently-selected pet.
+        const [keyPid, keyReminderId] = key.includes(":") ? key.split(":") : [petId, key];
+        queryClient.setQueryData(["reminders", keyPid], (old: Reminder[] = []) =>
+          old.map((r) => (r.id === keyReminderId ? { ...r, enabled: value } : r))
         );
         remindersService
-          .setEnabled(reminderId, value)
+          .setEnabled(keyReminderId, value)
           .catch((e) => console.warn("[petwell] reminder toggle failed:", e))
-          .finally(() => queryClient.invalidateQueries({ queryKey: ["reminders", petId] }));
+          .finally(() => queryClient.invalidateQueries({ queryKey: ["reminders", keyPid] }));
         return;
       }
-      persist({ ...persisted, reminderState: { ...persisted.reminderState, [key]: value } });
+      persist((prev) => ({ ...prev, reminderState: { ...prev.reminderState, [key]: value } }));
     },
-    [remoteReady, queryClient, petId, persisted, persist]
+    [remoteReady, queryClient, petId, persist]
   );
 
   const addLog = useCallback(
@@ -248,9 +257,9 @@ export const [PetProvider, usePets] = createContextHook(() => {
           .finally(() => queryClient.invalidateQueries({ queryKey: ["timeline", pid] }));
         return;
       }
-      persist({ ...persisted, logs: { ...persisted.logs, [pid]: [entry, ...(persisted.logs[pid] ?? [])] } });
+      persist((prev) => ({ ...prev, logs: { ...prev.logs, [pid]: [entry, ...(prev.logs[pid] ?? [])] } }));
     },
-    [remoteReady, queryClient, persisted, persist]
+    [remoteReady, queryClient, persist]
   );
 
   const addPet = useCallback(
@@ -259,7 +268,7 @@ export const [PetProvider, usePets] = createContextHook(() => {
         try {
           const pet = await petsService.createPet(input);
           await queryClient.invalidateQueries({ queryKey: ["pets"] });
-          await persist({ ...persisted, selectedPetId: pet.id });
+          persist((prev) => ({ ...prev, selectedPetId: pet.id }));
           return pet;
         } catch (e) {
           console.warn("[petwell] create pet failed:", e);
@@ -283,15 +292,15 @@ export const [PetProvider, usePets] = createContextHook(() => {
         allergies: [],
       };
       setExtraPets((prev) => [...prev, localPet]);
-      await persist({ ...persisted, selectedPetId: localPet.id });
+      persist((prev) => ({ ...prev, selectedPetId: localPet.id }));
       return localPet;
     },
-    [remoteMode, queryClient, persisted, persist]
+    [remoteMode, queryClient, persist]
   );
 
   const setPremium = useCallback(
     (value: boolean) => {
-      persist({ ...persisted, premium: value });
+      persist((prev) => ({ ...prev, premium: value }));
       const uid = getUserId();
       if (remoteMode && uid) {
         supabase
@@ -303,7 +312,7 @@ export const [PetProvider, usePets] = createContextHook(() => {
           });
       }
     },
-    [persisted, persist, remoteMode]
+    [persist, remoteMode]
   );
 
   const completeOnboarding = useCallback(async () => {

@@ -66,6 +66,9 @@ export function nextQuestion(module: ConcernModule, ctx: TriageContext): Questio
 }
 
 export function estimateTotal(module: ConcernModule, ctx: TriageContext): number {
+  // Once an emergency short-circuit fires, the interview is over — the total is
+  // simply what's been asked (so progress doesn't read "2 of 6" on the result).
+  if (emergencyTriggered(module, ctx)) return ctx.order.length;
   let n = 0;
   for (const q of module.questions) {
     if (ctx.order.includes(q.id)) {

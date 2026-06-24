@@ -189,7 +189,10 @@ export function scoreContaminantConfidence(bundle: ProductBundle): SubScore {
     score = 30;
     for (const t of flagged) reasons.push({ text: `${t.substance}: ${t.result}`, severity: "bad" });
   } else {
-    score = realTests.length > 0 ? 85 : 55;
+    // Only a real PASSING test earns high confidence — a real but un-resulted
+    // (null / not_tested) row must not inflate the score.
+    const realPass = tests.some((t) => !t.isDemo && t.status === "pass");
+    score = realPass ? 85 : 55;
     for (const t of tests.filter((t) => t.status === "pass").slice(0, 4))
       reasons.push({ text: `${t.substance}: ${t.result}`, severity: "good" });
   }

@@ -19,7 +19,9 @@ export default function RemindersScreen() {
   const [addOpen, setAddOpen] = useState<boolean>(false);
   const [label, setLabel] = useState<string>("");
   const [time, setTime] = useState<string>("");
-  const [extra, setExtra] = useState<Reminder[]>([]);
+  // Locally-added reminders are scoped per pet so they don't bleed across the
+  // in-screen PetSwitcher.
+  const [extraByPet, setExtraByPet] = useState<Record<string, Reminder[]>>({});
   const [extraEnabled, setExtraEnabled] = useState<Record<string, boolean>>({});
 
   const save = useCallback(async () => {
@@ -49,7 +51,7 @@ export default function RemindersScreen() {
         console.warn("[petwell] add reminder failed:", e);
       }
     } else {
-      setExtra((prev) => [...prev, reminder]);
+      setExtraByPet((prev) => ({ ...prev, [selectedPet.id]: [...(prev[selectedPet.id] ?? []), reminder] }));
       setExtraEnabled((prev) => ({ ...prev, [reminder.id]: true }));
     }
     setLabel("");
@@ -57,6 +59,7 @@ export default function RemindersScreen() {
     setAddOpen(false);
   }, [label, time, mode, selectedPet.id, queryClient]);
 
+  const extra = extraByPet[selectedPet.id] ?? [];
   const all: { reminder: Reminder; local: boolean }[] = [
     ...reminders.map((r) => ({ reminder: r, local: false })),
     ...extra.map((r) => ({ reminder: { ...r, enabled: extraEnabled[r.id] ?? true }, local: true })),

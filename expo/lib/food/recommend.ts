@@ -43,8 +43,12 @@ export function findAllergyConflicts(bundle: ProductBundle, pet: PetContext): Al
 
   for (const ing of bundle.ingredients) {
     const name = ing.name.toLowerCase();
+    // Match on whole words / word-prefixes, not raw substrings, so "chicken"
+    // still matches "chicken meal" but "oat" does NOT match "goat milk" and
+    // "egg" does NOT match "veggie blend".
+    const words = name.split(/[^a-z]+/).filter(Boolean);
     for (const a of allergies) {
-      if (!a.tokens.some((t) => name.includes(t))) continue;
+      if (!a.tokens.some((t) => words.some((w) => w === t || w.startsWith(t)))) continue;
       const refined = /\b(fat|oil)\b/.test(name); // refined fats/oils carry little allergen protein
       const conflict: AllergyConflict = {
         allergen: cap(a.tokens[0]),
