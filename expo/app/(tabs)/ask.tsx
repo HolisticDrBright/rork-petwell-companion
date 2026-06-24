@@ -9,6 +9,7 @@ import {
   Footprints,
   MoreHorizontal,
   ShieldCheck,
+  Smile,
   Sparkles,
   Waves,
 } from "lucide-react-native";
@@ -19,7 +20,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PetSwitcher } from "@/components/PetSwitcher";
 import { Disclaimer } from "@/components/ui";
 import Colors, { Fonts, Radius, Space, cardShadow } from "@/constants/colors";
-import { CONCERNS } from "@/constants/triage";
+import { CONCERNS } from "@/lib/triage/modules";
 import { usePets } from "@/providers/PetProvider";
 
 const ICONS: Record<string, React.ComponentType<{ size?: number; color?: string }>> = {
@@ -28,6 +29,7 @@ const ICONS: Record<string, React.ComponentType<{ size?: number; color?: string 
   sparkle: Sparkles,
   ear: Ear,
   eye: Eye,
+  tooth: Smile,
   footprint: Footprints,
   bone: Bone,
   battery: Battery,

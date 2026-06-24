@@ -1,12 +1,15 @@
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
-import { ChevronLeft, HelpCircle, Info } from "lucide-react-native";
-import React, { useCallback, useMemo, useState } from "react";
+import { ChevronLeft, HelpCircle, Info, ShieldAlert } from "lucide-react-native";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Colors, { Fonts, Radius, Space, cardShadow } from "@/constants/colors";
-import { CONCERNS, getFlow } from "@/constants/triage";
+import { estimateTotal, nextQuestion, personalize } from "@/lib/triage/engine";
+import { getModule } from "@/lib/triage/modules";
+import { useTriage } from "@/lib/triage/store";
+import type { AnswerOption } from "@/lib/triage/types";
 import { usePets } from "@/providers/PetProvider";
 
 export default function AskFlowScreen() {
@@ -15,54 +18,64 @@ export default function AskFlowScreen() {
   const { concern } = useLocalSearchParams<{ concern: string }>();
   const { selectedPet } = usePets();
 
-  const flow = useMemo(() => getFlow(concern ?? "other"), [concern]);
-  const concernLabel = useMemo(
-    () => CONCERNS.find((c) => c.id === concern)?.label ?? "this concern",
-    [concern]
-  );
+  const module = useMemo(() => getModule(concern ?? "other"), [concern]);
 
-  const [step, setStep] = useState<number>(0);
-  const [redFlags, setRedFlags] = useState<number>(0);
+  const ctx = useTriage((s) => s.ctx);
+  const storeModuleId = useTriage((s) => s.module?.id);
+  const finishing = useTriage((s) => s.finishing);
+  const start = useTriage((s) => s.start);
+  const answer = useTriage((s) => s.answer);
+  const back = useTriage((s) => s.back);
+  const finish = useTriage((s) => s.finish);
+
   const [whyOpen, setWhyOpen] = useState<boolean>(false);
+  const navigatedRef = useRef<boolean>(false);
+  const petRef = useRef(selectedPet);
+  petRef.current = selectedPet;
 
-  const total = flow.questions.length;
-  const q = flow.questions[step];
-  const progress = (step + 1) / total;
+  // Start a fresh interview when we enter the flow for this concern/pet. Keyed
+  // on the pet id (not the object) so a background refetch can't reset it.
+  useEffect(() => {
+    navigatedRef.current = false;
+    start(petRef.current, concern ?? "other");
+  }, [concern, selectedPet.id, start]);
+
+  const ready = storeModuleId === module.id && ctx?.pet.id === selectedPet.id;
+  const q = ready && ctx ? nextQuestion(module, ctx) : null;
+
+  // When no question remains, compute + persist the result and show it.
+  useEffect(() => {
+    if (!ready || !ctx || q || navigatedRef.current) return;
+    if (ctx.order.length === 0) return; // nothing answered yet
+    navigatedRef.current = true;
+    finish(selectedPet.id).finally(() => router.replace("/triage-result"));
+  }, [ready, ctx, q, finish, selectedPet.id, router]);
+
+  const onAnswer = useCallback(
+    (option: AnswerOption | null) => {
+      if (!q) return;
+      if (Platform.OS !== "web") Haptics.selectionAsync();
+      setWhyOpen(false);
+      answer(q, option);
+    },
+    [q, answer]
+  );
 
   const goBack = useCallback(() => {
-    if (step === 0) {
-      router.back();
-      return;
-    }
     setWhyOpen(false);
-    setStep((s) => s - 1);
-  }, [step, router]);
+    if (!back()) router.back();
+  }, [back, router]);
 
-  const answer = useCallback(
-    (isRedFlag: boolean) => {
-      if (Platform.OS !== "web") Haptics.selectionAsync();
-      const nextRed = redFlags + (isRedFlag ? 1 : 0);
-      setRedFlags(nextRed);
-      setWhyOpen(false);
-      if (step + 1 >= total) {
-        router.replace({
-          pathname: "/triage-result",
-          params: { concern: concern ?? "other", redFlags: String(nextRed) },
-        });
-      } else {
-        setStep((s) => s + 1);
-      }
-    },
-    [redFlags, step, total, router, concern]
-  );
+  const step = ctx ? ctx.order.length + 1 : 1;
+  const total = ready && ctx ? estimateTotal(module, ctx) : module.questions.length;
+  const progress = Math.min(1, step / Math.max(total, 1));
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <Stack.Screen options={{ headerShown: false }} />
 
-      {/* Top bar */}
       <View style={styles.topbar}>
-        <Pressable onPress={goBack} style={styles.backBtn} hitSlop={10}>
+        <Pressable onPress={goBack} style={styles.backBtn} hitSlop={10} testID="ask-back">
           <ChevronLeft size={24} color={Colors.ink} />
         </Pressable>
         <View style={styles.progressWrap}>
@@ -70,7 +83,7 @@ export default function AskFlowScreen() {
             <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
           </View>
           <Text style={styles.progressText}>
-            Question {step + 1} of {total}
+            Question {step} of {total}
           </Text>
         </View>
       </View>
@@ -81,49 +94,62 @@ export default function AskFlowScreen() {
       >
         <Text style={styles.header}>Let&apos;s narrow this down safely</Text>
         <Text style={styles.concern}>
-          {selectedPet.name} · {concernLabel}
+          {selectedPet.name} · {module.label}
         </Text>
 
-        <View style={styles.qCard}>
-          <Text style={styles.question}>{q.question}</Text>
-
-          <Pressable style={styles.whyRow} onPress={() => setWhyOpen((v) => !v)}>
-            <Info size={15} color={Colors.teal700} />
-            <Text style={styles.whyLabel}>Why I&apos;m asking</Text>
-          </Pressable>
-          {whyOpen ? (
-            <View style={styles.whyBox}>
-              <Text style={styles.whyText}>{q.why}</Text>
-            </View>
-          ) : null}
-
-          <View style={styles.options}>
-            {q.options.map((opt) => (
-              <Pressable
-                key={opt.id}
-                onPress={() => answer(Boolean(opt.redFlag))}
-                style={({ pressed }) => [
-                  styles.option,
-                  opt.redFlag && styles.optionFlag,
-                  pressed && { opacity: 0.8, transform: [{ scale: 0.99 }] },
-                ]}
-              >
-                <Text style={[styles.optionText, opt.redFlag && styles.optionTextFlag]}>
-                  {opt.label}
-                </Text>
-              </Pressable>
-            ))}
-            {q.allowUnsure ? (
-              <Pressable
-                onPress={() => answer(false)}
-                style={({ pressed }) => [styles.unsure, pressed && { opacity: 0.7 }]}
-              >
-                <HelpCircle size={16} color={Colors.inkSoft} />
-                <Text style={styles.unsureText}>I&apos;m not sure</Text>
-              </Pressable>
+        {q ? (
+          <View style={styles.qCard}>
+            {q.kind === "redflag" ? (
+              <View style={styles.safetyTag}>
+                <ShieldAlert size={13} color={Colors.coral600} />
+                <Text style={styles.safetyTagText}>Safety check</Text>
+              </View>
             ) : null}
+            <Text style={styles.question}>{personalize(q.text, selectedPet)}</Text>
+
+            <Pressable style={styles.whyRow} onPress={() => setWhyOpen((v) => !v)} testID="ask-why">
+              <Info size={15} color={Colors.teal700} />
+              <Text style={styles.whyLabel}>Why I&apos;m asking</Text>
+            </Pressable>
+            {whyOpen ? (
+              <View style={styles.whyBox}>
+                <Text style={styles.whyText}>{personalize(q.why, selectedPet)}</Text>
+              </View>
+            ) : null}
+
+            <View style={styles.options}>
+              {q.options.map((opt) => (
+                <Pressable
+                  key={opt.id}
+                  testID={`ask-opt-${opt.id}`}
+                  onPress={() => onAnswer(opt)}
+                  style={({ pressed }) => [
+                    styles.option,
+                    opt.redFlag && styles.optionFlag,
+                    pressed && { opacity: 0.8, transform: [{ scale: 0.99 }] },
+                  ]}
+                >
+                  <Text style={[styles.optionText, opt.redFlag && styles.optionTextFlag]}>
+                    {opt.label}
+                  </Text>
+                </Pressable>
+              ))}
+              {q.allowUnsure ? (
+                <Pressable
+                  onPress={() => onAnswer(null)}
+                  style={({ pressed }) => [styles.unsure, pressed && { opacity: 0.7 }]}
+                >
+                  <HelpCircle size={16} color={Colors.inkSoft} />
+                  <Text style={styles.unsureText}>I&apos;m not sure</Text>
+                </Pressable>
+              ) : null}
+            </View>
           </View>
-        </View>
+        ) : (
+          <View style={styles.qCard}>
+            <Text style={styles.question}>{finishing ? "Putting it together…" : "Loading…"}</Text>
+          </View>
+        )}
 
         <Text style={styles.safetyNote}>
           Red-flag questions come first. If anything feels like an emergency, don&apos;t wait — seek
@@ -153,6 +179,18 @@ const styles = StyleSheet.create({
   header: { ...Fonts.title, marginTop: 6 },
   concern: { ...Fonts.bodySoft, marginTop: 2, marginBottom: Space.lg },
   qCard: { backgroundColor: Colors.surface, borderRadius: Radius.lg, padding: Space.lg, ...cardShadow },
+  safetyTag: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    alignSelf: "flex-start",
+    backgroundColor: Colors.coral100,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: Radius.pill,
+    marginBottom: 10,
+  },
+  safetyTagText: { fontSize: 11.5, fontWeight: "800", color: Colors.coral600, letterSpacing: 0.2 },
   question: { fontSize: 22, fontWeight: "800", color: Colors.ink, lineHeight: 29, letterSpacing: -0.3 },
   whyRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 14, alignSelf: "flex-start" },
   whyLabel: { ...Fonts.small, color: Colors.teal700 },

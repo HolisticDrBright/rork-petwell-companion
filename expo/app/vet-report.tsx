@@ -5,7 +5,8 @@ import React, { memo, useCallback, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { Card, Disclaimer, PrimaryButton } from "@/components/ui";
-import Colors, { Fonts, Radius, Space } from "@/constants/colors";
+import Colors, { Fonts, Radius, Space, Urgency } from "@/constants/colors";
+import { useTriage } from "@/lib/triage/store";
 import { usePets } from "@/providers/PetProvider";
 import { reportService } from "@/services";
 
@@ -32,8 +33,13 @@ export default function VetReportScreen() {
   const { selectedPet, timeline, mode } = usePets();
   const [saved, setSaved] = useState<boolean>(false);
 
+  const triageOutcome = useTriage((s) => s.outcome);
+  const triagePetId = useTriage((s) => s.outcomePetId);
+  const triageLabel = useTriage((s) => s.concernLabel);
+  const triage = triageOutcome && triagePetId === selectedPet.id ? triageOutcome : null;
+
   const recentSymptoms = timeline.filter(
-    (t) => t.category === "skin" || t.category === "stool" || t.category === "scan"
+    (t) => t.category === "skin" || t.category === "stool" || t.category === "scan" || t.category === "symptom"
   );
   const foodChanges = timeline.filter((t) => t.category === "food");
 
@@ -50,12 +56,22 @@ export default function VetReportScreen() {
             questions: QUESTIONS,
             symptoms: recentSymptoms.slice(0, 8),
             foodChanges: foodChanges.slice(0, 5),
+            triage: triage
+              ? {
+                  concern: triageLabel,
+                  urgency: triage.urgency,
+                  confidence: triage.confidence,
+                  causes: triage.causes,
+                  redFlags: triage.redFlags,
+                  summary: triage.summary,
+                }
+              : null,
             generatedAt: new Date().toISOString(),
           },
         })
         .catch((e) => console.warn("[petwell] report save failed:", e));
     }
-  }, [mode, selectedPet.id, recentSymptoms, foodChanges]);
+  }, [mode, selectedPet.id, recentSymptoms, foodChanges, triage, triageLabel]);
 
   return (
     <View style={styles.container}>
@@ -97,6 +113,37 @@ export default function VetReportScreen() {
             appetite are normal.
           </Text>
         </Card>
+
+        {/* Latest triage (from the Ask flow) */}
+        {triage ? (
+          <>
+            <SectionHeader>Latest triage</SectionHeader>
+            <Card style={{ gap: 10 }}>
+              <View style={styles.triageTop}>
+                <Text style={Fonts.h3}>{triageLabel}</Text>
+                <View style={[styles.triagePill, { backgroundColor: Urgency[triage.urgency].bg }]}>
+                  <Text style={[styles.triagePillText, { color: Urgency[triage.urgency].color }]}>
+                    {Urgency[triage.urgency].label}
+                  </Text>
+                </View>
+              </View>
+              <Text style={styles.triageMeta}>
+                {triage.confidence} confidence ·{" "}
+                {triage.redFlags.length
+                  ? `Red flags: ${triage.redFlags.join("; ")}`
+                  : "No red flags reported"}
+              </Text>
+              {triage.causes.slice(0, 3).map((c) => (
+                <View key={c.rank} style={styles.bulletRow}>
+                  <View style={styles.dot} />
+                  <Text style={styles.bulletText}>
+                    {c.name} <Text style={{ color: Colors.inkFaint }}>· {c.note}</Text>
+                  </Text>
+                </View>
+              ))}
+            </Card>
+          </>
+        ) : null}
 
         {/* Symptom timeline */}
         <SectionHeader>Symptom timeline</SectionHeader>
@@ -235,6 +282,10 @@ const styles = StyleSheet.create({
   avatar: { width: 60, height: 60, borderRadius: 30, backgroundColor: Colors.cream2 },
   sectionHeader: { ...Fonts.tiny, marginTop: Space.lg, marginBottom: 8, letterSpacing: 0.8 },
   bodyText: { ...Fonts.body, lineHeight: 22, color: Colors.inkSoft },
+  triageTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
+  triagePill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: Radius.pill },
+  triagePillText: { fontSize: 12, fontWeight: "800" },
+  triageMeta: { ...Fonts.small, lineHeight: 18 },
   divider: { height: 1, backgroundColor: Colors.hairline },
   timelineRow: { flexDirection: "row", gap: 12, paddingVertical: 12, alignItems: "flex-start" },
   timelineDate: { ...Fonts.small, color: Colors.teal700, fontWeight: "800", width: 52, marginTop: 1 },

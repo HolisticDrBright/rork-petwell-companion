@@ -1293,8 +1293,10 @@ export type Database = {
           id: string
           owner_id: string
           pet_id: string
+          red_flags: Json
           session_id: string | null
           steps: Json
+          summary: string | null
           supports: Json
           urgency: string
         }
@@ -1306,8 +1308,10 @@ export type Database = {
           id?: string
           owner_id: string
           pet_id: string
+          red_flags?: Json
           session_id?: string | null
           steps?: Json
+          summary?: string | null
           supports?: Json
           urgency: string
         }
@@ -1319,8 +1323,10 @@ export type Database = {
           id?: string
           owner_id?: string
           pet_id?: string
+          red_flags?: Json
           session_id?: string | null
           steps?: Json
+          summary?: string | null
           supports?: Json
           urgency?: string
         }

@@ -1,7 +1,6 @@
-import type { UrgencyKey } from "@/constants/colors";
-import type { TriageResult } from "@/constants/triage";
 import { requireUserId } from "@/lib/backend";
 import { supabase } from "@/lib/supabase";
+import type { TriageOutcome } from "@/lib/triage/types";
 import type { Json } from "@/types/db";
 
 const asJson = (v: unknown): Json => v as unknown as Json;
@@ -59,22 +58,24 @@ export const triageService = {
   /** Persist the triage outcome ("possible causes" + urgency, never a diagnosis). */
   async saveResult(
     petId: string,
-    args: { sessionId?: string; urgency: UrgencyKey; confidence: TriageResult["confidence"]; result: TriageResult }
+    args: { sessionId?: string; outcome: TriageOutcome }
   ): Promise<string> {
     const owner_id = requireUserId();
-    const { result } = args;
+    const { outcome } = args;
     const { data, error } = await supabase
       .from("triage_results")
       .insert({
         pet_id: petId,
         owner_id,
         session_id: args.sessionId ?? null,
-        urgency: args.urgency,
-        confidence: args.confidence,
-        causes: asJson(result.causes),
-        supports: asJson(result.supports),
-        changes_urgency: asJson(result.changesUrgency),
-        steps: asJson(result.steps),
+        urgency: outcome.urgency,
+        confidence: outcome.confidence,
+        causes: asJson(outcome.causes),
+        supports: asJson(outcome.supports),
+        changes_urgency: asJson(outcome.changesUrgency),
+        steps: asJson(outcome.steps),
+        summary: outcome.summary,
+        red_flags: asJson(outcome.redFlags),
       })
       .select("id")
       .single();

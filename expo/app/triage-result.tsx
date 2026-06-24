@@ -1,52 +1,72 @@
-import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import {
   Bell,
   Camera,
   Check,
   ChevronLeft,
   FileText,
+  ListPlus,
   Minus,
   Phone,
+  ShieldAlert,
   Stethoscope,
   Video,
   X,
 } from "lucide-react-native";
-import React, { useMemo } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Card, Disclaimer, PrimaryButton } from "@/components/ui";
-import Colors, { Fonts, Radius, Space, Urgency, cardShadow, type UrgencyKey } from "@/constants/colors";
-import { CONCERNS, getFlow } from "@/constants/triage";
+import Colors, { Fonts, Radius, Space, Urgency, softShadow } from "@/constants/colors";
+import { useTriage } from "@/lib/triage/store";
 import { usePets } from "@/providers/PetProvider";
 
-const URGENCY_ORDER: UrgencyKey[] = ["green", "amber", "orange", "red"];
-
-function escalate(base: UrgencyKey, redFlags: number): UrgencyKey {
-  const baseIdx = URGENCY_ORDER.indexOf(base);
-  const bump = redFlags >= 3 ? 3 : redFlags >= 2 ? 2 : redFlags >= 1 ? 1 : 0;
-  return URGENCY_ORDER[Math.min(URGENCY_ORDER.length - 1, baseIdx + bump)];
+function nowLabel(): string {
+  const d = new Date();
+  let h = d.getHours();
+  const m = d.getMinutes();
+  const ap = h < 12 ? "a" : "p";
+  h = h % 12;
+  if (h === 0) h = 12;
+  return `${h}:${m.toString().padStart(2, "0")}${ap}`;
 }
 
 export default function TriageResultScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { concern, redFlags } = useLocalSearchParams<{ concern: string; redFlags: string }>();
-  const { selectedPet } = usePets();
+  const { selectedPet, addLog, todayIso } = usePets();
 
-  const flow = useMemo(() => getFlow(concern ?? "other"), [concern]);
-  const redCount = Number(redFlags ?? "0");
-  const urgency = useMemo(() => escalate(flow.result.urgency, redCount), [flow, redCount]);
-  const concernLabel = useMemo(
-    () => CONCERNS.find((c) => c.id === concern)?.label ?? "your concern",
-    [concern]
-  );
-  const result = flow.result;
-  const confidence = redCount >= 2 ? "High" : result.confidence;
-  const escalated = urgency !== "green" && urgency !== "amber";
-  const needsVet = urgency !== "green";
+  const outcome = useTriage((s) => s.outcome);
+  const concernLabel = useTriage((s) => s.concernLabel) ?? "your concern";
 
-  const u = Urgency[urgency];
+  const [addedTimeline, setAddedTimeline] = useState<boolean>(false);
+
+  // Guard against landing here without a computed result.
+  useEffect(() => {
+    if (!outcome) router.replace("/(tabs)/ask");
+  }, [outcome, router]);
+
+  const addToTimeline = useCallback(() => {
+    if (!outcome) return;
+    addLog(selectedPet.id, {
+      id: `triage-${Date.now()}`,
+      petId: selectedPet.id,
+      date: todayIso,
+      time: nowLabel(),
+      category: "symptom",
+      title: `Triage: ${concernLabel} — ${Urgency[outcome.urgency].label}`,
+      detail: outcome.causes[0]?.name,
+      urgency: outcome.urgency,
+    });
+    setAddedTimeline(true);
+  }, [outcome, addLog, selectedPet.id, todayIso, concernLabel]);
+
+  if (!outcome) return null;
+
+  const u = Urgency[outcome.urgency];
+  const needsVet = outcome.urgency !== "green";
+  const escalated = outcome.urgency === "orange" || outcome.urgency === "red";
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -56,7 +76,7 @@ export default function TriageResultScreen() {
           <ChevronLeft size={24} color={Colors.ink} />
         </Pressable>
         <Text style={Fonts.h3}>Triage result</Text>
-        <Pressable onPress={() => router.dismissAll()} style={styles.backBtn} hitSlop={10}>
+        <Pressable onPress={() => router.replace("/(tabs)/ask")} style={styles.backBtn} hitSlop={10}>
           <X size={22} color={Colors.ink} />
         </Pressable>
       </View>
@@ -78,19 +98,35 @@ export default function TriageResultScreen() {
                 key={c}
                 style={[
                   styles.confDot,
-                  { backgroundColor: c === confidence ? u.color : "rgba(0,0,0,0.08)" },
+                  { backgroundColor: c === outcome.confidence ? u.color : "rgba(0,0,0,0.08)" },
                 ]}
               />
             ))}
-            <Text style={[styles.confText, { color: u.color }]}>{confidence} confidence</Text>
+            <Text style={[styles.confText, { color: u.color }]}>{outcome.confidence} confidence</Text>
           </View>
         </View>
+
+        {/* Red flags present */}
+        {outcome.redFlags.length > 0 ? (
+          <View style={styles.redCard}>
+            <View style={styles.redHead}>
+              <ShieldAlert size={18} color={Colors.red600} />
+              <Text style={styles.redTitle}>Red flags noted</Text>
+            </View>
+            {outcome.redFlags.map((f) => (
+              <View key={f} style={styles.redRow}>
+                <View style={styles.redDot} />
+                <Text style={styles.redText}>{f}</Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
 
         {/* Possible causes */}
         <Text style={styles.sectionTitle}>Possible causes</Text>
         <Text style={styles.sectionHint}>Ranked by how well they fit — these are not a diagnosis.</Text>
         <Card style={{ gap: 0, marginTop: 8 }}>
-          {result.causes.map((c, i) => (
+          {outcome.causes.map((c, i) => (
             <View key={c.rank}>
               {i > 0 ? <View style={styles.divider} /> : null}
               <View style={styles.causeRow}>
@@ -107,10 +143,10 @@ export default function TriageResultScreen() {
         </Card>
 
         {/* What supports this */}
-        <View style={styles.twoCol}>
+        {outcome.supports.length > 0 ? (
           <Card style={styles.colCard}>
             <Text style={styles.colTitle}>What supports this</Text>
-            {result.supports.map((s) => (
+            {outcome.supports.map((s) => (
               <View key={s} style={styles.bulletRow}>
                 <View style={styles.checkMini}>
                   <Check size={11} color="#fff" strokeWidth={3} />
@@ -119,12 +155,12 @@ export default function TriageResultScreen() {
               </View>
             ))}
           </Card>
-        </View>
+        ) : null}
 
         {/* What would change urgency */}
         <Card style={[styles.colCard, styles.warnCard]}>
           <Text style={[styles.colTitle, { color: Colors.amber600 }]}>What would change the urgency</Text>
-          {result.changesUrgency.map((s) => (
+          {outcome.changesUrgency.map((s) => (
             <View key={s} style={styles.bulletRow}>
               <View style={styles.warnDot}>
                 <Minus size={11} color={Colors.amber600} strokeWidth={3} />
@@ -137,7 +173,7 @@ export default function TriageResultScreen() {
         {/* What to do now */}
         <Text style={styles.sectionTitle}>What to do now</Text>
         <Card style={{ gap: 14, marginTop: 8 }}>
-          {result.steps.map((s, i) => (
+          {outcome.steps.map((s, i) => (
             <View key={i} style={styles.stepRow}>
               <View style={styles.stepNum}>
                 <Text style={styles.stepNumText}>{i + 1}</Text>
@@ -146,6 +182,30 @@ export default function TriageResultScreen() {
             </View>
           ))}
         </Card>
+
+        {/* Save actions */}
+        <View style={styles.actions}>
+          <PrimaryButton
+            label={addedTimeline ? "Added to timeline" : "Add to timeline"}
+            icon={
+              addedTimeline ? (
+                <Check size={18} color="#fff" />
+              ) : (
+                <ListPlus size={18} color="#fff" />
+              )
+            }
+            variant="primary"
+            onPress={addToTimeline}
+            style={{ flex: 1 }}
+          />
+          <PrimaryButton
+            label="Vet report"
+            icon={<FileText size={18} color={Colors.teal800} />}
+            variant="outline"
+            onPress={() => router.push("/vet-report")}
+            style={{ flex: 1 }}
+          />
+        </View>
 
         {/* Telehealth escalation */}
         {needsVet ? (
@@ -187,9 +247,7 @@ export default function TriageResultScreen() {
         {/* Ask next */}
         <Text style={styles.sectionTitle}>Ask next</Text>
         <View style={styles.chipRow}>
-          <NextChip label="Log stool photo" icon={<Camera size={16} color={Colors.teal700} />} onPress={() => router.push("/scan")} />
-          <NextChip label="Vet-ready report" icon={<FileText size={16} color={Colors.teal700} />} onPress={() => router.push("/vet-report")} />
-          <NextChip label="Book telehealth" icon={<Video size={16} color={Colors.teal700} />} onPress={() => {}} />
+          <NextChip label="Log a photo" icon={<Camera size={16} color={Colors.teal700} />} onPress={() => router.push("/scan")} />
           <NextChip label="12-hour check-in" icon={<Bell size={16} color={Colors.teal700} />} onPress={() => router.push("/reminders")} />
         </View>
 
@@ -234,7 +292,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     alignItems: "center",
     justifyContent: "center",
-    ...cardShadow,
+    ...softShadow,
   },
   hero: { borderRadius: Radius.lg, padding: Space.lg, alignItems: "center", gap: 4 },
   heroLabel: { ...Fonts.tiny, letterSpacing: 1 },
@@ -243,6 +301,18 @@ const styles = StyleSheet.create({
   confidenceRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 12 },
   confDot: { width: 9, height: 9, borderRadius: 5 },
   confText: { fontSize: 13, fontWeight: "800", marginLeft: 4 },
+  redCard: {
+    marginTop: Space.md,
+    backgroundColor: Colors.red100,
+    borderRadius: Radius.lg,
+    padding: Space.md,
+    gap: 8,
+  },
+  redHead: { flexDirection: "row", alignItems: "center", gap: 8 },
+  redTitle: { ...Fonts.h3, color: Colors.red600 },
+  redRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
+  redDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: Colors.red600, marginTop: 7 },
+  redText: { ...Fonts.body, flex: 1, lineHeight: 20, color: Colors.ink, fontWeight: "600" },
   sectionTitle: { ...Fonts.h2, marginTop: Space.lg },
   sectionHint: { ...Fonts.small, marginTop: 2 },
   divider: { height: 1, backgroundColor: Colors.hairline },
@@ -256,7 +326,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   rankText: { color: "#fff", fontWeight: "800", fontSize: 14 },
-  twoCol: { marginTop: Space.md },
   colCard: { gap: 10, marginTop: Space.md },
   colTitle: { ...Fonts.h3, fontSize: 14.5, color: Colors.green600 },
   warnCard: { backgroundColor: Colors.amber100 },
@@ -293,6 +362,7 @@ const styles = StyleSheet.create({
   },
   stepNumText: { color: Colors.teal700, fontWeight: "800", fontSize: 13 },
   stepText: { ...Fonts.body, flex: 1, lineHeight: 21 },
+  actions: { flexDirection: "row", gap: 10, marginTop: Space.lg },
   escalate: {
     backgroundColor: Colors.teal50,
     borderRadius: Radius.lg,
@@ -317,7 +387,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 11,
     borderRadius: Radius.pill,
-    ...cardShadow,
+    ...softShadow,
   },
   chipText: { ...Fonts.small, color: Colors.ink },
 });
