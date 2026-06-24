@@ -10,4 +10,10 @@ export { recordsService, RECORD_CATEGORIES, type NewRecord } from "./recordsServ
 export { scanService } from "./scanService";
 export { triageService, type AnswerInput } from "./triageService";
 export { foodService, type FoodProductSummary, type BarcodeLookupResult } from "./foodService";
-export { reportService, type ReportRow } from "./reportService";
+export { reportService, type ReportRow, type GatheredReport } from "./reportService";
+export {
+  privacyService,
+  DEFAULT_PRIVACY,
+  type PrivacyPrefs,
+  type PrivacyKey,
+} from "./privacyService";

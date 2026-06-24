@@ -6,55 +6,102 @@ import {
   Crown,
   Download,
   FileText,
+  ImageOff,
   Lock,
   Mail,
   PawPrint,
   Shield,
+  Sparkles,
   Trash2,
 } from "lucide-react-native";
-import React from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useCallback, useEffect, useState } from "react";
+import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 
 import { Card } from "@/components/ui";
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
+import { exportJson } from "@/lib/report/export";
 import { usePets } from "@/providers/PetProvider";
+import { DEFAULT_PRIVACY, privacyService, type PrivacyKey, type PrivacyPrefs } from "@/services";
 
-interface Row {
+interface Toggle {
+  key: PrivacyKey;
   label: string;
-  icon: React.ComponentType<{ size?: number; color?: string }>;
-  route?: string;
-  danger?: boolean;
+  detail: string;
 }
+
+const PERMISSIONS: Toggle[] = [
+  { key: "store_photos", label: "Store scan photos in the cloud", detail: "Turn off to keep photos on this device only." },
+  { key: "personalized_insights", label: "Use my logs for personalized insights", detail: "Powers trends and correlations for your pets." },
+  { key: "training_opt_out", label: "Opt out of photo & model training", detail: "We never use your pet's photos or data to train models." },
+  { key: "share_research", label: "Share anonymized data for research", detail: "Off by default. Helps improve pet-health insights." },
+];
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const { premium } = usePets();
+  const { premium, selectedPet, timeline, mode } = usePets();
 
-  const groups: { title: string; rows: Row[] }[] = [
-    {
-      title: "Pets & care",
-      rows: [
-        { label: "Manage pets", icon: PawPrint, route: "/add-pet" },
-        { label: "Reminders", icon: Bell, route: "/reminders" },
-        { label: "Connected devices", icon: Bluetooth, route: "/devices" },
-      ],
+  const [prefs, setPrefs] = useState<PrivacyPrefs>(DEFAULT_PRIVACY);
+  const [status, setStatus] = useState<string | null>(null);
+  const [busy, setBusy] = useState<boolean>(false);
+  const [confirm, setConfirm] = useState<"images" | "account" | null>(null);
+  const [policyOpen, setPolicyOpen] = useState<boolean>(false);
+
+  useEffect(() => {
+    privacyService.getPrefs().then(setPrefs).catch(() => {});
+  }, []);
+
+  const togglePref = useCallback(
+    (key: PrivacyKey) => {
+      setPrefs((prev) => {
+        const next = { ...prev, [key]: !prev[key] };
+        privacyService.setPref(key, next[key]).catch((e) => console.warn("[petwell] pref save failed:", e));
+        return next;
+      });
     },
-    {
-      title: "Data & privacy",
-      rows: [
-        { label: "Export all data (PDF)", icon: Download, route: "/vet-report" },
-        { label: "Privacy policy", icon: Shield },
-        { label: "Data permissions", icon: Lock },
-      ],
-    },
-    {
-      title: "Support",
-      rows: [
-        { label: "Contact us", icon: Mail },
-        { label: "Vet-ready report guide", icon: FileText, route: "/vet-report" },
-      ],
-    },
-  ];
+    []
+  );
+
+  const onExportAll = useCallback(async () => {
+    setBusy(true);
+    setStatus(null);
+    try {
+      const payload =
+        mode === "remote"
+          ? await privacyService.exportAll()
+          : { app: "Petwell", exportedAt: new Date().toISOString(), mode: "local", pet: selectedPet, timeline };
+      const method = await exportJson(payload, "petwell-data-export.json");
+      setStatus(method === "download" ? "Your data was downloaded as JSON." : "Your data export was shared.");
+    } catch {
+      setStatus("Couldn't export right now — please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }, [mode, selectedPet, timeline]);
+
+  const onDeleteImages = useCallback(async () => {
+    setConfirm(null);
+    setBusy(true);
+    try {
+      const n = await privacyService.deleteScanImages();
+      setStatus(n > 0 ? `Deleted ${n} stored scan image${n === 1 ? "" : "s"}.` : "No stored scan images to delete.");
+    } catch {
+      setStatus("Couldn't delete images — please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }, []);
+
+  const onDeleteAccount = useCallback(async () => {
+    setConfirm(null);
+    setBusy(true);
+    try {
+      await privacyService.deleteAccountData();
+      router.replace("/onboarding");
+    } catch {
+      setStatus("Couldn't delete account data — please try again.");
+      setBusy(false);
+    }
+  }, [router]);
 
   return (
     <ScrollView
@@ -64,11 +111,8 @@ export default function SettingsScreen() {
     >
       <Stack.Screen options={{ title: "Settings & privacy" }} />
 
-      {/* Premium banner */}
-      <Pressable
-        onPress={() => router.push("/premium")}
-        style={({ pressed }) => [styles.premiumBanner, pressed && { opacity: 0.92 }]}
-      >
+      {/* Premium banner — export does NOT require this */}
+      <Pressable onPress={() => router.push("/premium")} style={({ pressed }) => [styles.premiumBanner, pressed && { opacity: 0.92 }]}>
         <View style={styles.crownWrap}>
           <Crown size={22} color={Colors.amber500} />
         </View>
@@ -81,43 +125,163 @@ export default function SettingsScreen() {
         <ChevronRight size={20} color="rgba(255,255,255,0.8)" />
       </Pressable>
 
-      {/* Privacy promise */}
       <View style={styles.promise}>
         <Shield size={18} color={Colors.teal700} />
         <Text style={styles.promiseText}>
           Your pet&apos;s data belongs to you. We never sell pet photos or health data, and export is
-          always free.
+          always free — no subscription required.
         </Text>
       </View>
 
-      {groups.map((g) => (
-        <View key={g.title} style={styles.group}>
-          <Text style={styles.groupTitle}>{g.title}</Text>
-          <Card style={{ gap: 0 }}>
-            {g.rows.map((r, i) => (
-              <View key={r.label}>
-                {i > 0 ? <View style={styles.divider} /> : null}
-                <Pressable
-                  onPress={() => (r.route ? router.push(r.route as never) : undefined)}
-                  style={({ pressed }) => [styles.row, pressed && { opacity: 0.7 }]}
-                >
-                  <r.icon size={19} color={r.danger ? Colors.red600 : Colors.teal700} />
-                  <Text style={[styles.rowLabel, r.danger && { color: Colors.red600 }]}>{r.label}</Text>
-                  <ChevronRight size={17} color={Colors.inkFaint} />
-                </Pressable>
+      {/* Data permissions */}
+      <View style={styles.group}>
+        <Text style={styles.groupTitle}>Data permissions</Text>
+        <Card style={{ gap: 0 }}>
+          {PERMISSIONS.map((t, i) => (
+            <View key={t.key}>
+              {i > 0 ? <View style={styles.divider} /> : null}
+              <View style={styles.toggleRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.rowLabel}>{t.label}</Text>
+                  <Text style={styles.rowDetail}>{t.detail}</Text>
+                </View>
+                <Switch
+                  value={prefs[t.key]}
+                  onValueChange={() => togglePref(t.key)}
+                  trackColor={{ true: Colors.teal600, false: Colors.cream2 }}
+                  thumbColor="#fff"
+                />
               </View>
-            ))}
-          </Card>
-        </View>
-      ))}
+            </View>
+          ))}
+        </Card>
+      </View>
 
-      <Pressable style={styles.deleteRow}>
-        <Trash2 size={18} color={Colors.red600} />
-        <Text style={styles.deleteText}>Delete account & data</Text>
-      </Pressable>
+      {/* Your data */}
+      <View style={styles.group}>
+        <Text style={styles.groupTitle}>Your data</Text>
+        <Card style={{ gap: 0 }}>
+          <ActionRow icon={Download} label="Export all my data" onPress={onExportAll} />
+          <View style={styles.divider} />
+          <ActionRow icon={FileText} label="Build a vet-ready report" onPress={() => router.push("/vet-report")} />
+          <View style={styles.divider} />
+          {confirm === "images" ? (
+            <ConfirmRow
+              text="Delete all stored scan images?"
+              onConfirm={onDeleteImages}
+              onCancel={() => setConfirm(null)}
+            />
+          ) : (
+            <ActionRow icon={ImageOff} label="Delete stored scan images" onPress={() => setConfirm("images")} danger />
+          )}
+          <View style={styles.divider} />
+          <ActionRow icon={Lock} label="Privacy policy" onPress={() => setPolicyOpen((v) => !v)} />
+        </Card>
+        {policyOpen ? (
+          <View style={styles.policyBox}>
+            <Text style={styles.policyText}>
+              Petwell stores your pet&apos;s profile, logs, scans, and reports so you can access and
+              export them anytime. Data is private to your account and protected by row-level security.
+              We do not sell pet photos or health data. You can opt out of model training, delete stored
+              photos, or delete your account and data at any time from this screen. Export is always free.
+            </Text>
+          </View>
+        ) : null}
+      </View>
+
+      {/* Pets & care */}
+      <View style={styles.group}>
+        <Text style={styles.groupTitle}>Pets & care</Text>
+        <Card style={{ gap: 0 }}>
+          <ActionRow icon={PawPrint} label="Manage pets" onPress={() => router.push("/add-pet")} />
+          <View style={styles.divider} />
+          <ActionRow icon={Bell} label="Reminders" onPress={() => router.push("/reminders")} />
+          <View style={styles.divider} />
+          <ActionRow icon={Bluetooth} label="Connected devices" onPress={() => router.push("/devices")} />
+        </Card>
+      </View>
+
+      {/* Support */}
+      <View style={styles.group}>
+        <Text style={styles.groupTitle}>Support</Text>
+        <Card style={{ gap: 0 }}>
+          <ActionRow
+            icon={Mail}
+            label="Contact us"
+            onPress={() => Linking.openURL("mailto:support@petwell.app?subject=Petwell%20support").catch(() => {})}
+          />
+          <View style={styles.divider} />
+          <ActionRow icon={Sparkles} label="Talk to a vet" onPress={() => router.push("/telehealth")} />
+        </Card>
+      </View>
+
+      {busy ? (
+        <View style={styles.busy}>
+          <ActivityIndicator color={Colors.teal700} />
+        </View>
+      ) : null}
+      {status ? <Text style={styles.status}>{status}</Text> : null}
+
+      {/* Delete account */}
+      {confirm === "account" ? (
+        <View style={styles.deleteConfirm}>
+          <Text style={styles.deleteConfirmText}>
+            This permanently deletes your pets, logs, scans, and reports. This can&apos;t be undone.
+          </Text>
+          <View style={styles.confirmBtns}>
+            <Pressable style={[styles.confirmBtn, styles.confirmCancel]} onPress={() => setConfirm(null)}>
+              <Text style={styles.confirmCancelText}>Cancel</Text>
+            </Pressable>
+            <Pressable style={[styles.confirmBtn, styles.confirmDelete]} onPress={onDeleteAccount}>
+              <Text style={styles.confirmDeleteText}>Delete everything</Text>
+            </Pressable>
+          </View>
+        </View>
+      ) : (
+        <Pressable style={styles.deleteRow} onPress={() => setConfirm("account")}>
+          <Trash2 size={18} color={Colors.red600} />
+          <Text style={styles.deleteText}>Delete account & data</Text>
+        </Pressable>
+      )}
 
       <Text style={styles.version}>Petwell · v1.0.0</Text>
     </ScrollView>
+  );
+}
+
+function ActionRow({
+  icon: Icon,
+  label,
+  onPress,
+  danger,
+}: {
+  icon: React.ComponentType<{ size?: number; color?: string }>;
+  label: string;
+  onPress: () => void;
+  danger?: boolean;
+}) {
+  return (
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.row, pressed && { opacity: 0.7 }]}>
+      <Icon size={19} color={danger ? Colors.red600 : Colors.teal700} />
+      <Text style={[styles.rowLabel, danger && { color: Colors.red600 }]}>{label}</Text>
+      <ChevronRight size={17} color={Colors.inkFaint} />
+    </Pressable>
+  );
+}
+
+function ConfirmRow({ text, onConfirm, onCancel }: { text: string; onConfirm: () => void; onCancel: () => void }) {
+  return (
+    <View style={styles.inlineConfirm}>
+      <Text style={styles.inlineConfirmText}>{text}</Text>
+      <View style={{ flexDirection: "row", gap: 8 }}>
+        <Pressable onPress={onCancel} hitSlop={8}>
+          <Text style={styles.inlineCancel}>Cancel</Text>
+        </Pressable>
+        <Pressable onPress={onConfirm} hitSlop={8}>
+          <Text style={styles.inlineDelete}>Delete</Text>
+        </Pressable>
+      </View>
+    </View>
   );
 }
 
@@ -155,8 +319,32 @@ const styles = StyleSheet.create({
   groupTitle: { ...Fonts.tiny, marginBottom: 8, marginLeft: 4, letterSpacing: 0.8 },
   divider: { height: 1, backgroundColor: Colors.hairline, marginLeft: 46 },
   row: { flexDirection: "row", alignItems: "center", gap: Space.sm, paddingVertical: 14 },
+  toggleRow: { flexDirection: "row", alignItems: "center", gap: Space.sm, paddingVertical: 12 },
   rowLabel: { ...Fonts.h3, flex: 1, fontSize: 15 },
+  rowDetail: { ...Fonts.small, color: Colors.inkFaint, marginTop: 2, lineHeight: 17 },
+  policyBox: { backgroundColor: Colors.surface, borderRadius: Radius.md, padding: Space.md, marginTop: 8 },
+  policyText: { ...Fonts.small, color: Colors.inkSoft, lineHeight: 19 },
+  inlineConfirm: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 14, gap: 10 },
+  inlineConfirmText: { ...Fonts.small, color: Colors.ink, flex: 1, fontWeight: "600" },
+  inlineCancel: { ...Fonts.small, color: Colors.inkSoft, fontWeight: "700" },
+  inlineDelete: { ...Fonts.small, color: Colors.red600, fontWeight: "800" },
+  busy: { alignItems: "center", marginTop: Space.lg },
+  status: { ...Fonts.small, color: Colors.teal700, textAlign: "center", marginTop: Space.md, lineHeight: 18 },
   deleteRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, marginTop: Space.xl, paddingVertical: 12 },
   deleteText: { ...Fonts.h3, color: Colors.red600, fontSize: 15 },
+  deleteConfirm: {
+    marginTop: Space.xl,
+    backgroundColor: Colors.red100,
+    borderRadius: Radius.md,
+    padding: Space.md,
+    gap: 12,
+  },
+  deleteConfirmText: { ...Fonts.small, color: Colors.red600, lineHeight: 19, fontWeight: "600" },
+  confirmBtns: { flexDirection: "row", gap: 10 },
+  confirmBtn: { flex: 1, paddingVertical: 12, borderRadius: Radius.md, alignItems: "center" },
+  confirmCancel: { backgroundColor: Colors.surface },
+  confirmCancelText: { ...Fonts.h3, fontSize: 14, color: Colors.ink },
+  confirmDelete: { backgroundColor: Colors.red600 },
+  confirmDeleteText: { ...Fonts.h3, fontSize: 14, color: "#fff" },
   version: { ...Fonts.small, color: Colors.inkFaint, textAlign: "center", marginTop: Space.md },
 });

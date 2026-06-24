@@ -1,7 +1,7 @@
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { FileText, Link2, Pencil, Save } from "lucide-react-native";
-import React, { useCallback, useMemo } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useCallback, useMemo, useState } from "react";
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { Card, Disclaimer, PrimaryButton, UrgencyBand } from "@/components/ui";
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
@@ -37,6 +37,23 @@ export default function ScanResultScreen() {
   const { selectedPet, addLog, todayIso, mode } = usePets();
   const result = useMemo(() => getScanResult(type ?? "poop"), [type]);
   const isLabel = type === "food" || type === "treat";
+
+  const [correctOpen, setCorrectOpen] = useState<boolean>(false);
+  const [correctText, setCorrectText] = useState<string>("");
+  const [corrected, setCorrected] = useState<boolean>(false);
+
+  const saveCorrection = useCallback(() => {
+    const note = correctText.trim();
+    if (!note) {
+      setCorrectOpen(false);
+      return;
+    }
+    if (mode === "remote") {
+      scanService.saveCorrection({ scanType: type ?? "scan", note }).catch((e) => console.warn("[petwell] correction failed:", e));
+    }
+    setCorrected(true);
+    setCorrectOpen(false);
+  }, [correctText, mode, type]);
 
   const saveToTimeline = useCallback(() => {
     addLog(selectedPet.id, {
@@ -141,10 +158,34 @@ export default function ScanResultScreen() {
       </Card>
 
       {/* Manual correction */}
-      <Pressable style={styles.correctRow}>
-        <Pencil size={15} color={Colors.teal700} />
-        <Text style={styles.correctText}>Something off? Correct this result by hand</Text>
-      </Pressable>
+      {correctOpen ? (
+        <View style={styles.correctBox}>
+          <Text style={styles.correctBoxLabel}>What should this say instead?</Text>
+          <TextInput
+            value={correctText}
+            onChangeText={setCorrectText}
+            placeholder="e.g. Color looked normal brown, not soft"
+            placeholderTextColor={Colors.inkFaint}
+            multiline
+            style={styles.correctInput}
+          />
+          <View style={styles.correctBtns}>
+            <Pressable onPress={() => setCorrectOpen(false)} hitSlop={8}>
+              <Text style={styles.correctCancel}>Cancel</Text>
+            </Pressable>
+            <Pressable onPress={saveCorrection} hitSlop={8}>
+              <Text style={styles.correctSave}>Save correction</Text>
+            </Pressable>
+          </View>
+        </View>
+      ) : (
+        <Pressable style={styles.correctRow} onPress={() => setCorrectOpen(true)}>
+          <Pencil size={15} color={Colors.teal700} />
+          <Text style={styles.correctText}>
+            {corrected ? "Correction saved · edit again" : "Something off? Correct this result by hand"}
+          </Text>
+        </Pressable>
+      )}
 
       {/* Actions */}
       <View style={styles.actions}>
@@ -218,5 +259,29 @@ const styles = StyleSheet.create({
   notesText: { ...Fonts.body, lineHeight: 21 },
   correctRow: { flexDirection: "row", alignItems: "center", gap: 8, justifyContent: "center", marginTop: Space.lg },
   correctText: { ...Fonts.small, color: Colors.teal700 },
+  correctBox: {
+    marginTop: Space.lg,
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.md,
+    padding: Space.md,
+    gap: 10,
+    borderWidth: 1,
+    borderColor: Colors.teal100,
+  },
+  correctBoxLabel: { ...Fonts.h3, fontSize: 14 },
+  correctInput: {
+    backgroundColor: Colors.cream,
+    borderRadius: Radius.sm,
+    padding: 12,
+    minHeight: 64,
+    textAlignVertical: "top",
+    fontSize: 14.5,
+    color: Colors.ink,
+    borderWidth: 1,
+    borderColor: Colors.hairline,
+  },
+  correctBtns: { flexDirection: "row", justifyContent: "flex-end", gap: 18, alignItems: "center" },
+  correctCancel: { ...Fonts.small, color: Colors.inkSoft, fontWeight: "700" },
+  correctSave: { ...Fonts.small, color: Colors.teal700, fontWeight: "800" },
   actions: { flexDirection: "row", gap: 10, marginTop: Space.md },
 });

@@ -80,4 +80,41 @@ export const recordsService = {
     if (error) throw error;
     return mapRecord(data as RecordRow);
   },
+
+  /**
+   * Upload a document/photo to the private "documents" bucket under the user's
+   * folder and link it in document_uploads. Returns the storage path or null.
+   */
+  async uploadDocument(
+    petId: string,
+    localUri: string,
+    title: string,
+    recordId?: string
+  ): Promise<string | null> {
+    try {
+      const owner_id = requireUserId();
+      const res = await fetch(localUri);
+      const bytes = await res.arrayBuffer();
+      const ext = (localUri.split(".").pop()?.split("?")[0] || "jpg").toLowerCase();
+      const mime = ext === "pdf" ? "application/pdf" : ext === "png" ? "image/png" : "image/jpeg";
+      const path = `${owner_id}/${petId}-${Date.now()}.${ext}`;
+      const { error } = await supabase.storage
+        .from("documents")
+        .upload(path, bytes, { contentType: mime, upsert: true });
+      if (error) throw error;
+      await supabase.from("document_uploads").insert({
+        pet_id: petId,
+        owner_id,
+        title,
+        storage_path: path,
+        mime_type: mime,
+        size_bytes: bytes.byteLength,
+        record_id: recordId ?? null,
+      });
+      return path;
+    } catch (e) {
+      console.warn("[petwell] document upload skipped:", e);
+      return null;
+    }
+  },
 };

@@ -1050,7 +1050,11 @@ export type Database = {
           email: string | null
           id: string
           onboarded: boolean
+          personalized_insights: boolean
           premium: boolean
+          share_research: boolean
+          store_photos: boolean
+          training_opt_out: boolean
           updated_at: string
         }
         Insert: {
@@ -1059,7 +1063,11 @@ export type Database = {
           email?: string | null
           id: string
           onboarded?: boolean
+          personalized_insights?: boolean
           premium?: boolean
+          share_research?: boolean
+          store_photos?: boolean
+          training_opt_out?: boolean
           updated_at?: string
         }
         Update: {
@@ -1068,7 +1076,11 @@ export type Database = {
           email?: string | null
           id?: string
           onboarded?: boolean
+          personalized_insights?: boolean
           premium?: boolean
+          share_research?: boolean
+          store_photos?: boolean
+          training_opt_out?: boolean
           updated_at?: string
         }
         Relationships: []

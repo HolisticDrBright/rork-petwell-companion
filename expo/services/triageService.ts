@@ -55,6 +55,53 @@ export const triageService = {
     if (error) throw error;
   },
 
+  /** Latest completed triage for a pet — used to compile the vet report. */
+  async getLatest(petId: string): Promise<{
+    concernLabel: string | null;
+    urgency: string;
+    confidence: string;
+    causes: { name: string; note?: string }[];
+    redFlags: string[];
+    summary: string | null;
+    answers: { question: string; answer: string }[];
+  } | null> {
+    const { data: res, error } = await supabase
+      .from("triage_results")
+      .select("urgency, confidence, causes, red_flags, summary, session_id, created_at")
+      .eq("pet_id", petId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    if (!res) return null;
+
+    let concernLabel: string | null = null;
+    let answers: { question: string; answer: string }[] = [];
+    if (res.session_id) {
+      const { data: sess } = await supabase
+        .from("symptom_sessions")
+        .select("concern_label")
+        .eq("id", res.session_id)
+        .maybeSingle();
+      concernLabel = sess?.concern_label ?? null;
+      const { data: a } = await supabase
+        .from("symptom_answers")
+        .select("question_text, answer_label")
+        .eq("session_id", res.session_id)
+        .order("sort", { ascending: true });
+      answers = (a ?? []).map((x) => ({ question: x.question_text, answer: x.answer_label ?? "—" }));
+    }
+    return {
+      concernLabel,
+      urgency: res.urgency,
+      confidence: res.confidence,
+      causes: Array.isArray(res.causes) ? (res.causes as { name: string; note?: string }[]) : [],
+      redFlags: Array.isArray(res.red_flags) ? (res.red_flags as string[]) : [],
+      summary: res.summary,
+      answers,
+    };
+  },
+
   /** Persist the triage outcome ("possible causes" + urgency, never a diagnosis). */
   async saveResult(
     petId: string,

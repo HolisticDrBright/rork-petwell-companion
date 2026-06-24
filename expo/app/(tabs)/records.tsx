@@ -1,3 +1,4 @@
+import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import {
   Bluetooth,
@@ -8,14 +9,23 @@ import {
   Settings,
   ShieldCheck,
 } from "lucide-react-native";
-import React, { memo, useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { memo, useCallback, useMemo, useState } from "react";
+import {
+  ActivityIndicator,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { PetSwitcher } from "@/components/PetSwitcher";
-import { Card } from "@/components/ui";
+import { Card, PrimaryButton } from "@/components/ui";
 import Colors, { Fonts, Radius, Space, cardShadow } from "@/constants/colors";
 import { RECORDS } from "@/constants/mockData";
 import { usePets } from "@/providers/PetProvider";
@@ -54,9 +64,11 @@ const RecordRow = memo(function RecordRow({ item, isLast }: { item: RecordItem; 
 const Section = memo(function Section({
   title,
   items,
+  onAdd,
 }: {
   title: string;
   items: RecordItem[];
+  onAdd: (category: string) => void;
 }) {
   const [open, setOpen] = useState<boolean>(items.length > 0 && items.some((i) => i.status === "due"));
   return (
@@ -80,7 +92,7 @@ const Section = memo(function Section({
             ))}
           </Card>
         ) : (
-          <Pressable style={styles.emptyAdd}>
+          <Pressable style={styles.emptyAdd} onPress={() => onAdd(title)}>
             <Plus size={16} color={Colors.teal700} />
             <Text style={styles.emptyAddText}>Add {title.toLowerCase()}</Text>
           </Pressable>
@@ -90,9 +102,14 @@ const Section = memo(function Section({
   );
 });
 
+function todayLabel(): string {
+  return new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
 export default function RecordsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { selectedPet, mode } = usePets();
 
   const recordsQuery = useQuery({
@@ -101,10 +118,68 @@ export default function RecordsScreen() {
     queryFn: () => recordsService.listRecords(selectedPet.id),
   });
 
-  const sections = useMemo(() => {
+  // Local additions (instant feedback; also persisted in remote mode).
+  const [localAdds, setLocalAdds] = useState<Record<string, RecordItem[]>>({});
+  const [addCategory, setAddCategory] = useState<string | null>(null);
+  const [addTitle, setAddTitle] = useState<string>("");
+  const [busy, setBusy] = useState<boolean>(false);
+  const [status, setStatus] = useState<string | null>(null);
+
+  const baseSections = useMemo(() => {
     if (mode === "remote" && recordsQuery.data) return recordsQuery.data;
     return RECORDS[selectedPet.demoKey ?? selectedPet.id] ?? {};
   }, [mode, recordsQuery.data, selectedPet.demoKey, selectedPet.id]);
+
+  const sections = useMemo(() => {
+    const merged: Record<string, RecordItem[]> = {};
+    for (const [k, v] of Object.entries(baseSections)) merged[k] = [...v];
+    for (const [k, v] of Object.entries(localAdds)) merged[k] = [...(merged[k] ?? []), ...v];
+    return merged;
+  }, [baseSections, localAdds]);
+
+  const saveRecord = useCallback(async () => {
+    const title = addTitle.trim();
+    const category = addCategory;
+    if (!title || !category) {
+      setAddCategory(null);
+      return;
+    }
+    const item: RecordItem = { id: `local-${Date.now()}`, title, subtitle: `Added ${todayLabel()}`, date: todayLabel() };
+    setLocalAdds((prev) => ({ ...prev, [category]: [...(prev[category] ?? []), item] }));
+    setAddCategory(null);
+    setAddTitle("");
+    if (mode === "remote") {
+      try {
+        await recordsService.addRecord(selectedPet.id, { category, title, subtitle: item.subtitle, date: item.date });
+        queryClient.invalidateQueries({ queryKey: ["records", selectedPet.id] });
+      } catch (e) {
+        console.warn("[petwell] add record failed:", e);
+      }
+    }
+  }, [addTitle, addCategory, mode, selectedPet.id, queryClient]);
+
+  const uploadDoc = useCallback(async () => {
+    try {
+      const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 0.7 });
+      if (res.canceled || !res.assets[0]) return;
+      const uri = res.assets[0].uri;
+      const title = res.assets[0].fileName || `Document ${todayLabel()}`;
+      setBusy(true);
+      setStatus(null);
+      const item: RecordItem = { id: `doc-${Date.now()}`, title, subtitle: `Uploaded ${todayLabel()}`, date: todayLabel() };
+      setLocalAdds((prev) => ({ ...prev, Documents: [...(prev.Documents ?? []), item] }));
+      if (mode === "remote") {
+        const path = await recordsService.uploadDocument(selectedPet.id, uri, title);
+        setStatus(path ? "Document uploaded to your records." : "Saved locally — sign in to store it in the cloud.");
+      } else {
+        setStatus("Added to records. Sign in to store documents in the cloud.");
+      }
+    } catch {
+      setStatus("Couldn't add that document — please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }, [mode, selectedPet.id]);
 
   return (
     <ScrollView
@@ -138,11 +213,11 @@ export default function RecordsScreen() {
 
       {/* Quick actions */}
       <View style={styles.quickRow}>
-        <Pressable style={styles.quickBtn}>
+        <Pressable style={styles.quickBtn} onPress={() => setAddCategory("Documents")}>
           <Plus size={18} color={Colors.teal700} />
           <Text style={styles.quickText}>Add record</Text>
         </Pressable>
-        <Pressable style={styles.quickBtn}>
+        <Pressable style={styles.quickBtn} onPress={uploadDoc}>
           <FolderOpen size={18} color={Colors.teal700} />
           <Text style={styles.quickText}>Upload doc</Text>
         </Pressable>
@@ -152,10 +227,13 @@ export default function RecordsScreen() {
         </Pressable>
       </View>
 
+      {busy ? <ActivityIndicator color={Colors.teal700} style={{ marginTop: Space.md }} /> : null}
+      {status ? <Text style={styles.statusText}>{status}</Text> : null}
+
       {/* Sections */}
       <View style={{ paddingHorizontal: Space.md, marginTop: Space.sm }}>
         {Object.entries(sections).map(([title, items]) => (
-          <Section key={title} title={title} items={items} />
+          <Section key={title} title={title} items={items} onAdd={setAddCategory} />
         ))}
       </View>
 
@@ -166,6 +244,27 @@ export default function RecordsScreen() {
           Your pet&apos;s records belong to you. Export and sharing are always free.
         </Text>
       </View>
+
+      {/* Quick-add modal */}
+      <Modal visible={addCategory !== null} transparent animationType="fade" onRequestClose={() => setAddCategory(null)}>
+        <Pressable style={styles.modalBackdrop} onPress={() => setAddCategory(null)}>
+          <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
+            <Text style={Fonts.h2}>Add {(addCategory ?? "record").toLowerCase()}</Text>
+            <TextInput
+              value={addTitle}
+              onChangeText={setAddTitle}
+              placeholder="Title (e.g. Rabies certificate)"
+              placeholderTextColor={Colors.inkFaint}
+              style={styles.modalInput}
+              autoFocus
+            />
+            <View style={styles.modalBtns}>
+              <PrimaryButton label="Cancel" variant="outline" onPress={() => setAddCategory(null)} style={{ flex: 1 }} />
+              <PrimaryButton label="Add" variant="primary" onPress={saveRecord} style={{ flex: 1 }} />
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </ScrollView>
   );
 }
@@ -213,6 +312,7 @@ const styles = StyleSheet.create({
     ...cardShadow,
   },
   quickText: { ...Fonts.small, color: Colors.ink },
+  statusText: { ...Fonts.small, color: Colors.teal700, textAlign: "center", marginTop: Space.sm, paddingHorizontal: Space.md },
   sectionWrap: { marginBottom: 6 },
   sectionHeader: {
     flexDirection: "row",
@@ -236,7 +336,6 @@ const styles = StyleSheet.create({
   recordRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 12, gap: Space.sm },
   recordDate: { ...Fonts.small, color: Colors.inkSoft },
   statusPill: { paddingHorizontal: 9, paddingVertical: 3, borderRadius: Radius.pill },
-  statusText: { fontSize: 11, fontWeight: "800" },
   emptyAdd: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 12, paddingLeft: 4 },
   emptyAddText: { ...Fonts.small, color: Colors.teal700 },
   trust: {
@@ -250,4 +349,16 @@ const styles = StyleSheet.create({
     padding: Space.md,
   },
   trustText: { ...Fonts.small, color: Colors.teal900, flex: 1, lineHeight: 18 },
+  modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.35)", justifyContent: "center", padding: Space.lg },
+  modalCard: { backgroundColor: Colors.surface, borderRadius: Radius.lg, padding: Space.lg, gap: 14 },
+  modalInput: {
+    backgroundColor: Colors.cream,
+    borderRadius: Radius.md,
+    padding: Space.md,
+    fontSize: 15,
+    color: Colors.ink,
+    borderWidth: 1,
+    borderColor: Colors.hairline,
+  },
+  modalBtns: { flexDirection: "row", gap: 10 },
 });

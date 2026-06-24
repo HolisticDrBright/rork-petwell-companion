@@ -224,7 +224,7 @@ export default function TriageResultScreen() {
                 label="Talk to a vet"
                 icon={<Video size={18} color="#fff" />}
                 variant="primary"
-                onPress={() => {}}
+                onPress={() => router.push({ pathname: "/telehealth", params: { urgent: escalated ? "1" : "0" } })}
                 style={{ flex: 1 }}
               />
               <PrimaryButton
@@ -236,10 +236,13 @@ export default function TriageResultScreen() {
               />
             </View>
             {escalated ? (
-              <View style={styles.emergencyRow}>
+              <Pressable
+                style={({ pressed }) => [styles.emergencyRow, pressed && { opacity: 0.7 }]}
+                onPress={() => router.push({ pathname: "/telehealth", params: { urgent: "1" } })}
+              >
                 <Phone size={16} color={Colors.red600} />
                 <Text style={styles.emergencyText}>Find emergency clinic · Call primary vet</Text>
-              </View>
+              </Pressable>
             ) : null}
           </View>
         ) : null}

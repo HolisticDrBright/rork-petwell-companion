@@ -143,6 +143,24 @@ export const petsService = {
     if (error) throw error;
   },
 
+  async getMedications(
+    petId: string
+  ): Promise<{ id: string; name: string; purpose: string | null; status: string | null; refillDate: string | null }[]> {
+    const { data, error } = await supabase
+      .from("pet_medications")
+      .select("id, name, purpose, refill_date, status")
+      .eq("pet_id", petId)
+      .order("created_at", { ascending: true });
+    if (error) throw error;
+    return (data ?? []).map((r) => ({
+      id: r.id,
+      name: r.name,
+      purpose: r.purpose,
+      status: r.status,
+      refillDate: r.refill_date,
+    }));
+  },
+
   /** Seed Buddy / Luna / Milo for this user if they have no pets yet. */
   async ensureDemoData(): Promise<void> {
     const owner_id = requireUserId();
