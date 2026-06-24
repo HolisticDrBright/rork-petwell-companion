@@ -12,11 +12,14 @@ import React, { memo, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { useQuery } from "@tanstack/react-query";
+
 import { PetSwitcher } from "@/components/PetSwitcher";
 import { Card } from "@/components/ui";
 import Colors, { Fonts, Radius, Space, cardShadow } from "@/constants/colors";
 import { RECORDS } from "@/constants/mockData";
 import { usePets } from "@/providers/PetProvider";
+import { recordsService } from "@/services";
 import type { RecordItem } from "@/types/pet";
 
 const STATUS_STYLE = {
@@ -90,9 +93,18 @@ const Section = memo(function Section({
 export default function RecordsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { selectedPet } = usePets();
+  const { selectedPet, mode } = usePets();
 
-  const sections = useMemo(() => RECORDS[selectedPet.id] ?? {}, [selectedPet.id]);
+  const recordsQuery = useQuery({
+    queryKey: ["records", selectedPet.id],
+    enabled: mode === "remote",
+    queryFn: () => recordsService.listRecords(selectedPet.id),
+  });
+
+  const sections = useMemo(() => {
+    if (mode === "remote" && recordsQuery.data) return recordsQuery.data;
+    return RECORDS[selectedPet.demoKey ?? selectedPet.id] ?? {};
+  }, [mode, recordsQuery.data, selectedPet.demoKey, selectedPet.id]);
 
   return (
     <ScrollView

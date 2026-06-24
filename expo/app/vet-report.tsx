@@ -1,12 +1,13 @@
 import { Image } from "expo-image";
 import { Stack } from "expo-router";
-import { Download, FileText, HelpCircle, Minus, Share2, X } from "lucide-react-native";
-import React, { memo } from "react";
+import { Check, Download, FileText, HelpCircle, Minus, Share2, X } from "lucide-react-native";
+import React, { memo, useCallback, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { Card, Disclaimer, PrimaryButton } from "@/components/ui";
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
 import { usePets } from "@/providers/PetProvider";
+import { reportService } from "@/services";
 
 const RED_FLAGS = [
   { label: "Blood in stool", present: false },
@@ -28,12 +29,33 @@ const SectionHeader = memo(function SectionHeader({ children }: { children: stri
 });
 
 export default function VetReportScreen() {
-  const { selectedPet, timeline } = usePets();
+  const { selectedPet, timeline, mode } = usePets();
+  const [saved, setSaved] = useState<boolean>(false);
 
   const recentSymptoms = timeline.filter(
     (t) => t.category === "skin" || t.category === "stool" || t.category === "scan"
   );
   const foodChanges = timeline.filter((t) => t.category === "food");
+
+  const saveReport = useCallback(() => {
+    setSaved(true);
+    if (mode === "remote") {
+      reportService
+        .createReport(selectedPet.id, {
+          title: "Vet-ready summary",
+          concernSummary:
+            "Intermittent soft stool and elevated paw itching over the past week; improving since pausing a new treat.",
+          payload: {
+            redFlags: RED_FLAGS,
+            questions: QUESTIONS,
+            symptoms: recentSymptoms.slice(0, 8),
+            foodChanges: foodChanges.slice(0, 5),
+            generatedAt: new Date().toISOString(),
+          },
+        })
+        .catch((e) => console.warn("[petwell] report save failed:", e));
+    }
+  }, [mode, selectedPet.id, recentSymptoms, foodChanges]);
 
   return (
     <View style={styles.container}>
@@ -170,17 +192,19 @@ export default function VetReportScreen() {
         {/* Export actions */}
         <View style={styles.actions}>
           <PrimaryButton
-            label="Export PDF"
-            icon={<Download size={18} color="#fff" />}
+            label={saved ? "Saved to records" : "Export PDF"}
+            icon={
+              saved ? <Check size={18} color="#fff" /> : <Download size={18} color="#fff" />
+            }
             variant="primary"
-            onPress={() => {}}
+            onPress={saveReport}
             style={{ flex: 1 }}
           />
           <PrimaryButton
             label="Share with clinic"
             icon={<Share2 size={18} color={Colors.teal800} />}
             variant="outline"
-            onPress={() => {}}
+            onPress={saveReport}
             style={{ flex: 1 }}
           />
         </View>

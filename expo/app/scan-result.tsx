@@ -1,12 +1,23 @@
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { FileText, Link2, Pencil, Save } from "lucide-react-native";
-import React, { useMemo } from "react";
+import React, { useCallback, useMemo } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { Card, Disclaimer, PrimaryButton, UrgencyBand } from "@/components/ui";
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
 import { getScanResult } from "@/constants/scans";
 import { usePets } from "@/providers/PetProvider";
+import { scanService } from "@/services";
+
+function nowLabel(): string {
+  const d = new Date();
+  let h = d.getHours();
+  const m = d.getMinutes();
+  const ap = h < 12 ? "a" : "p";
+  h = h % 12;
+  if (h === 0) h = 12;
+  return `${h}:${m.toString().padStart(2, "0")}${ap}`;
+}
 
 const TONE_COLOR = {
   good: Colors.green600,
@@ -23,9 +34,30 @@ const TONE_BG = {
 export default function ScanResultScreen() {
   const router = useRouter();
   const { type, notes } = useLocalSearchParams<{ type: string; notes: string }>();
-  const { selectedPet } = usePets();
+  const { selectedPet, addLog, todayIso, mode } = usePets();
   const result = useMemo(() => getScanResult(type ?? "poop"), [type]);
   const isLabel = type === "food" || type === "treat";
+
+  const saveToTimeline = useCallback(() => {
+    addLog(selectedPet.id, {
+      id: `scan-${Date.now()}`,
+      petId: selectedPet.id,
+      date: todayIso,
+      time: nowLabel(),
+      category: "scan",
+      title: `${result.title} saved`,
+      detail: result.score ? `${result.scoreLabel}: ${result.score}` : undefined,
+      value: undefined,
+      urgency: result.urgency,
+    });
+    // Persist the full scan record (best-effort; ignored in local mode).
+    if (mode === "remote") {
+      scanService
+        .createScan(selectedPet.id, { scanType: type ?? "poop", result, notes: notes || undefined })
+        .catch((e) => console.warn("[petwell] scan save failed:", e));
+    }
+    router.replace("/(tabs)/timeline");
+  }, [addLog, selectedPet.id, todayIso, result, mode, type, notes, router]);
 
   return (
     <ScrollView
@@ -120,7 +152,7 @@ export default function ScanResultScreen() {
           label="Save to timeline"
           icon={<Save size={18} color="#fff" />}
           variant="primary"
-          onPress={() => router.replace("/(tabs)/timeline")}
+          onPress={saveToTimeline}
           style={{ flex: 1 }}
         />
         <PrimaryButton

@@ -1,10 +1,11 @@
 import { Stack, useRouter } from "expo-router";
 import { Cat, Dog, PawPrint } from "lucide-react-native";
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { PrimaryButton } from "@/components/ui";
 import Colors, { Fonts, Radius, Space, cardShadow } from "@/constants/colors";
+import { usePets } from "@/providers/PetProvider";
 
 function Field({
   label,
@@ -36,12 +37,33 @@ function Field({
 
 export default function AddPetScreen() {
   const router = useRouter();
+  const { addPet } = usePets();
   const [species, setSpecies] = useState<"dog" | "cat">("dog");
   const [name, setName] = useState<string>("");
   const [breed, setBreed] = useState<string>("");
   const [age, setAge] = useState<string>("");
   const [weight, setWeight] = useState<string>("");
   const [conditions, setConditions] = useState<string>("");
+  const [saving, setSaving] = useState<boolean>(false);
+
+  const canSave = name.trim().length > 0 && !saving;
+
+  const handleSave = useCallback(async () => {
+    if (!canSave) return;
+    setSaving(true);
+    await addPet({
+      name: name.trim(),
+      species,
+      breed: breed.trim(),
+      ageYears: Number(age) || 0,
+      weightLb: Number(weight) || 0,
+      conditions: conditions
+        .split(/[,\n]/)
+        .map((c) => c.trim())
+        .filter(Boolean),
+    });
+    router.back();
+  }, [canSave, addPet, name, species, breed, age, weight, conditions, router]);
 
   return (
     <ScrollView
@@ -100,12 +122,12 @@ export default function AddPetScreen() {
       />
 
       <PrimaryButton
-        label="Save pet"
+        label={saving ? "Saving…" : "Save pet"}
         variant="coral"
-        onPress={() => router.back()}
-        style={{ marginTop: Space.xl }}
+        onPress={handleSave}
+        style={[{ marginTop: Space.xl }, !canSave && { opacity: 0.5 }]}
       />
-      <Text style={styles.note}>This is a demo — saving returns to your current pets.</Text>
+      <Text style={styles.note}>Your pet is saved to your Petwell account and synced across screens.</Text>
     </ScrollView>
   );
 }

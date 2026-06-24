@@ -19,6 +19,7 @@ export interface Pet {
   riskWatch: string;
   conditions: string[];
   allergies: string[];
+  demoKey?: string; // 'buddy' | 'luna' | 'milo' for seeded demo pets
 }
 
 export interface CareItem {
