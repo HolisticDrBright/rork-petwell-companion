@@ -14,6 +14,66 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_review_actions: {
+        Row: {
+          action: string
+          admin_id: string
+          created_at: string
+          details: Json | null
+          entity_id: string | null
+          entity_type: string
+          id: string
+        }
+        Insert: {
+          action: string
+          admin_id?: string
+          created_at?: string
+          details?: Json | null
+          entity_id?: string | null
+          entity_type: string
+          id?: string
+        }
+        Update: {
+          action?: string
+          admin_id?: string
+          created_at?: string
+          details?: Json | null
+          entity_id?: string | null
+          entity_type?: string
+          id?: string
+        }
+        Relationships: []
+      }
+      admin_review_queue: {
+        Row: {
+          created_at: string
+          entity_id: string | null
+          entity_type: string
+          id: string
+          note: string | null
+          priority: number
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          entity_id?: string | null
+          entity_type: string
+          id?: string
+          note?: string | null
+          priority?: number
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string
+          id?: string
+          note?: string | null
+          priority?: number
+          status?: string
+        }
+        Relationships: []
+      }
       biological_systems: {
         Row: {
           created_at: string
@@ -139,13 +199,19 @@ export type Database = {
       contaminant_tests: {
         Row: {
           brand_id: string | null
+          confidence_score: number | null
           created_at: string
           evidence_source_id: string | null
+          evidence_status: Database["public"]["Enums"]["evidence_status"] | null
+          expires_at: string | null
           id: string
           is_demo: boolean
           lab: string | null
+          level: string
           product_id: string | null
           result: string
+          reviewed_at: string | null
+          reviewed_by: string | null
           source_url: string | null
           status: string | null
           substance: string
@@ -154,13 +220,21 @@ export type Database = {
         }
         Insert: {
           brand_id?: string | null
+          confidence_score?: number | null
           created_at?: string
           evidence_source_id?: string | null
+          evidence_status?:
+            | Database["public"]["Enums"]["evidence_status"]
+            | null
+          expires_at?: string | null
           id?: string
           is_demo?: boolean
           lab?: string | null
+          level?: string
           product_id?: string | null
           result: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           source_url?: string | null
           status?: string | null
           substance: string
@@ -169,13 +243,21 @@ export type Database = {
         }
         Update: {
           brand_id?: string | null
+          confidence_score?: number | null
           created_at?: string
           evidence_source_id?: string | null
+          evidence_status?:
+            | Database["public"]["Enums"]["evidence_status"]
+            | null
+          expires_at?: string | null
           id?: string
           is_demo?: boolean
           lab?: string | null
+          level?: string
           product_id?: string | null
           result?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           source_url?: string | null
           status?: string | null
           substance?: string
@@ -227,6 +309,45 @@ export type Database = {
           id?: string
           item_kind?: string
           item_slug?: string
+        }
+        Relationships: []
+      }
+      data_import_runs: {
+        Row: {
+          errors: Json | null
+          finished_at: string | null
+          id: string
+          records_created: number
+          records_seen: number
+          records_skipped: number
+          records_updated: number
+          source: string
+          started_at: string
+          status: string
+        }
+        Insert: {
+          errors?: Json | null
+          finished_at?: string | null
+          id?: string
+          records_created?: number
+          records_seen?: number
+          records_skipped?: number
+          records_updated?: number
+          source: string
+          started_at?: string
+          status?: string
+        }
+        Update: {
+          errors?: Json | null
+          finished_at?: string | null
+          id?: string
+          records_created?: number
+          records_seen?: number
+          records_skipped?: number
+          records_updated?: number
+          source?: string
+          started_at?: string
+          status?: string
         }
         Relationships: []
       }
@@ -600,6 +721,38 @@ export type Database = {
           },
         ]
       }
+      food_product_aliases: {
+        Row: {
+          alias: string
+          alias_type: string
+          created_at: string
+          id: string
+          product_id: string
+        }
+        Insert: {
+          alias: string
+          alias_type?: string
+          created_at?: string
+          id?: string
+          product_id: string
+        }
+        Update: {
+          alias?: string
+          alias_type?: string
+          created_at?: string
+          id?: string
+          product_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "food_product_aliases_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "food_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       food_product_ingredients: {
         Row: {
           id: string
@@ -643,11 +796,17 @@ export type Database = {
           brand_id: string | null
           calorie_density: string | null
           created_at: string
+          evidence_status: Database["public"]["Enums"]["evidence_status"] | null
           form: string | null
           id: string
+          image_url: string | null
+          ingredient_text: string | null
+          last_reviewed_at: string | null
           life_stage: string | null
+          match_confidence: string | null
           name: string
           product_type: string
+          source_url: string | null
           species: string
         }
         Insert: {
@@ -656,11 +815,19 @@ export type Database = {
           brand_id?: string | null
           calorie_density?: string | null
           created_at?: string
+          evidence_status?:
+            | Database["public"]["Enums"]["evidence_status"]
+            | null
           form?: string | null
           id?: string
+          image_url?: string | null
+          ingredient_text?: string | null
+          last_reviewed_at?: string | null
           life_stage?: string | null
+          match_confidence?: string | null
           name: string
           product_type?: string
+          source_url?: string | null
           species?: string
         }
         Update: {
@@ -669,11 +836,19 @@ export type Database = {
           brand_id?: string | null
           calorie_density?: string | null
           created_at?: string
+          evidence_status?:
+            | Database["public"]["Enums"]["evidence_status"]
+            | null
           form?: string | null
           id?: string
+          image_url?: string | null
+          ingredient_text?: string | null
+          last_reviewed_at?: string | null
           life_stage?: string | null
+          match_confidence?: string | null
           name?: string
           product_type?: string
+          source_url?: string | null
           species?: string
         }
         Relationships: [
@@ -1129,6 +1304,93 @@ export type Database = {
         }
         Relationships: []
       }
+      lab_tests: {
+        Row: {
+          brand_id: string | null
+          confidence_score: number | null
+          contaminant_category: string
+          created_at: string
+          document_path: string | null
+          evidence_status: Database["public"]["Enums"]["evidence_status"]
+          expires_at: string | null
+          id: string
+          lab_name: string | null
+          level: string
+          lot: string | null
+          product_id: string | null
+          raw_payload: Json | null
+          result_value: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          source_url: string | null
+          status: string | null
+          substance: string | null
+          test_date: string | null
+          unit: string | null
+        }
+        Insert: {
+          brand_id?: string | null
+          confidence_score?: number | null
+          contaminant_category: string
+          created_at?: string
+          document_path?: string | null
+          evidence_status?: Database["public"]["Enums"]["evidence_status"]
+          expires_at?: string | null
+          id?: string
+          lab_name?: string | null
+          level?: string
+          lot?: string | null
+          product_id?: string | null
+          raw_payload?: Json | null
+          result_value?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          source_url?: string | null
+          status?: string | null
+          substance?: string | null
+          test_date?: string | null
+          unit?: string | null
+        }
+        Update: {
+          brand_id?: string | null
+          confidence_score?: number | null
+          contaminant_category?: string
+          created_at?: string
+          document_path?: string | null
+          evidence_status?: Database["public"]["Enums"]["evidence_status"]
+          expires_at?: string | null
+          id?: string
+          lab_name?: string | null
+          level?: string
+          lot?: string | null
+          product_id?: string | null
+          raw_payload?: Json | null
+          result_value?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          source_url?: string | null
+          status?: string | null
+          substance?: string | null
+          test_date?: string | null
+          unit?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lab_tests_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "food_brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lab_tests_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "food_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       manufacturer_quality_profiles: {
         Row: {
           brand_id: string
@@ -1426,6 +1688,62 @@ export type Database = {
           },
         ]
       }
+      ocr_label_submissions: {
+        Row: {
+          cleaned_text: string | null
+          created_at: string
+          evidence_status: Database["public"]["Enums"]["evidence_status"]
+          guaranteed_analysis: Json | null
+          id: string
+          image_path: string | null
+          match_confidence: string | null
+          matched_product_id: string | null
+          owner_id: string
+          parsed_ingredients: string[] | null
+          pet_id: string | null
+          raw_ocr_text: string | null
+          review_status: string
+        }
+        Insert: {
+          cleaned_text?: string | null
+          created_at?: string
+          evidence_status?: Database["public"]["Enums"]["evidence_status"]
+          guaranteed_analysis?: Json | null
+          id?: string
+          image_path?: string | null
+          match_confidence?: string | null
+          matched_product_id?: string | null
+          owner_id?: string
+          parsed_ingredients?: string[] | null
+          pet_id?: string | null
+          raw_ocr_text?: string | null
+          review_status?: string
+        }
+        Update: {
+          cleaned_text?: string | null
+          created_at?: string
+          evidence_status?: Database["public"]["Enums"]["evidence_status"]
+          guaranteed_analysis?: Json | null
+          id?: string
+          image_path?: string | null
+          match_confidence?: string | null
+          matched_product_id?: string | null
+          owner_id?: string
+          parsed_ingredients?: string[] | null
+          pet_id?: string | null
+          raw_ocr_text?: string | null
+          review_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ocr_label_submissions_matched_product_id_fkey"
+            columns: ["matched_product_id"]
+            isOneToOne: false
+            referencedRelation: "food_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pet_allergies: {
         Row: {
           created_at: string
@@ -1635,12 +1953,66 @@ export type Database = {
         }
         Relationships: []
       }
+      product_submissions: {
+        Row: {
+          barcode: string | null
+          brand_name: string | null
+          created_at: string
+          evidence_status: Database["public"]["Enums"]["evidence_status"]
+          id: string
+          matched_product_id: string | null
+          notes: string | null
+          owner_id: string
+          payload: Json | null
+          product_name: string | null
+          review_status: string
+          species: string | null
+        }
+        Insert: {
+          barcode?: string | null
+          brand_name?: string | null
+          created_at?: string
+          evidence_status?: Database["public"]["Enums"]["evidence_status"]
+          id?: string
+          matched_product_id?: string | null
+          notes?: string | null
+          owner_id?: string
+          payload?: Json | null
+          product_name?: string | null
+          review_status?: string
+          species?: string | null
+        }
+        Update: {
+          barcode?: string | null
+          brand_name?: string | null
+          created_at?: string
+          evidence_status?: Database["public"]["Enums"]["evidence_status"]
+          id?: string
+          matched_product_id?: string | null
+          notes?: string | null
+          owner_id?: string
+          payload?: Json | null
+          product_name?: string | null
+          review_status?: string
+          species?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_submissions_matched_product_id_fkey"
+            columns: ["matched_product_id"]
+            isOneToOne: false
+            referencedRelation: "food_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
           display_name: string | null
           email: string | null
           id: string
+          is_admin: boolean
           onboarded: boolean
           personalized_insights: boolean
           premium: boolean
@@ -1654,6 +2026,7 @@ export type Database = {
           display_name?: string | null
           email?: string | null
           id: string
+          is_admin?: boolean
           onboarded?: boolean
           personalized_insights?: boolean
           premium?: boolean
@@ -1667,6 +2040,7 @@ export type Database = {
           display_name?: string | null
           email?: string | null
           id?: string
+          is_admin?: boolean
           onboarded?: boolean
           personalized_insights?: boolean
           premium?: boolean
@@ -1833,36 +2207,70 @@ export type Database = {
       recall_events: {
         Row: {
           brand_id: string | null
+          brand_match_level: string | null
+          classification: string | null
           created_at: string
+          dedup_key: string | null
+          distribution: string | null
+          event_id: string | null
           evidence_source_id: string | null
+          evidence_status: Database["public"]["Enums"]["evidence_status"] | null
+          fda_recall_number: string | null
           id: string
+          last_reviewed_at: string | null
           product_id: string | null
+          raw_payload: Json | null
           reason: string
           recall_date: string | null
           severity: string | null
           source_url: string | null
+          status: string | null
         }
         Insert: {
           brand_id?: string | null
+          brand_match_level?: string | null
+          classification?: string | null
           created_at?: string
+          dedup_key?: string | null
+          distribution?: string | null
+          event_id?: string | null
           evidence_source_id?: string | null
+          evidence_status?:
+            | Database["public"]["Enums"]["evidence_status"]
+            | null
+          fda_recall_number?: string | null
           id?: string
+          last_reviewed_at?: string | null
           product_id?: string | null
+          raw_payload?: Json | null
           reason: string
           recall_date?: string | null
           severity?: string | null
           source_url?: string | null
+          status?: string | null
         }
         Update: {
           brand_id?: string | null
+          brand_match_level?: string | null
+          classification?: string | null
           created_at?: string
+          dedup_key?: string | null
+          distribution?: string | null
+          event_id?: string | null
           evidence_source_id?: string | null
+          evidence_status?:
+            | Database["public"]["Enums"]["evidence_status"]
+            | null
+          fda_recall_number?: string | null
           id?: string
+          last_reviewed_at?: string | null
           product_id?: string | null
+          raw_payload?: Json | null
           reason?: string
           recall_date?: string | null
           severity?: string | null
           source_url?: string | null
+          status?: string | null
         }
         Relationships: [
           {
@@ -2035,6 +2443,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      source_snapshots: {
+        Row: {
+          content_hash: string | null
+          fetched_at: string
+          id: string
+          raw_payload: Json | null
+          source: string
+          url: string | null
+        }
+        Insert: {
+          content_hash?: string | null
+          fetched_at?: string
+          id?: string
+          raw_payload?: Json | null
+          source: string
+          url?: string | null
+        }
+        Update: {
+          content_hash?: string | null
+          fetched_at?: string
+          id?: string
+          raw_payload?: Json | null
+          source?: string
+          url?: string | null
+        }
+        Relationships: []
       }
       species_safety_rules: {
         Row: {
@@ -2383,6 +2818,54 @@ export type Database = {
           },
         ]
       }
+      toxin_references: {
+        Row: {
+          aliases: string[]
+          body_system: string | null
+          category: string
+          emergency_text: string | null
+          evidence_status: Database["public"]["Enums"]["evidence_status"]
+          id: string
+          last_reviewed_at: string
+          name: string
+          severity: string
+          source_name: string | null
+          source_url: string | null
+          species: string
+          symptoms: string[]
+        }
+        Insert: {
+          aliases?: string[]
+          body_system?: string | null
+          category: string
+          emergency_text?: string | null
+          evidence_status?: Database["public"]["Enums"]["evidence_status"]
+          id?: string
+          last_reviewed_at?: string
+          name: string
+          severity?: string
+          source_name?: string | null
+          source_url?: string | null
+          species?: string
+          symptoms?: string[]
+        }
+        Update: {
+          aliases?: string[]
+          body_system?: string | null
+          category?: string
+          emergency_text?: string | null
+          evidence_status?: Database["public"]["Enums"]["evidence_status"]
+          id?: string
+          last_reviewed_at?: string
+          name?: string
+          severity?: string
+          source_name?: string | null
+          source_url?: string | null
+          species?: string
+          symptoms?: string[]
+        }
+        Relationships: []
+      }
       treat_audits: {
         Row: {
           calories: number | null
@@ -2643,10 +3126,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      is_admin: { Args: never; Returns: boolean }
     }
     Enums: {
-      [_ in never]: never
+      evidence_status:
+        | "verified_official"
+        | "verified_lab"
+        | "brand_claim"
+        | "open_database"
+        | "crowdsourced_unverified"
+        | "admin_reviewed"
+        | "demo_seed"
+        | "stale"
+        | "rejected"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2773,6 +3265,18 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      evidence_status: [
+        "verified_official",
+        "verified_lab",
+        "brand_claim",
+        "open_database",
+        "crowdsourced_unverified",
+        "admin_reviewed",
+        "demo_seed",
+        "stale",
+        "rejected",
+      ],
+    },
   },
 } as const
