@@ -13,14 +13,18 @@ import {
   Video,
   X,
 } from "lucide-react-native";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { IntegrativePlanView } from "@/components/IntegrativePlan";
 import { Card, Disclaimer, PrimaryButton } from "@/components/ui";
 import Colors, { Fonts, Radius, Space, Urgency, softShadow } from "@/constants/colors";
+import { TRIAGE_TO_SYSTEM } from "@/lib/integrative/catalog";
+import { buildPlan } from "@/lib/integrative/engine";
 import { useTriage } from "@/lib/triage/store";
 import { usePets } from "@/providers/PetProvider";
+import { integrativeService } from "@/services";
 
 function nowLabel(): string {
   const d = new Date();
@@ -35,17 +39,46 @@ function nowLabel(): string {
 export default function TriageResultScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { selectedPet, addLog, todayIso } = usePets();
+  const { selectedPet, addLog, todayIso, mode } = usePets();
 
   const outcome = useTriage((s) => s.outcome);
   const concernLabel = useTriage((s) => s.concernLabel) ?? "your concern";
+  const tModule = useTriage((s) => s.module);
 
   const [addedTimeline, setAddedTimeline] = useState<boolean>(false);
+  const savedPlanRef = useRef<boolean>(false);
+
+  // Generate the integrative support plan from the triage outcome. Red flags /
+  // emergency urgency cause the engine to suppress all natural recommendations.
+  const plan = useMemo(() => {
+    if (!outcome) return null;
+    const system = (tModule && TRIAGE_TO_SYSTEM[tModule.id]) || "immune";
+    return buildPlan({
+      system,
+      urgency: outcome.urgency,
+      redFlags: outcome.redFlags,
+      pet: {
+        name: selectedPet.name,
+        species: selectedPet.species,
+        ageYears: selectedPet.ageYears,
+        conditions: selectedPet.conditions,
+        allergies: selectedPet.allergies,
+      },
+      concernLabel,
+    });
+  }, [outcome, tModule, selectedPet, concernLabel]);
 
   // Guard against landing here without a computed result.
   useEffect(() => {
     if (!outcome) router.replace("/(tabs)/ask");
   }, [outcome, router]);
+
+  // Persist the generated plan (best-effort; no-op in local mode).
+  useEffect(() => {
+    if (!plan || mode !== "remote" || savedPlanRef.current) return;
+    savedPlanRef.current = true;
+    integrativeService.savePlan(selectedPet.id, { plan }).catch((e) => console.warn("[petwell] plan save failed:", e));
+  }, [plan, mode, selectedPet.id]);
 
   const addToTimeline = useCallback(() => {
     if (!outcome) return;
@@ -194,6 +227,14 @@ export default function TriageResultScreen() {
             </View>
           ))}
         </Card>
+
+        {/* Integrative support plan */}
+        {plan ? (
+          <IntegrativePlanView
+            plan={plan}
+            onFindVet={() => router.push({ pathname: "/telehealth", params: { holistic: "1" } })}
+          />
+        ) : null}
 
         {/* Save actions */}
         <View style={styles.actions}>

@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      biological_systems: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          label: string
+          slug: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          label: string
+          slug: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          label?: string
+          slug?: string
+        }
+        Relationships: []
+      }
       care_tasks: {
         Row: {
           created_at: string
@@ -57,6 +81,60 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      condition_meal_plans: {
+        Row: {
+          base_urgency: string | null
+          cat_guidance: string | null
+          consider_items: Json
+          created_at: string
+          food_first: Json
+          id: string
+          lifestyle: Json
+          notes: Json
+          pattern: string | null
+          red_flags: Json
+          slug: string
+          system_slug: string
+          title: string
+          what_to_track: Json
+          when_to_ask_vet: Json
+        }
+        Insert: {
+          base_urgency?: string | null
+          cat_guidance?: string | null
+          consider_items?: Json
+          created_at?: string
+          food_first?: Json
+          id?: string
+          lifestyle?: Json
+          notes?: Json
+          pattern?: string | null
+          red_flags?: Json
+          slug: string
+          system_slug: string
+          title: string
+          what_to_track?: Json
+          when_to_ask_vet?: Json
+        }
+        Update: {
+          base_urgency?: string | null
+          cat_guidance?: string | null
+          consider_items?: Json
+          created_at?: string
+          food_first?: Json
+          id?: string
+          lifestyle?: Json
+          notes?: Json
+          pattern?: string | null
+          red_flags?: Json
+          slug?: string
+          system_slug?: string
+          title?: string
+          what_to_track?: Json
+          when_to_ask_vet?: Json
+        }
+        Relationships: []
       }
       contaminant_tests: {
         Row: {
@@ -128,6 +206,30 @@ export type Database = {
           },
         ]
       }
+      contraindications: {
+        Row: {
+          contraindication: string
+          created_at: string
+          id: string
+          item_kind: string
+          item_slug: string
+        }
+        Insert: {
+          contraindication: string
+          created_at?: string
+          id?: string
+          item_kind: string
+          item_slug: string
+        }
+        Update: {
+          contraindication?: string
+          created_at?: string
+          id?: string
+          item_kind?: string
+          item_slug?: string
+        }
+        Relationships: []
+      }
       document_uploads: {
         Row: {
           created_at: string
@@ -185,6 +287,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      evidence_grades: {
+        Row: {
+          description: string
+          grade: string
+          label: string
+        }
+        Insert: {
+          description: string
+          grade: string
+          label: string
+        }
+        Update: {
+          description?: string
+          grade?: string
+          label?: string
+        }
+        Relationships: []
       }
       evidence_links: {
         Row: {
@@ -721,6 +841,65 @@ export type Database = {
           },
         ]
       }
+      herb_profiles: {
+        Row: {
+          ask_vet_first: boolean
+          benefit: string
+          cat_safety: string
+          created_at: string
+          dog_safety: string
+          evidence_grade: string | null
+          flavor: string | null
+          id: string
+          name: string
+          slug: string
+          source: string | null
+          systems: Json
+          tcm_pattern: string | null
+          thermal_nature: string | null
+        }
+        Insert: {
+          ask_vet_first?: boolean
+          benefit: string
+          cat_safety?: string
+          created_at?: string
+          dog_safety?: string
+          evidence_grade?: string | null
+          flavor?: string | null
+          id?: string
+          name: string
+          slug: string
+          source?: string | null
+          systems?: Json
+          tcm_pattern?: string | null
+          thermal_nature?: string | null
+        }
+        Update: {
+          ask_vet_first?: boolean
+          benefit?: string
+          cat_safety?: string
+          created_at?: string
+          dog_safety?: string
+          evidence_grade?: string | null
+          flavor?: string | null
+          id?: string
+          name?: string
+          slug?: string
+          source?: string | null
+          systems?: Json
+          tcm_pattern?: string | null
+          thermal_nature?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "herb_profiles_evidence_grade_fkey"
+            columns: ["evidence_grade"]
+            isOneToOne: false
+            referencedRelation: "evidence_grades"
+            referencedColumns: ["grade"]
+          },
+        ]
+      }
       ingredient_aliases: {
         Row: {
           alias: string
@@ -785,6 +964,33 @@ export type Database = {
           },
         ]
       }
+      integrative_protocols: {
+        Row: {
+          created_at: string
+          id: string
+          slug: string
+          summary: string | null
+          system_slug: string
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          slug: string
+          summary?: string | null
+          system_slug: string
+          title: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          slug?: string
+          summary?: string | null
+          system_slug?: string
+          title?: string
+        }
+        Relationships: []
+      }
       manufacturer_quality_profiles: {
         Row: {
           brand_id: string
@@ -820,6 +1026,80 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "food_brands"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      medication_interactions: {
+        Row: {
+          created_at: string
+          drug_class: string
+          id: string
+          item_kind: string
+          item_slug: string
+          note: string | null
+        }
+        Insert: {
+          created_at?: string
+          drug_class: string
+          id?: string
+          item_kind: string
+          item_slug: string
+          note?: string | null
+        }
+        Update: {
+          created_at?: string
+          drug_class?: string
+          id?: string
+          item_kind?: string
+          item_slug?: string
+          note?: string | null
+        }
+        Relationships: []
+      }
+      natural_remedies: {
+        Row: {
+          ask_vet_first: boolean
+          benefit: string
+          created_at: string
+          evidence_grade: string | null
+          id: string
+          kind: string
+          name: string
+          slug: string
+          source: string | null
+          systems: Json
+        }
+        Insert: {
+          ask_vet_first?: boolean
+          benefit: string
+          created_at?: string
+          evidence_grade?: string | null
+          id?: string
+          kind: string
+          name: string
+          slug: string
+          source?: string | null
+          systems?: Json
+        }
+        Update: {
+          ask_vet_first?: boolean
+          benefit?: string
+          created_at?: string
+          evidence_grade?: string | null
+          id?: string
+          kind?: string
+          name?: string
+          slug?: string
+          source?: string | null
+          systems?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "natural_remedies_evidence_grade_fkey"
+            columns: ["evidence_grade"]
+            isOneToOne: false
+            referencedRelation: "evidence_grades"
+            referencedColumns: ["grade"]
           },
         ]
       }
@@ -1085,6 +1365,67 @@ export type Database = {
         }
         Relationships: []
       }
+      protocol_recommendations: {
+        Row: {
+          condition_slug: string | null
+          created_at: string
+          emergency_override: boolean
+          id: string
+          owner_id: string
+          pet_id: string
+          plan: Json
+          system_slug: string | null
+          triage_result_id: string | null
+          urgency: string | null
+        }
+        Insert: {
+          condition_slug?: string | null
+          created_at?: string
+          emergency_override?: boolean
+          id?: string
+          owner_id: string
+          pet_id: string
+          plan?: Json
+          system_slug?: string | null
+          triage_result_id?: string | null
+          urgency?: string | null
+        }
+        Update: {
+          condition_slug?: string | null
+          created_at?: string
+          emergency_override?: boolean
+          id?: string
+          owner_id?: string
+          pet_id?: string
+          plan?: Json
+          system_slug?: string | null
+          triage_result_id?: string | null
+          urgency?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "protocol_recommendations_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "protocol_recommendations_pet_id_fkey"
+            columns: ["pet_id"]
+            isOneToOne: false
+            referencedRelation: "pet_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "protocol_recommendations_triage_result_id_fkey"
+            columns: ["triage_result_id"]
+            isOneToOne: false
+            referencedRelation: "triage_results"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       recall_events: {
         Row: {
           brand_id: string | null
@@ -1291,6 +1632,83 @@ export type Database = {
           },
         ]
       }
+      species_safety_rules: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          rule: string
+          severity: string
+          species: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          id?: string
+          rule: string
+          severity?: string
+          species: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          rule?: string
+          severity?: string
+          species?: string
+        }
+        Relationships: []
+      }
+      supplement_ingredients: {
+        Row: {
+          ask_vet_first: boolean
+          benefit: string
+          cat_safety: string
+          created_at: string
+          dog_safety: string
+          evidence_grade: string | null
+          id: string
+          name: string
+          slug: string
+          source: string | null
+          systems: Json
+        }
+        Insert: {
+          ask_vet_first?: boolean
+          benefit: string
+          cat_safety?: string
+          created_at?: string
+          dog_safety?: string
+          evidence_grade?: string | null
+          id?: string
+          name: string
+          slug: string
+          source?: string | null
+          systems?: Json
+        }
+        Update: {
+          ask_vet_first?: boolean
+          benefit?: string
+          cat_safety?: string
+          created_at?: string
+          dog_safety?: string
+          evidence_grade?: string | null
+          id?: string
+          name?: string
+          slug?: string
+          source?: string | null
+          systems?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplement_ingredients_evidence_grade_fkey"
+            columns: ["evidence_grade"]
+            isOneToOne: false
+            referencedRelation: "evidence_grades"
+            referencedColumns: ["grade"]
+          },
+        ]
+      }
       symptom_answers: {
         Row: {
           answer_id: string | null
@@ -1385,6 +1803,74 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      system_patterns: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          system_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          system_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          system_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "system_patterns_system_id_fkey"
+            columns: ["system_id"]
+            isOneToOne: false
+            referencedRelation: "biological_systems"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tcm_food_properties: {
+        Row: {
+          condition_contraindications: string | null
+          created_at: string
+          flavor: string | null
+          food: string
+          id: string
+          preparation_notes: string | null
+          species_safety: string | null
+          tcm_pattern_support: string | null
+          thermal_nature: string | null
+        }
+        Insert: {
+          condition_contraindications?: string | null
+          created_at?: string
+          flavor?: string | null
+          food: string
+          id?: string
+          preparation_notes?: string | null
+          species_safety?: string | null
+          tcm_pattern_support?: string | null
+          thermal_nature?: string | null
+        }
+        Update: {
+          condition_contraindications?: string | null
+          created_at?: string
+          flavor?: string | null
+          food?: string
+          id?: string
+          preparation_notes?: string | null
+          species_safety?: string | null
+          tcm_pattern_support?: string | null
+          thermal_nature?: string | null
+        }
+        Relationships: []
       }
       timeline_events: {
         Row: {

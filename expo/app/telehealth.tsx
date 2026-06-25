@@ -1,5 +1,5 @@
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { Bell, ChevronLeft, MapPin, Phone, Stethoscope, Video } from "lucide-react-native";
+import { Bell, ChevronLeft, Leaf, MapPin, Phone, Stethoscope, Video } from "lucide-react-native";
 import React, { useCallback, useState } from "react";
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -10,12 +10,19 @@ import Colors, { Fonts, Radius, Space } from "@/constants/colors";
 export default function TelehealthScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { urgent } = useLocalSearchParams<{ urgent?: string }>();
+  const { urgent, holistic } = useLocalSearchParams<{ urgent?: string; holistic?: string }>();
   const isUrgent = urgent === "1";
+  const isHolistic = holistic === "1";
   const [notified, setNotified] = useState<boolean>(false);
 
   const findEmergency = useCallback(() => {
     Linking.openURL("https://www.google.com/maps/search/emergency+vet+near+me").catch(() => {});
+  }, []);
+
+  const findHolistic = useCallback(() => {
+    Linking.openURL(
+      "https://www.google.com/maps/search/holistic+integrative+veterinarian+near+me"
+    ).catch(() => {});
   }, []);
 
   return (
@@ -36,6 +43,17 @@ export default function TelehealthScreen() {
             <Phone size={18} color={Colors.red600} />
             <Text style={styles.urgentText}>
               For urgent symptoms, don&apos;t wait for telehealth — call your vet or an emergency clinic now.
+            </Text>
+          </View>
+        ) : null}
+
+        {/* Holistic / integrative intro when arriving from an integrative plan */}
+        {isHolistic && !isUrgent ? (
+          <View style={styles.holisticCard}>
+            <Leaf size={18} color={Colors.teal700} />
+            <Text style={styles.holisticText}>
+              Integrative and holistic vets blend conventional medicine with nutrition, herbs, and
+              lifestyle care. Look for an accredited practitioner to review any natural support plan.
             </Text>
           </View>
         ) : null}
@@ -62,6 +80,12 @@ export default function TelehealthScreen() {
             icon={<MapPin size={18} color="#fff" />}
             variant="primary"
             onPress={findEmergency}
+          />
+          <PrimaryButton
+            label="Find a holistic / integrative vet"
+            icon={<Leaf size={18} color={Colors.teal800} />}
+            variant="outline"
+            onPress={findHolistic}
           />
           <PrimaryButton
             label="Build a vet-ready report"
@@ -116,6 +140,16 @@ const styles = StyleSheet.create({
     marginBottom: Space.md,
   },
   urgentText: { ...Fonts.small, color: Colors.red600, flex: 1, lineHeight: 19, fontWeight: "600" },
+  holisticCard: {
+    flexDirection: "row",
+    gap: 10,
+    alignItems: "flex-start",
+    backgroundColor: Colors.teal50,
+    borderRadius: Radius.md,
+    padding: Space.md,
+    marginBottom: Space.md,
+  },
+  holisticText: { ...Fonts.small, color: Colors.teal800, flex: 1, lineHeight: 19 },
   hero: { alignItems: "center", paddingTop: Space.lg },
   heroIcon: {
     width: 72,

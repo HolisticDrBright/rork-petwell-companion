@@ -23,6 +23,7 @@ import Colors, { Fonts, Radius, Space, softShadow } from "@/constants/colors";
 import { PHOTO_LIMITATION } from "@/lib/food/evidence";
 import { buildReview, type AlternativeItem } from "@/lib/food/engine";
 import type { FoodReview, PetContext, ProductBundle, Severity } from "@/lib/food/types";
+import { tcmForIngredients, thermalSummary } from "@/lib/integrative/engine";
 import { usePets } from "@/providers/PetProvider";
 import { foodService } from "@/services";
 
@@ -198,6 +199,12 @@ export default function FoodResultScreen() {
 
   const { review, bundle, alternatives } = data;
   const rec = REC_STYLE[review.recommendation];
+  const tcm = tcmForIngredients(bundle.ingredients.map((i) => i.name), petContext.species);
+  const tcmSummary = thermalSummary(tcm);
+  const thermalTone = (n: string) =>
+    n === "warming" ? Colors.coral600 : n === "cooling" ? Colors.teal700 : Colors.inkSoft;
+  const thermalBg = (n: string) =>
+    n === "warming" ? Colors.coral100 : n === "cooling" ? Colors.teal50 : Colors.cream2;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -393,6 +400,41 @@ export default function FoodResultScreen() {
           </>
         ) : null}
 
+        {/* Food as Medicine — TCM energetics (a traditional lens, not a diagnosis) */}
+        {tcm.length ? (
+          <>
+            <Text style={styles.sectionTitle}>Food as medicine</Text>
+            <Text style={styles.sectionHint}>
+              A traditional (TCM) energetics lens on this recipe — supportive context, not a diagnosis.
+            </Text>
+            {tcmSummary ? (
+              <View style={[styles.tcmSummary, { backgroundColor: thermalBg(tcmSummary.nature) }]}>
+                <Leaf size={15} color={thermalTone(tcmSummary.nature)} />
+                <Text style={[styles.tcmSummaryText, { color: thermalTone(tcmSummary.nature) }]}>{tcmSummary.text}</Text>
+              </View>
+            ) : null}
+            <Card style={{ gap: 0, marginTop: 8 }}>
+              {tcm.map((t, i) => (
+                <View key={t.ingredient}>
+                  {i > 0 ? <View style={styles.divider} /> : null}
+                  <View style={styles.tcmRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={Fonts.h3}>{t.ingredient}</Text>
+                      <Text style={styles.tcmPattern}>
+                        {t.flavor} · {t.tcmPattern}
+                      </Text>
+                      {t.caveat ? <Text style={styles.tcmCaveat}>{t.caveat}</Text> : null}
+                    </View>
+                    <View style={[styles.thermalPill, { backgroundColor: thermalBg(t.thermalNature) }]}>
+                      <Text style={[styles.thermalText, { color: thermalTone(t.thermalNature) }]}>{t.thermalNature}</Text>
+                    </View>
+                  </View>
+                </View>
+              ))}
+            </Card>
+          </>
+        ) : null}
+
         {/* Alternatives — data-backed, never a purity/"cleanest" claim */}
         {alternatives.length ? (
           <>
@@ -568,6 +610,13 @@ const styles = StyleSheet.create({
   alertTitle: { ...Fonts.h3 },
   sectionTitle: { ...Fonts.h2, marginTop: Space.lg },
   sectionHint: { ...Fonts.small, marginTop: 2 },
+  tcmSummary: { flexDirection: "row", gap: 8, alignItems: "center", borderRadius: Radius.md, padding: 12, marginTop: 8 },
+  tcmSummaryText: { ...Fonts.small, flex: 1, lineHeight: 18, fontWeight: "600" },
+  tcmRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 12 },
+  tcmPattern: { ...Fonts.small, color: Colors.inkSoft, marginTop: 2, lineHeight: 18 },
+  tcmCaveat: { ...Fonts.tiny, color: Colors.inkFaint, marginTop: 3, lineHeight: 15 },
+  thermalPill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: Radius.pill },
+  thermalText: { fontSize: 11.5, fontWeight: "800", textTransform: "capitalize" },
   whyMatters: {
     flexDirection: "row",
     gap: 8,

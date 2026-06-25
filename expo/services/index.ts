@@ -17,3 +17,4 @@ export {
   type PrivacyPrefs,
   type PrivacyKey,
 } from "./privacyService";
+export { integrativeService } from "./integrativeService";
