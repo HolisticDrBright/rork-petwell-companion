@@ -65,7 +65,10 @@ export function puritySummary(bundle: ProductBundle): PuritySummary {
   }
   return {
     confidence: realTests.length >= 2 ? "supported" : "moderate",
-    text: "Backed by lab report(s) on file. Even so, a photo alone can't establish purity.",
+    text:
+      realTests.length >= 2
+        ? "Verified product-level lab data on file. Even so, a photo alone can't establish purity."
+        : "Limited verified lab data on file (single report). A photo alone can't establish purity.",
     tests,
     hasEvidence: true,
     demoOnly: false,

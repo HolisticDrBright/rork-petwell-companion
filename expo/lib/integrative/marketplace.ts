@@ -39,19 +39,56 @@ export interface MarketplaceProduct {
   id: string;
   category: ProductCategory;
   name: string;
+  brand: string;
   species: "dog" | "cat" | "both";
   evidence: EvidenceGrade;
   /** 0–5 sub-scores feeding the transparent rank. */
   transparency: number;
   ingredientQuality: number;
   labTested: boolean;
+  /** Third-party certificate-of-analysis / source URL, or null if none linked. */
+  sourceUrl: string | null;
+  /** Brief recall history note, or null if none on file. */
+  recallNote: string | null;
   reportedOutcomes: number; // 0–5
   fitTags: string[]; // e.g. "low-fat", "novel-protein", "renal", "senior"
   blurb: string;
+  /** When these criteria were last reviewed (YYYY-MM). */
+  lastReviewed: string;
 }
 
+/** This catalog is a research preview — illustrative criteria, not endorsements. */
+export const MARKETPLACE_STATUS = "Research preview";
+const REVIEWED = "2026-06";
+/** Shared defaults so every product carries the trust fields. */
+const META = { sourceUrl: null as string | null, recallNote: null as string | null, lastReviewed: REVIEWED };
+
+type RawProduct = Omit<MarketplaceProduct, "brand" | "sourceUrl" | "recallNote" | "lastReviewed">;
+
+/** Illustrative example brands per product (research preview, not endorsements). */
+const BRANDS: Record<string, string> = {
+  food_lowfat_gi: "Therapeutic GI line (example)",
+  food_novel: "Limited-ingredient line (example)",
+  food_renal: "Renal therapeutic line (example)",
+  treat_single: "Single-ingredient treats (example)",
+  treat_dental: "Dental chew brand (example)",
+  prob_multi: "Vet probiotic brand (example)",
+  enz_pancreatic: "Enzyme supplement (example)",
+  omega_fish: "Fish-oil brand (example)",
+  supp_joint: "Joint supplement (example)",
+  groom_shampoo: "Gentle grooming line (example)",
+  clean_petsafe: "Pet-safe cleaner (example)",
+  bowl_steel: "Stainless bowl maker (example)",
+};
+
+/** Per-product trust overrides on top of META (COA links / recall notes when known). */
+const OVERRIDES: Record<string, Partial<Pick<MarketplaceProduct, "sourceUrl" | "recallNote">>> = {
+  // No third-party COA URLs are linked in this research preview — kept null rather
+  // than shown as fake sources. Real COA/recall data slots in here.
+};
+
 /** Placeholder catalog — illustrative examples, NOT endorsements. */
-export const MARKETPLACE_PRODUCTS: MarketplaceProduct[] = [
+const RAW: RawProduct[] = [
   // Food
   { id: "food_lowfat_gi", category: "food", name: "Vet low-fat GI diet (example)", species: "both", evidence: "A", transparency: 5, ingredientQuality: 4, labTested: true, reportedOutcomes: 4, fitTags: ["low-fat", "gi", "pancreatitis"], blurb: "Therapeutic low-fat formula for fat-sensitive pets." },
   { id: "food_novel", category: "food", name: "Novel-protein limited-ingredient food (example)", species: "both", evidence: "B", transparency: 4, ingredientQuality: 4, labTested: true, reportedOutcomes: 4, fitTags: ["novel-protein", "skin", "allergy"], blurb: "Single novel protein for elimination trials." },
@@ -74,6 +111,13 @@ export const MARKETPLACE_PRODUCTS: MarketplaceProduct[] = [
   // Bowls
   { id: "bowl_steel", category: "bowls", name: "Stainless-steel bowl set (example)", species: "both", evidence: "C", transparency: 5, ingredientQuality: 5, labTested: false, reportedOutcomes: 4, fitTags: ["bowls", "skin"], blurb: "Non-porous and easy to sanitize daily." },
 ];
+
+export const MARKETPLACE_PRODUCTS: MarketplaceProduct[] = RAW.map((p) => ({
+  ...p,
+  brand: BRANDS[p.id] ?? "Example brand",
+  ...META,
+  ...OVERRIDES[p.id],
+}));
 
 export const AFFILIATE_DISCLOSURE =
   "Petwell does not take payment for rankings. No affiliate links are active. If any are added in future, they'll be clearly labeled here.";

@@ -35,7 +35,14 @@
         }
       ],
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Petwell uses the camera to photograph food ingredient labels and scan barcodes — the photo reads the label only, never your pet.",
+          "photosPermission": "Petwell accesses your photos so you can import a saved food label to scan."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

@@ -15,6 +15,7 @@ import {
   UPCOMING,
 } from "@/constants/mockData";
 import { getUserId, initBackend } from "@/lib/backend";
+import { clampAge, clampWeight } from "@/lib/petValidation";
 import { supabase } from "@/lib/supabase";
 import {
   petsService,
@@ -32,6 +33,8 @@ interface PersistedState {
   careDone: Record<string, string[]>;
   reminderState: Record<string, boolean>;
   logs: Record<string, TimelineEntry[]>;
+  /** Pets the user created in local mode — persisted so they survive reloads. */
+  extraPets: Pet[];
   premium: boolean;
 }
 
@@ -40,6 +43,7 @@ const DEFAULT_STATE: PersistedState = {
   careDone: {},
   reminderState: {},
   logs: {},
+  extraPets: [],
   premium: false,
 };
 
@@ -61,7 +65,6 @@ export const [PetProvider, usePets] = createContextHook(() => {
 
   // Local UI prefs (selected pet, premium) + offline fallback data.
   const [local, setLocal] = useState<PersistedState | null>(null);
-  const [extraPets, setExtraPets] = useState<Pet[]>([]);
 
   const stateQuery = useQuery({
     queryKey: ["petwell-state"],
@@ -127,8 +130,8 @@ export const [PetProvider, usePets] = createContextHook(() => {
   );
 
   const pets: Pet[] = useMemo(
-    () => (remoteReady ? (petsQuery.data as Pet[]) : [...PETS, ...extraPets]),
-    [remoteReady, petsQuery.data, extraPets]
+    () => (remoteReady ? (petsQuery.data as Pet[]) : [...PETS, ...persisted.extraPets]),
+    [remoteReady, petsQuery.data, persisted.extraPets]
   );
 
   const selectedPet: Pet = useMemo(() => {
@@ -277,12 +280,12 @@ export const [PetProvider, usePets] = createContextHook(() => {
       }
       const localPet: Pet = {
         id: `local-${Date.now()}`,
-        name: input.name,
+        name: input.name.trim() || "New pet",
         species: input.species,
         breed: input.breed ?? "",
-        ageYears: input.ageYears ?? 0,
+        ageYears: clampAge(input.ageYears),
         sex: input.sex ?? "male",
-        weightLb: input.weightLb ?? 0,
+        weightLb: clampWeight(input.weightLb),
         photo: input.photo ?? "",
         status: "stable",
         statusNote: "New",
@@ -291,8 +294,11 @@ export const [PetProvider, usePets] = createContextHook(() => {
         conditions: input.conditions ?? [],
         allergies: [],
       };
-      setExtraPets((prev) => [...prev, localPet]);
-      persist((prev) => ({ ...prev, selectedPetId: localPet.id }));
+      persist((prev) => ({
+        ...prev,
+        extraPets: [...prev.extraPets, localPet],
+        selectedPetId: localPet.id,
+      }));
       return localPet;
     },
     [remoteMode, queryClient, persist]

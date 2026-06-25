@@ -1,6 +1,8 @@
 import { getUserId } from "@/lib/backend";
 import { supabase } from "@/lib/supabase";
 
+import { OWNED_TABLES } from "./ownedTables";
+
 /**
  * Data-ownership workflows. These back the Settings privacy screen: export your
  * data, delete stored photos, delete your account data, and manage permissions
@@ -23,31 +25,6 @@ export const DEFAULT_PRIVACY: PrivacyPrefs = {
   personalized_insights: true,
   share_research: false,
 };
-
-// User-owned tables that make up "all my data" (catalog/reference tables excluded).
-const OWNED_TABLES = [
-  "pet_profiles",
-  "pet_conditions",
-  "pet_allergies",
-  "pet_medications",
-  "care_tasks",
-  "reminders",
-  "timeline_events",
-  "health_logs",
-  "symptom_sessions",
-  "symptom_answers",
-  "triage_results",
-  "scan_records",
-  "scan_images",
-  "vet_records",
-  "document_uploads",
-  "vet_reports",
-  "food_scans",
-  "food_logs",
-  "food_scores",
-  "food_recommendations",
-  "user_corrections",
-] as const;
 
 export const privacyService = {
   async getPrefs(): Promise<PrivacyPrefs> {
@@ -130,6 +107,17 @@ export const privacyService = {
     await supabase.from("pet_profiles").delete().eq("owner_id", uid);
     await supabase.from("vet_reports").delete().eq("owner_id", uid);
     await supabase.from("food_scans").delete().eq("owner_id", uid);
+
+    // Integrative / longevity rows (owner-scoped). system_scores cascades from
+    // health_scores and program_logs cascades from progress_programs.
+    await supabase.from("protocol_recommendations").delete().eq("owner_id", uid);
+    await supabase.from("health_scores").delete().eq("owner_id", uid);
+    await supabase.from("detected_patterns").delete().eq("owner_id", uid);
+    await supabase.from("treat_audits").delete().eq("owner_id", uid);
+    await supabase.from("environment_checklists").delete().eq("owner_id", uid);
+    await supabase.from("progress_programs").delete().eq("owner_id", uid);
+    await supabase.from("product_recommendations").delete().eq("owner_id", uid);
+
     await supabase.from("profiles").delete().eq("id", uid);
     await supabase.auth.signOut();
   },

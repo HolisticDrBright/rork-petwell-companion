@@ -30,6 +30,17 @@ export interface ParsedLabel {
   raw: string;
 }
 
+/** Tidy raw OCR text: collapse whitespace, normalize bullets/newlines. */
+export function normalizeOcrText(raw: string): string {
+  return (raw ?? "")
+    .replace(/ /g, " ")
+    .replace(/[•·∙▪◦]/g, ", ")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\s*\n\s*/g, "\n")
+    .replace(/\n{2,}/g, "\n")
+    .trim();
+}
+
 export function parseLabelText(raw: string): ParsedLabel {
   const text = (raw ?? "").replace(/\r/g, "");
   const lower = text.toLowerCase();

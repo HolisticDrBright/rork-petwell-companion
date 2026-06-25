@@ -1,8 +1,11 @@
+import { Image } from "expo-image";
+import * as ImagePicker from "expo-image-picker";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { Barcode, ChevronRight, ScanText, Search } from "lucide-react-native";
+import { Barcode, Camera, ChevronRight, ImagePlus, ScanText, Search } from "lucide-react-native";
 import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,10 +16,11 @@ import {
 
 import { Card, PrimaryButton } from "@/components/ui";
 import Colors, { Fonts, Radius, Space, cardShadow } from "@/constants/colors";
+import { extractLabelText, runLabelPipeline } from "@/lib/food/labelPipeline";
 import { foodService, type BarcodeLookupResult, type FoodProductSummary } from "@/services";
 import { usePets } from "@/providers/PetProvider";
 
-type Mode = "barcode" | "search" | "label";
+type Mode = "barcode" | "photo" | "paste" | "search";
 
 const SAMPLE_BARCODES = [
   { code: "0850000000110", label: "Gentle Bowl · LID Salmon" },
@@ -40,18 +44,32 @@ export default function FoodScanScreen() {
   const [query, setQuery] = useState<string>("");
   const [labelText, setLabelText] = useState<string>("");
   const [nameHint, setNameHint] = useState<string>("");
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [ocrNote, setOcrNote] = useState<string | null>(null);
+  const [ocrBusy, setOcrBusy] = useState<boolean>(false);
   const [busy, setBusy] = useState<boolean>(false);
   const [status, setStatus] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+
+  const reset = useCallback((m: Mode) => {
+    setMode(m);
+    setStatus(null);
+    setSuggestions([]);
+  }, []);
 
   const openResult = useCallback(
     (productId: string, raw?: string | null, source?: string) => {
       router.push({
         pathname: "/food-result",
-        params: { productId, raw: raw ?? "", source: source ?? "manual" },
+        params: {
+          productId,
+          raw: raw ?? "",
+          source: source ?? "manual",
+          image: photoUri ?? "",
+        },
       });
     },
-    [router]
+    [router, photoUri],
   );
 
   const handleLookup = useCallback(
@@ -65,13 +83,13 @@ export default function FoodScanScreen() {
         setStatus(
           result.source === "openpetfoodfacts"
             ? `Found "${result.matchedName ?? "a product"}" but no exact catalog match — pick the closest below.`
-            : "No exact match — pick the closest below or try search."
+            : "No exact match — pick the closest below or try search.",
         );
       } else {
         setStatus("No match found. Try the Search tab to find it by name.");
       }
     },
-    [openResult]
+    [openResult],
   );
 
   const onBarcode = useCallback(async () => {
@@ -103,23 +121,70 @@ export default function FoodScanScreen() {
     }
   }, [query]);
 
-  const onLabel = useCallback(async () => {
+  /** Capture a label photo (camera or library) and attempt OCR. */
+  const capture = useCallback(async (from: "camera" | "library") => {
+    setStatus(null);
+    setSuggestions([]);
+    try {
+      const perm =
+        from === "camera"
+          ? await ImagePicker.requestCameraPermissionsAsync()
+          : await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        setStatus("Petwell needs camera/photo access to scan a food label. You can also paste the label text.");
+        return;
+      }
+      const res =
+        from === "camera"
+          ? await ImagePicker.launchCameraAsync({ quality: 0.7, allowsEditing: true })
+          : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 0.7, allowsEditing: true });
+      if (res.canceled || !res.assets?.[0]) return;
+      const uri = res.assets[0].uri;
+      setPhotoUri(uri);
+      setOcrBusy(true);
+      const { text, available } = await extractLabelText(uri);
+      setOcrBusy(false);
+      if (available && text.trim()) {
+        setLabelText(text);
+        setOcrNote("We read this text from your photo — review and fix any errors, then Analyze.");
+      } else {
+        setOcrNote(
+          "On-device OCR isn't enabled in this build, so type the ingredients and guaranteed analysis from your photo below, then Analyze. (A photo reads the label only — it can't detect contaminants.)",
+        );
+      }
+    } catch {
+      setOcrBusy(false);
+      setStatus("Couldn't open the camera. Try “Choose from library”, or paste the label text.");
+    }
+  }, []);
+
+  /** Shared by Photo + Paste: normalize → parse → match against the catalog. */
+  const onAnalyze = useCallback(async () => {
     if (!labelText.trim()) {
-      setStatus("Paste or type the ingredient list so we can identify the product.");
+      setStatus("Add the ingredient text so we can identify the product.");
       return;
     }
     setBusy(true);
     setStatus(null);
     setSuggestions([]);
     try {
-      const res = await foodService.matchLabel(labelText.trim(), nameHint.trim() || undefined);
-      await handleLookup(res, labelText.trim());
+      const result = await runLabelPipeline(labelText.trim(), nameHint.trim() || undefined);
+      if (result.match.productId) {
+        openResult(result.match.productId, labelText.trim(), mode);
+        return;
+      }
+      if (result.match.suggestions.length) {
+        setSuggestions(result.match.suggestions);
+        setStatus(`Closest matches (match confidence: ${result.confidence}). ${result.warnings.join(" ")}`.trim());
+      } else {
+        setStatus(`No catalog match. ${result.warnings.join(" ")} Try the Search tab.`.trim());
+      }
     } catch {
       setStatus("Couldn't read that label — try the Search tab.");
     } finally {
       setBusy(false);
     }
-  }, [labelText, nameHint, handleLookup]);
+  }, [labelText, nameHint, mode, openResult]);
 
   return (
     <ScrollView
@@ -132,19 +197,20 @@ export default function FoodScanScreen() {
 
       <Text style={styles.title}>Food Intelligence</Text>
       <Text style={styles.subtitle}>
-        Scan or search a food, treat, or supplement for a review tailored to {selectedPet.name}.
+        Scan, photograph, or search a food, treat, or supplement for a review tailored to {selectedPet.name}.
       </Text>
 
-      {/* Mode switch */}
+      {/* Mode switch — four modes */}
       <View style={styles.modeRow}>
-        <ModeButton icon={Barcode} label="Barcode" active={mode === "barcode"} onPress={() => { setMode("barcode"); setStatus(null); setSuggestions([]); }} />
-        <ModeButton icon={Search} label="Search" active={mode === "search"} onPress={() => { setMode("search"); setStatus(null); setSuggestions([]); }} />
-        <ModeButton icon={ScanText} label="Label" active={mode === "label"} onPress={() => { setMode("label"); setStatus(null); setSuggestions([]); }} />
+        <ModeButton icon={Barcode} label="Barcode" active={mode === "barcode"} onPress={() => reset("barcode")} />
+        <ModeButton icon={Camera} label="Photo" active={mode === "photo"} onPress={() => reset("photo")} />
+        <ModeButton icon={ScanText} label="Paste" active={mode === "paste"} onPress={() => reset("paste")} />
+        <ModeButton icon={Search} label="Search" active={mode === "search"} onPress={() => reset("search")} />
       </View>
 
       {mode === "barcode" ? (
         <Card style={{ gap: 12 }}>
-          <Text style={styles.cardLabel}>Enter or scan a barcode</Text>
+          <Text style={styles.cardLabel}>Enter a barcode</Text>
           <TextInput
             value={barcode}
             onChangeText={setBarcode}
@@ -154,7 +220,10 @@ export default function FoodScanScreen() {
             style={styles.input}
           />
           <PrimaryButton label="Look up product" variant="primary" onPress={onBarcode} />
-          <Text style={styles.hint}>Looks up Open Pet Food Facts, then matches our catalog.</Text>
+          <Text style={styles.hint}>
+            Looks up Open Pet Food Facts, then matches our catalog. Live camera barcode scanning needs a dev build
+            with expo-camera (see README).
+          </Text>
           <View style={styles.sampleWrap}>
             {SAMPLE_BARCODES.map((s) => (
               <Pressable key={s.code} style={styles.sample} onPress={() => setBarcode(s.code)}>
@@ -162,6 +231,89 @@ export default function FoodScanScreen() {
               </Pressable>
             ))}
           </View>
+        </Card>
+      ) : null}
+
+      {mode === "photo" ? (
+        <Card style={{ gap: 12 }}>
+          <Text style={styles.cardLabel}>Take a photo of the label</Text>
+          <Text style={styles.hint}>
+            Photograph the ingredient list / guaranteed analysis panel. OCR reads the label to identify the product —
+            it never detects purity or contaminants.
+          </Text>
+
+          {Platform.OS === "web" ? (
+            <Text style={styles.webNote}>
+              Camera capture isn&apos;t available on web — use “Choose image”, Paste, or Search.
+            </Text>
+          ) : null}
+
+          <View style={styles.captureRow}>
+            <Pressable style={styles.captureBtn} onPress={() => capture("camera")} accessibilityRole="button" accessibilityLabel="Take a photo of the label">
+              <Camera size={18} color={Colors.teal700} />
+              <Text style={styles.captureText}>Take photo</Text>
+            </Pressable>
+            <Pressable style={styles.captureBtn} onPress={() => capture("library")} accessibilityRole="button" accessibilityLabel="Choose a label photo from your library">
+              <ImagePlus size={18} color={Colors.teal700} />
+              <Text style={styles.captureText}>Choose image</Text>
+            </Pressable>
+          </View>
+
+          {photoUri ? <Image source={{ uri: photoUri }} style={styles.preview} contentFit="cover" /> : null}
+          {ocrBusy ? (
+            <View style={styles.busy}>
+              <ActivityIndicator color={Colors.teal700} />
+              <Text style={styles.hint}>Reading the label…</Text>
+            </View>
+          ) : null}
+          {ocrNote ? <Text style={styles.ocrNote}>{ocrNote}</Text> : null}
+
+          {photoUri || labelText ? (
+            <>
+              <TextInput
+                value={nameHint}
+                onChangeText={setNameHint}
+                placeholder="Product name (optional)"
+                placeholderTextColor={Colors.inkFaint}
+                style={styles.input}
+              />
+              <TextInput
+                value={labelText}
+                onChangeText={setLabelText}
+                placeholder={"Ingredients: Deboned Chicken, Peas, ...\nGuaranteed Analysis\nCrude Protein (min) 26%"}
+                placeholderTextColor={Colors.inkFaint}
+                multiline
+                style={[styles.input, styles.multiline]}
+              />
+              <PrimaryButton label="Analyze label" variant="primary" onPress={onAnalyze} />
+            </>
+          ) : null}
+        </Card>
+      ) : null}
+
+      {mode === "paste" ? (
+        <Card style={{ gap: 12 }}>
+          <Text style={styles.cardLabel}>Paste the ingredient panel</Text>
+          <Text style={styles.hint}>
+            Type or paste the ingredients and guaranteed analysis. Reading the label identifies the product — it never
+            establishes purity.
+          </Text>
+          <TextInput
+            value={nameHint}
+            onChangeText={setNameHint}
+            placeholder="Product name (optional)"
+            placeholderTextColor={Colors.inkFaint}
+            style={styles.input}
+          />
+          <TextInput
+            value={labelText}
+            onChangeText={setLabelText}
+            placeholder={"Ingredients: Deboned Chicken, Peas, ...\nGuaranteed Analysis\nCrude Protein (min) 26%"}
+            placeholderTextColor={Colors.inkFaint}
+            multiline
+            style={[styles.input, styles.multiline]}
+          />
+          <PrimaryButton label="Analyze label" variant="primary" onPress={onAnalyze} />
         </Card>
       ) : null}
 
@@ -181,32 +333,6 @@ export default function FoodScanScreen() {
         </Card>
       ) : null}
 
-      {mode === "label" ? (
-        <Card style={{ gap: 12 }}>
-          <Text style={styles.cardLabel}>Paste the ingredient panel</Text>
-          <Text style={styles.hint}>
-            Snap the label, then paste or type the ingredients and guaranteed analysis. OCR reads the
-            label only — it identifies the product, never its purity.
-          </Text>
-          <TextInput
-            value={nameHint}
-            onChangeText={setNameHint}
-            placeholder="Product name (optional)"
-            placeholderTextColor={Colors.inkFaint}
-            style={styles.input}
-          />
-          <TextInput
-            value={labelText}
-            onChangeText={setLabelText}
-            placeholder={"Ingredients: Deboned Chicken, Peas, ...\nGuaranteed Analysis\nCrude Protein (min) 26%"}
-            placeholderTextColor={Colors.inkFaint}
-            multiline
-            style={[styles.input, styles.multiline]}
-          />
-          <PrimaryButton label="Analyze label" variant="primary" onPress={onLabel} />
-        </Card>
-      ) : null}
-
       {busy ? (
         <View style={styles.busy}>
           <ActivityIndicator color={Colors.teal700} />
@@ -221,7 +347,7 @@ export default function FoodScanScreen() {
           <Text style={styles.cardLabel}>{mode === "search" ? "Results" : "Closest matches"}</Text>
           <Card style={{ gap: 0, marginTop: 8 }}>
             {suggestions.map((s, i) => (
-              <Pressable key={s.id} onPress={() => openResult(s.id, mode === "label" ? labelText : null, mode)}>
+              <Pressable key={s.id} onPress={() => openResult(s.id, mode === "photo" || mode === "paste" ? labelText : null, mode)}>
                 {i > 0 ? <View style={styles.divider} /> : null}
                 <View style={styles.suggestionRow}>
                   <View style={{ flex: 1 }}>
@@ -237,8 +363,8 @@ export default function FoodScanScreen() {
       ) : null}
 
       <Text style={styles.footNote}>
-        Reviews are personalized to {selectedPet.name}&apos;s allergies and conditions. Guidance only,
-        not a diagnosis — and you can correct any match on the next screen.
+        Reviews are personalized to {selectedPet.name}&apos;s allergies and conditions. Guidance only, not a diagnosis —
+        and you can correct any match on the next screen.
       </Text>
     </ScrollView>
   );
@@ -263,7 +389,7 @@ function ModeButton({
       accessibilityState={{ selected: active }}
       style={[styles.modeBtn, active && styles.modeBtnActive]}
     >
-      <Icon size={18} color={active ? "#fff" : Colors.teal700} />
+      <Icon size={17} color={active ? "#fff" : Colors.teal700} />
       <Text style={[styles.modeBtnText, active && { color: "#fff" }]}>{label}</Text>
     </Pressable>
   );
@@ -273,20 +399,21 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.cream },
   title: { ...Fonts.title },
   subtitle: { ...Fonts.bodySoft, marginTop: 2, marginBottom: Space.lg, lineHeight: 21 },
-  modeRow: { flexDirection: "row", gap: 8, marginBottom: Space.md },
+  modeRow: { flexDirection: "row", gap: 6, marginBottom: Space.md },
   modeBtn: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 6,
-    paddingVertical: 11,
+    gap: 5,
+    paddingVertical: 10,
+    paddingHorizontal: 4,
     borderRadius: Radius.pill,
     backgroundColor: Colors.surface,
     ...cardShadow,
   },
   modeBtnActive: { backgroundColor: Colors.teal700 },
-  modeBtnText: { ...Fonts.small, color: Colors.teal700, fontWeight: "800" },
+  modeBtnText: { ...Fonts.small, fontSize: 12, color: Colors.teal700, fontWeight: "800" },
   cardLabel: { ...Fonts.h3, fontSize: 15 },
   input: {
     backgroundColor: Colors.cream,
@@ -299,6 +426,23 @@ const styles = StyleSheet.create({
   },
   multiline: { minHeight: 110, textAlignVertical: "top" },
   hint: { ...Fonts.small, color: Colors.inkFaint, lineHeight: 18 },
+  webNote: { ...Fonts.small, color: Colors.amber600, lineHeight: 18 },
+  captureRow: { flexDirection: "row", gap: 10 },
+  captureBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: Radius.md,
+    borderWidth: 1.5,
+    borderColor: Colors.teal100,
+    backgroundColor: Colors.teal50,
+  },
+  captureText: { ...Fonts.h3, fontSize: 14, color: Colors.teal700 },
+  preview: { width: "100%", height: 180, borderRadius: Radius.md, backgroundColor: Colors.cream2 },
+  ocrNote: { ...Fonts.small, color: Colors.teal800, lineHeight: 18 },
   sampleWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   sample: { backgroundColor: Colors.teal50, borderRadius: Radius.pill, paddingHorizontal: 12, paddingVertical: 7 },
   sampleText: { ...Fonts.tiny, color: Colors.teal700, fontWeight: "700" },

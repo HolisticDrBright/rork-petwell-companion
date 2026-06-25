@@ -8,6 +8,7 @@ import { EvidenceBadge, InfoNote, ScreenHeader } from "@/components/integrative"
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
 import {
   AFFILIATE_DISCLOSURE,
+  MARKETPLACE_STATUS,
   PRODUCT_CATEGORIES,
   rankProducts,
   type ProductCategory,
@@ -27,10 +28,15 @@ export default function MarketplaceScreen() {
         {/* Trust banner */}
         <Card style={styles.trustCard}>
           <ShieldCheck size={18} color={Colors.teal700} />
-          <Text style={styles.trustText}>
-            Picks are ranked only on pet fit, species safety, evidence, transparency, ingredient quality, and lab
-            testing. No brand can pay for placement.
-          </Text>
+          <View style={{ flex: 1 }}>
+            <View style={styles.previewPill}>
+              <Text style={styles.previewPillText}>{MARKETPLACE_STATUS}</Text>
+            </View>
+            <Text style={styles.trustText}>
+              Ranked only on pet fit, species safety, evidence, transparency, ingredient quality, and lab testing — no
+              brand can pay for placement. &ldquo;Cleanest/best&rdquo; claims need real lab/recall data.
+            </Text>
+          </View>
         </Card>
 
         {/* Category chips */}
@@ -64,6 +70,7 @@ export default function MarketplaceScreen() {
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.prodName}>{r.product.name}</Text>
+                <Text style={styles.prodBrand}>{r.product.brand}</Text>
                 <Text style={styles.prodBlurb}>{r.product.blurb}</Text>
               </View>
             </View>
@@ -90,8 +97,21 @@ export default function MarketplaceScreen() {
               </View>
             ) : null}
 
+            {/* Trust provenance */}
+            <View style={styles.trustMeta}>
+              <Text style={styles.trustMetaLine}>
+                Third-party COA: {r.product.sourceUrl ? r.product.sourceUrl : "not linked in this research preview"}
+              </Text>
+              {r.product.recallNote ? (
+                <Text style={[styles.trustMetaLine, { color: Colors.amber600 }]}>Recall note: {r.product.recallNote}</Text>
+              ) : (
+                <Text style={styles.trustMetaLine}>Recalls: none on file</Text>
+              )}
+              <Text style={styles.trustMetaLine}>Criteria last reviewed: {r.product.lastReviewed}</Text>
+            </View>
+
             <View style={styles.whyBox}>
-              <Text style={styles.whyTitle}>Why it&apos;s ranked here</Text>
+              <Text style={styles.whyTitle}>Review criteria</Text>
               {r.whyRanked.map((w, i) => (
                 <View key={i} style={styles.whyRow}>
                   <Scale size={12} color={Colors.inkFaint} style={{ marginTop: 3 }} />
@@ -107,7 +127,8 @@ export default function MarketplaceScreen() {
           <View style={styles.placeholderRow}>
             <ShoppingBag size={15} color={Colors.inkFaint} />
             <Text style={styles.placeholderText}>
-              Shopping isn&apos;t connected yet — these are illustrative examples, not endorsements.
+              Shopping isn&apos;t connected — this is a research preview of ranking criteria, not endorsements or buy
+              links. Ask your vet about any category before buying.
             </Text>
           </View>
           <InfoNote>{AFFILIATE_DISCLOSURE}</InfoNote>
@@ -138,7 +159,19 @@ const styles = StyleSheet.create({
   rankBadge: { width: 26, height: 26, borderRadius: 13, backgroundColor: Colors.teal50, alignItems: "center", justifyContent: "center" },
   rankText: { ...Fonts.small, color: Colors.teal700, fontWeight: "800" },
   prodName: { ...Fonts.h3, fontSize: 15 },
+  prodBrand: { ...Fonts.tiny, color: Colors.teal700, marginTop: 1, letterSpacing: 0.2 },
   prodBlurb: { ...Fonts.small, color: Colors.inkSoft, marginTop: 2, lineHeight: 18 },
+  trustMeta: { backgroundColor: Colors.cream, borderRadius: Radius.sm, padding: 10, gap: 2 },
+  trustMetaLine: { ...Fonts.tiny, color: Colors.inkSoft, lineHeight: 16 },
+  previewPill: {
+    alignSelf: "flex-start",
+    backgroundColor: Colors.teal100,
+    borderRadius: Radius.pill,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+    marginBottom: 6,
+  },
+  previewPillText: { fontSize: 10.5, fontWeight: "800", color: Colors.teal800, letterSpacing: 0.4 },
   badgeRow: { flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" },
   labBadge: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: Colors.teal50, paddingHorizontal: 8, paddingVertical: 3, borderRadius: Radius.pill },
   labText: { fontSize: 10.5, fontWeight: "800", color: Colors.teal700 },

@@ -1,11 +1,20 @@
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { Bell, ChevronLeft, Leaf, MapPin, Phone, Stethoscope, Video } from "lucide-react-native";
-import React, { useCallback, useState } from "react";
-import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Bell, Check, ChevronLeft, Leaf, MapPin, PhoneCall, Phone, Stethoscope, Video } from "lucide-react-native";
+import React, { useCallback, useEffect, useState } from "react";
+import { Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Card, PrimaryButton } from "@/components/ui";
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
+import { storage } from "@/services";
+
+interface PreferredVet {
+  name: string;
+  phone: string;
+}
+
+const NOTIFY_KEY = "petwell.telehealth.notified";
+const VET_KEY = "petwell.preferredVet";
 
 export default function TelehealthScreen() {
   const insets = useSafeAreaInsets();
@@ -14,6 +23,45 @@ export default function TelehealthScreen() {
   const isUrgent = urgent === "1";
   const isHolistic = holistic === "1";
   const [notified, setNotified] = useState<boolean>(false);
+  const [vet, setVet] = useState<PreferredVet | null>(null);
+  const [vetName, setVetName] = useState<string>("");
+  const [vetPhone, setVetPhone] = useState<string>("");
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const [n, v] = await Promise.all([
+        storage.getJSON<boolean>(NOTIFY_KEY, false),
+        storage.getJSON<PreferredVet | null>(VET_KEY, null),
+      ]);
+      if (!active) return;
+      setNotified(n);
+      if (v) {
+        setVet(v);
+        setVetName(v.name);
+        setVetPhone(v.phone);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const onNotify = useCallback(() => {
+    setNotified(true);
+    storage.setJSON(NOTIFY_KEY, true);
+  }, []);
+
+  const saveVet = useCallback(() => {
+    const next: PreferredVet = { name: vetName.trim(), phone: vetPhone.trim() };
+    if (!next.name && !next.phone) return;
+    setVet(next);
+    storage.setJSON(VET_KEY, next);
+  }, [vetName, vetPhone]);
+
+  const callVet = useCallback(() => {
+    if (vet?.phone) Linking.openURL(`tel:${vet.phone.replace(/[^0-9+]/g, "")}`).catch(() => {});
+  }, [vet]);
 
   const findEmergency = useCallback(() => {
     Linking.openURL("https://www.google.com/maps/search/emergency+vet+near+me").catch(() => {});
@@ -94,14 +142,65 @@ export default function TelehealthScreen() {
             onPress={() => router.replace("/vet-report")}
           />
           <Pressable
-            onPress={() => setNotified(true)}
+            onPress={onNotify}
             style={({ pressed }) => [styles.notify, pressed && { opacity: 0.8 }]}
+            accessibilityRole="button"
+            accessibilityLabel="Notify me when telehealth is live"
           >
             <Bell size={16} color={Colors.teal700} />
             <Text style={styles.notifyText}>
               {notified ? "Thanks — we'll let you know when it's live" : "Notify me when telehealth is live"}
             </Text>
           </Pressable>
+        </Card>
+
+        {/* Preferred vet (saved locally) */}
+        <Card style={{ gap: 12, marginTop: Space.md }}>
+          <Text style={styles.cardTitle}>Your preferred vet</Text>
+          {vet ? (
+            <>
+              <View style={styles.savedVet}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.savedVetName}>{vet.name || "Saved contact"}</Text>
+                  {vet.phone ? <Text style={styles.savedVetPhone}>{vet.phone}</Text> : null}
+                </View>
+                {vet.phone ? (
+                  <Pressable onPress={callVet} style={styles.callBtn} accessibilityRole="button" accessibilityLabel={`Call ${vet.name || "your vet"}`}>
+                    <PhoneCall size={16} color="#fff" />
+                    <Text style={styles.callText}>Call</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+              <Pressable onPress={() => setVet(null)} accessibilityRole="button" accessibilityLabel="Edit preferred vet">
+                <Text style={styles.editLink}>Edit contact</Text>
+              </Pressable>
+            </>
+          ) : (
+            <>
+              <Text style={styles.hint}>Save your vet&apos;s details for one-tap calling — kept on this device.</Text>
+              <TextInput
+                value={vetName}
+                onChangeText={setVetName}
+                placeholder="Vet or clinic name"
+                placeholderTextColor={Colors.inkFaint}
+                style={styles.input}
+              />
+              <TextInput
+                value={vetPhone}
+                onChangeText={setVetPhone}
+                placeholder="Phone number"
+                placeholderTextColor={Colors.inkFaint}
+                keyboardType="phone-pad"
+                style={styles.input}
+              />
+              <PrimaryButton
+                label="Save preferred vet"
+                icon={<Check size={18} color="#fff" />}
+                variant="primary"
+                onPress={saveVet}
+              />
+            </>
+          )}
         </Card>
 
         <Text style={styles.disclaimer}>
@@ -164,6 +263,30 @@ const styles = StyleSheet.create({
   body: { ...Fonts.bodySoft, textAlign: "center", marginTop: 10, lineHeight: 22 },
   bodyStrong: { ...Fonts.body, color: Colors.ink, textAlign: "center", marginTop: 12, fontWeight: "700", lineHeight: 21 },
   cardTitle: { ...Fonts.h3 },
+  hint: { ...Fonts.small, color: Colors.inkFaint, lineHeight: 18 },
+  input: {
+    backgroundColor: Colors.cream,
+    borderRadius: Radius.md,
+    padding: Space.md,
+    fontSize: 15,
+    color: Colors.ink,
+    borderWidth: 1,
+    borderColor: Colors.hairline,
+  },
+  savedVet: { flexDirection: "row", alignItems: "center", gap: 12 },
+  savedVetName: { ...Fonts.h3, fontSize: 15 },
+  savedVetPhone: { ...Fonts.small, color: Colors.inkSoft, marginTop: 2 },
+  callBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: Colors.teal700,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: Radius.pill,
+  },
+  callText: { color: "#fff", fontWeight: "800", fontSize: 14 },
+  editLink: { ...Fonts.small, color: Colors.teal700, fontWeight: "700", textAlign: "center", paddingVertical: 4 },
   notify: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 8 },
   notifyText: { ...Fonts.small, color: Colors.teal700 },
   disclaimer: { ...Fonts.small, color: Colors.inkFaint, textAlign: "center", marginTop: Space.lg, lineHeight: 18 },

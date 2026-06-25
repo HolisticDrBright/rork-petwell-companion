@@ -65,7 +65,12 @@ interface Loaded {
 export default function FoodResultScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { productId, raw } = useLocalSearchParams<{ productId: string; raw?: string; source?: string }>();
+  const { productId, raw, image } = useLocalSearchParams<{
+    productId: string;
+    raw?: string;
+    source?: string;
+    image?: string;
+  }>();
   const { selectedPet, addLog, todayIso, mode } = usePets();
 
   const [data, setData] = useState<Loaded | null>(null);
@@ -115,6 +120,7 @@ export default function FoodResultScreen() {
           scanId = await foodService.createScan(selectedPet.id, {
             productId: bundle.id,
             rawLabelText: raw || null,
+            imagePath: image || null,
           });
           await foodService.saveReview(selectedPet.id, { productId: bundle.id, scanId, review });
         } catch (e) {
