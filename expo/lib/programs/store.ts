@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useCallback, useEffect, useState } from "react";
 
 import { programById, summarizeProgress, type ProgramProgress } from "@/lib/integrative/programs";
+import { integrativeService } from "@/services/integrativeService";
 
 /**
  * Local-first persistence for Progress Programs. Runs are stored in AsyncStorage
@@ -19,6 +20,8 @@ export interface ProgramRun {
   status: "active" | "completed" | "stopped";
   loggedDays: number[]; // 1-based day indices that have been logged
   lastLoggedAt?: string;
+  /** Remote row id when synced to Supabase (best-effort; undefined in local mode). */
+  remoteId?: string;
 }
 
 async function loadAll(): Promise<ProgramRun[]> {
@@ -97,6 +100,12 @@ export function useProgramRuns(petId: string) {
         await refresh();
         return existing.id;
       }
+      let remoteId: string | undefined;
+      try {
+        remoteId = (await integrativeService.startProgramRemote(petId, templateId)) ?? undefined;
+      } catch {
+        // best-effort; local-first
+      }
       const run: ProgramRun = {
         id: `${templateId}-${Date.now()}`,
         petId,
@@ -104,6 +113,7 @@ export function useProgramRuns(petId: string) {
         startedAt: new Date().toISOString().slice(0, 10),
         status: "active",
         loggedDays: [],
+        remoteId,
       };
       await saveAll([run, ...all]);
       await refresh();
@@ -126,6 +136,13 @@ export function useProgramRuns(petId: string) {
       });
       await saveAll(next);
       await refresh();
+      const updated = next.find((r) => r.id === runId);
+      if (updated?.remoteId) {
+        integrativeService
+          .updateProgramRemote(updated.remoteId, { loggedDays: updated.loggedDays, status: updated.status })
+          .catch(() => {});
+        integrativeService.logProgramDayRemote(updated.remoteId, updated.loggedDays.length).catch(() => {});
+      }
     },
     [refresh],
   );
@@ -136,6 +153,12 @@ export function useProgramRuns(petId: string) {
       const next = all.map((r) => (r.id === runId ? { ...r, status: "stopped" as const } : r));
       await saveAll(next);
       await refresh();
+      const updated = next.find((r) => r.id === runId);
+      if (updated?.remoteId) {
+        integrativeService
+          .updateProgramRemote(updated.remoteId, { loggedDays: updated.loggedDays, status: "stopped" })
+          .catch(() => {});
+      }
     },
     [refresh],
   );

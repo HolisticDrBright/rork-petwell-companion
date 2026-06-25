@@ -230,6 +230,48 @@ export type Database = {
         }
         Relationships: []
       }
+      detected_patterns: {
+        Row: {
+          confidence: string | null
+          created_at: string
+          id: string
+          name: string
+          owner_id: string
+          pattern_id: string
+          payload: Json
+          pet_id: string
+          summary: string | null
+          system_slug: string | null
+          urgent: boolean
+        }
+        Insert: {
+          confidence?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          owner_id?: string
+          pattern_id: string
+          payload?: Json
+          pet_id: string
+          summary?: string | null
+          system_slug?: string | null
+          urgent?: boolean
+        }
+        Update: {
+          confidence?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          owner_id?: string
+          pattern_id?: string
+          payload?: Json
+          pet_id?: string
+          summary?: string | null
+          system_slug?: string | null
+          urgent?: boolean
+        }
+        Relationships: []
+      }
       document_uploads: {
         Row: {
           created_at: string
@@ -287,6 +329,66 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      environment_checklists: {
+        Row: {
+          answers: Json
+          created_at: string
+          id: string
+          owner_id: string
+          pet_id: string
+        }
+        Insert: {
+          answers?: Json
+          created_at?: string
+          id?: string
+          owner_id?: string
+          pet_id: string
+        }
+        Update: {
+          answers?: Json
+          created_at?: string
+          id?: string
+          owner_id?: string
+          pet_id?: string
+        }
+        Relationships: []
+      }
+      environment_risks: {
+        Row: {
+          allergy_relevant: boolean
+          cat_severity: string
+          dog_severity: string
+          id: string
+          label: string
+          question: string
+          safer_step: string
+          slug: string
+          why: string
+        }
+        Insert: {
+          allergy_relevant?: boolean
+          cat_severity?: string
+          dog_severity?: string
+          id?: string
+          label: string
+          question: string
+          safer_step: string
+          slug: string
+          why: string
+        }
+        Update: {
+          allergy_relevant?: boolean
+          cat_severity?: string
+          dog_severity?: string
+          id?: string
+          label?: string
+          question?: string
+          safer_step?: string
+          slug?: string
+          why?: string
+        }
+        Relationships: []
       }
       evidence_grades: {
         Row: {
@@ -841,6 +943,42 @@ export type Database = {
           },
         ]
       }
+      health_scores: {
+        Row: {
+          band: string
+          created_at: string
+          generated_at: string
+          headline: string | null
+          id: string
+          overall: number
+          owner_id: string
+          pet_id: string
+          systems: Json
+        }
+        Insert: {
+          band: string
+          created_at?: string
+          generated_at?: string
+          headline?: string | null
+          id?: string
+          overall: number
+          owner_id?: string
+          pet_id: string
+          systems?: Json
+        }
+        Update: {
+          band?: string
+          created_at?: string
+          generated_at?: string
+          headline?: string | null
+          id?: string
+          overall?: number
+          owner_id?: string
+          pet_id?: string
+          systems?: Json
+        }
+        Relationships: []
+      }
       herb_profiles: {
         Row: {
           ask_vet_first: boolean
@@ -1028,6 +1166,150 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      marketplace_products: {
+        Row: {
+          blurb: string | null
+          category: string
+          evidence: string
+          fit_tags: string[]
+          id: string
+          ingredient_quality: number
+          lab_tested: boolean
+          name: string
+          reported_outcomes: number
+          slug: string
+          species: string
+          transparency: number
+        }
+        Insert: {
+          blurb?: string | null
+          category: string
+          evidence?: string
+          fit_tags?: string[]
+          id?: string
+          ingredient_quality?: number
+          lab_tested?: boolean
+          name: string
+          reported_outcomes?: number
+          slug: string
+          species?: string
+          transparency?: number
+        }
+        Update: {
+          blurb?: string | null
+          category?: string
+          evidence?: string
+          fit_tags?: string[]
+          id?: string
+          ingredient_quality?: number
+          lab_tested?: boolean
+          name?: string
+          reported_outcomes?: number
+          slug?: string
+          species?: string
+          transparency?: number
+        }
+        Relationships: []
+      }
+      meal_plan_items: {
+        Row: {
+          id: string
+          kind: string
+          meal_plan_slug: string
+          name: string
+          note: string | null
+          sort: number
+        }
+        Insert: {
+          id?: string
+          kind: string
+          meal_plan_slug: string
+          name: string
+          note?: string | null
+          sort?: number
+        }
+        Update: {
+          id?: string
+          kind?: string
+          meal_plan_slug?: string
+          name?: string
+          note?: string | null
+          sort?: number
+        }
+        Relationships: []
+      }
+      meal_plans: {
+        Row: {
+          calories_note: string | null
+          cat_caution: string | null
+          commercial: string[]
+          condition_slug: string | null
+          contraindications: string[]
+          created_at: string
+          evidence: string | null
+          fat_note: string | null
+          fiber_note: string | null
+          homemade: string[]
+          hydration_note: string | null
+          id: string
+          needs_nutritionist: boolean
+          prep: string | null
+          protein_note: string | null
+          slug: string
+          species: string
+          tcm_pattern: string | null
+          thermal_nature: string | null
+          title: string
+          who_for: string | null
+        }
+        Insert: {
+          calories_note?: string | null
+          cat_caution?: string | null
+          commercial?: string[]
+          condition_slug?: string | null
+          contraindications?: string[]
+          created_at?: string
+          evidence?: string | null
+          fat_note?: string | null
+          fiber_note?: string | null
+          homemade?: string[]
+          hydration_note?: string | null
+          id?: string
+          needs_nutritionist?: boolean
+          prep?: string | null
+          protein_note?: string | null
+          slug: string
+          species?: string
+          tcm_pattern?: string | null
+          thermal_nature?: string | null
+          title: string
+          who_for?: string | null
+        }
+        Update: {
+          calories_note?: string | null
+          cat_caution?: string | null
+          commercial?: string[]
+          condition_slug?: string | null
+          contraindications?: string[]
+          created_at?: string
+          evidence?: string | null
+          fat_note?: string | null
+          fiber_note?: string | null
+          homemade?: string[]
+          hydration_note?: string | null
+          id?: string
+          needs_nutritionist?: boolean
+          prep?: string | null
+          protein_note?: string | null
+          slug?: string
+          species?: string
+          tcm_pattern?: string | null
+          thermal_nature?: string | null
+          title?: string
+          who_for?: string | null
+        }
+        Relationships: []
       }
       medication_interactions: {
         Row: {
@@ -1323,6 +1605,36 @@ export type Database = {
           },
         ]
       }
+      product_recommendations: {
+        Row: {
+          category: string | null
+          created_at: string
+          id: string
+          owner_id: string
+          pet_id: string
+          product_slug: string
+          score: number | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          id?: string
+          owner_id?: string
+          pet_id: string
+          product_slug: string
+          score?: number | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          id?: string
+          owner_id?: string
+          pet_id?: string
+          product_slug?: string
+          score?: number | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -1362,6 +1674,98 @@ export type Database = {
           store_photos?: boolean
           training_opt_out?: boolean
           updated_at?: string
+        }
+        Relationships: []
+      }
+      program_logs: {
+        Row: {
+          day: number
+          id: string
+          logged_at: string
+          note: string | null
+          owner_id: string
+          program_id: string
+        }
+        Insert: {
+          day: number
+          id?: string
+          logged_at?: string
+          note?: string | null
+          owner_id?: string
+          program_id: string
+        }
+        Update: {
+          day?: number
+          id?: string
+          logged_at?: string
+          note?: string | null
+          owner_id?: string
+          program_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "program_logs_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "progress_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      program_tasks: {
+        Row: {
+          id: string
+          kind: string
+          label: string
+          sort: number
+          template_id: string
+        }
+        Insert: {
+          id?: string
+          kind?: string
+          label: string
+          sort?: number
+          template_id: string
+        }
+        Update: {
+          id?: string
+          kind?: string
+          label?: string
+          sort?: number
+          template_id?: string
+        }
+        Relationships: []
+      }
+      progress_programs: {
+        Row: {
+          created_at: string
+          id: string
+          logged_days: number[]
+          owner_id: string
+          pet_id: string
+          started_at: string
+          status: string
+          template_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          logged_days?: number[]
+          owner_id?: string
+          pet_id: string
+          started_at?: string
+          status?: string
+          template_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          logged_days?: number[]
+          owner_id?: string
+          pet_id?: string
+          started_at?: string
+          status?: string
+          template_id?: string
         }
         Relationships: []
       }
@@ -1836,6 +2240,50 @@ export type Database = {
           },
         ]
       }
+      system_scores: {
+        Row: {
+          band: string
+          created_at: string
+          health_score_id: string
+          id: string
+          key: string
+          label: string
+          owner_id: string
+          score: number
+          status: string | null
+        }
+        Insert: {
+          band: string
+          created_at?: string
+          health_score_id: string
+          id?: string
+          key: string
+          label: string
+          owner_id?: string
+          score: number
+          status?: string | null
+        }
+        Update: {
+          band?: string
+          created_at?: string
+          health_score_id?: string
+          id?: string
+          key?: string
+          label?: string
+          owner_id?: string
+          score?: number
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "system_scores_health_score_id_fkey"
+            columns: ["health_score_id"]
+            isOneToOne: false
+            referencedRelation: "health_scores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tcm_food_properties: {
         Row: {
           condition_contraindications: string | null
@@ -1934,6 +2382,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      treat_audits: {
+        Row: {
+          calories: number | null
+          created_at: string
+          fat_level: string | null
+          id: string
+          name: string
+          owner_id: string
+          payload: Json
+          pet_id: string
+          verdict: string
+        }
+        Insert: {
+          calories?: number | null
+          created_at?: string
+          fat_level?: string | null
+          id?: string
+          name: string
+          owner_id?: string
+          payload?: Json
+          pet_id: string
+          verdict: string
+        }
+        Update: {
+          calories?: number | null
+          created_at?: string
+          fat_level?: string | null
+          id?: string
+          name?: string
+          owner_id?: string
+          payload?: Json
+          pet_id?: string
+          verdict?: string
+        }
+        Relationships: []
       }
       triage_results: {
         Row: {

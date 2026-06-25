@@ -1,6 +1,6 @@
 import { Stack } from "expo-router";
 import { AlertTriangle, Check, Cookie, Flame, Repeat, ShieldAlert, Sparkles } from "lucide-react-native";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { Card } from "@/components/ui";
@@ -8,6 +8,7 @@ import { InfoNote, ScreenHeader } from "@/components/integrative";
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
 import { auditTreat, TREAT_CATALOG, type TreatAuditResult, type Verdict } from "@/lib/integrative/treats";
 import { usePets } from "@/providers/PetProvider";
+import { integrativeService } from "@/services";
 
 const VERDICT_STYLE: Record<Verdict, { color: string; bg: string; Icon: React.ComponentType<{ size?: number; color?: string }>; label: string }> = {
   ok: { color: Colors.green600, bg: Colors.green100, Icon: Check, label: "Okay occasionally" },
@@ -108,7 +109,7 @@ function ResultCard({ r }: { r: TreatAuditResult }) {
 }
 
 export default function TreatAuditScreen() {
-  const { selectedPet } = usePets();
+  const { selectedPet, mode } = usePets();
   const [name, setName] = useState<string>("");
   const [ingredients, setIngredients] = useState<string>("");
   const [submitted, setSubmitted] = useState<{ name: string; ingredients?: string[] } | null>(null);
@@ -117,6 +118,16 @@ export default function TreatAuditScreen() {
     if (!submitted || !submitted.name.trim()) return null;
     return auditTreat({ name: submitted.name, ingredients: submitted.ingredients }, selectedPet);
   }, [submitted, selectedPet]);
+
+  // Best-effort: save each audit in remote mode (no-op locally).
+  const lastSaved = useRef<string>("");
+  useEffect(() => {
+    if (mode !== "remote" || !result) return;
+    const key = `${selectedPet.id}:${result.name}:${result.verdict}`;
+    if (lastSaved.current === key) return;
+    lastSaved.current = key;
+    integrativeService.saveTreatAudit(selectedPet.id, result).catch(() => {});
+  }, [mode, result, selectedPet.id]);
 
   const runCustom = () => {
     if (!name.trim()) return;

@@ -1,6 +1,6 @@
 import { Stack, useRouter } from "expo-router";
 import { AlertCircle, ArrowRight, Eye, HelpCircle, Leaf, ShieldAlert } from "lucide-react-native";
-import React, { memo, useMemo } from "react";
+import React, { memo, useEffect, useMemo, useRef } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { Card, EmptyState } from "@/components/ui";
@@ -13,6 +13,7 @@ import {
   type PatternConfidence,
 } from "@/lib/integrative/patterns";
 import { usePets } from "@/providers/PetProvider";
+import { integrativeService } from "@/services";
 
 const CONF_COLOR: Record<PatternConfidence, string> = {
   high: Colors.teal700,
@@ -108,8 +109,17 @@ const PatternCard = memo(function PatternCard({
 
 export default function PatternsScreen() {
   const router = useRouter();
-  const { selectedPet, timeline } = usePets();
+  const { selectedPet, timeline, mode } = usePets();
   const patterns = useMemo(() => detectPatterns(selectedPet, timeline), [selectedPet, timeline]);
+
+  // Best-effort: snapshot detected patterns once per pet in remote mode.
+  const savedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (mode !== "remote" || patterns.length === 0) return;
+    if (savedRef.current === selectedPet.id) return;
+    savedRef.current = selectedPet.id;
+    integrativeService.savePatterns(selectedPet.id, patterns).catch(() => {});
+  }, [mode, selectedPet.id, patterns]);
 
   return (
     <View style={styles.container}>
