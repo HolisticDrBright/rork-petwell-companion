@@ -7,8 +7,9 @@ dashboard). Each section marks the split.
 
 ## 1. Your own production Supabase project
 
-The app currently points at a shared **demo** project. Standing up your own is mostly dashboard work,
-but the schema is fully reproducible from `supabase/migrations/` (0001–0015, sequential and verified).
+The app does **not** point at a shared backend by default — with no env vars it runs in local mode, and the
+shared demo project is used **only** if you explicitly set `EXPO_PUBLIC_USE_DEMO_SUPABASE=1` (dev only). The
+schema is fully reproducible from `supabase/migrations/` (**0001–0017**, sequential and verified).
 
 ### 1a. Create the project — **you (dashboard + billing)**
 1. supabase.com → New project. Pick a region near your users. Choose at least the **Pro** plan if you
@@ -20,7 +21,7 @@ Option A (recommended, Supabase CLI):
 ```bash
 cd supabase
 supabase link --project-ref <your-project-ref>
-supabase db push        # applies migrations 0001–0015 in order
+supabase db push        # applies migrations 0001–0017 in order
 ```
 Option B (no CLI): open the SQL editor and run each file in `supabase/migrations/` in numeric order.
 
@@ -79,16 +80,34 @@ standard wrapper for Expo.
 - A **RevenueCat** account → an API key + an **entitlement** (e.g. `premium`) + **offerings** mapped to the
   store products.
 
-### What I can build (code)
-- Install `react-native-purchases`, add a `purchasesService.ts`, wire the existing **Premium** screen to
-  fetch offerings, purchase, and **restore purchases**, and gate premium features on the `premium`
-  entitlement — env-driven API key, no-op without it (so dev/web stay clean).
+### What's built (code) ✓ — env-driven, inert without keys
+RevenueCat **is wired** (`react-native-purchases` + `react-native-purchases-ui` v10):
+- `providers/SubscriptionProvider.tsx` configures the SDK from env, exposes reactive `isPro`, syncs the
+  RevenueCat identity with the Supabase user, and mirrors the entitlement onto the existing `premium` gate.
+- `app/premium.tsx` handles **loading, no-offerings, purchase success, cancellation, restore, the Customer
+  Center, and web/no-native fallback**; `app/settings.tsx` exposes Restore + Manage subscription.
+- Keys are env vars (placeholders in `.env.example`): `EXPO_PUBLIC_REVENUECAT_IOS_KEY`,
+  `EXPO_PUBLIC_REVENUECAT_ANDROID_KEY`, and `EXPO_PUBLIC_REVENUECAT_ENTITLEMENT` (default **`Petwell Pro`** —
+  must match your dashboard entitlement). **With no key for the platform, purchases are disabled and Pro
+  stays locked** — the app still runs.
 
-### Caveat
-IAP **cannot be tested** in Expo Go or on web — it needs a dev build + sandbox store accounts. So it's best
-to wire this **after** you have a RevenueCat key + at least one store's products, so I can connect it to real
-offering/entitlement IDs and you can sandbox-test on device. I can scaffold it now (inert until keyed) if you
-prefer it ready.
+### Still required of you (accounts + store config — NOT done in code)
+- Per-store public SDK keys (`appl_…` / `goog_…`) in the RevenueCat dashboard → set the env vars above.
+  (The key currently in the local `.env` is a placeholder `test_…` value; verify it's a real per-store key.)
+- Create the products (`monthly`, `yearly`, `lifetime`), an **Offering**, the **`Petwell Pro` entitlement**,
+  and a **Paywall** + **Customer Center** in the dashboard.
+
+### Sandbox testing checklist — **device only (cannot be tested in Expo Go / web / this CI)**
+Build a dev client (`npx expo run:ios` / `run:android`), then verify on device:
+- [ ] iOS **sandbox** purchase completes (sandbox Apple ID in Settings)
+- [ ] Android **license-tested** purchase completes (Play Console test track + license tester)
+- [ ] **Restore purchases** re-grants Pro on a reinstall / second device
+- [ ] **Entitlement unlock** flips `isPro` and unlocks gated UI
+- [ ] **Log out → log in** keeps the entitlement attached to the account (RevenueCat `logIn`)
+- [ ] Customer Center opens and can manage/cancel
+
+> Status: **implemented in code, NOT verified on a real device** here (IAP needs a dev build + store sandbox).
+> Do not advertise payments as live until the checklist passes with real products.
 
 ---
 
@@ -131,3 +150,97 @@ sustained data operation.
 | RevenueCat API key | IAP (when added) | your RevenueCat account |
 | SMTP credentials | auth emails | your email provider (in Supabase dashboard) |
 | Supabase service-role key | data-ingestion jobs (server-side only, never in the app) | your Supabase project |
+| RevenueCat per-store keys | in-app purchases | your RevenueCat dashboard |
+
+---
+
+## 4. RLS verification checklist (run after `db push`)
+
+RLS is defined in `0004_rls.sql`, `0007_hardening.sql`, `0016_evidence_provenance.sql`, `0017_secure_is_admin.sql`.
+Verify before launch:
+
+- [ ] **User-owned tables are owner-scoped.** Signed in as user A, you cannot read/write user B's rows
+  (`pets`, `timeline_entries`, `scans`, `records`, `reports`, `health_scores`, `detected_patterns`,
+  `treat_audits`, `environment_checklists`, `progress_programs`, `program_logs`, `privacy_preferences`, …).
+  The privacy export (`services/ownedTables.ts`, 31 tables) is the canonical owned-table list — a `data.test`
+  invariant asserts the newer tables are covered and that catalog tables are **not** exported as user data.
+- [ ] **Reference/catalog tables are world-readable, not user-writable** (`food_products`, `food_brands`,
+  `recall_events`, `toxin_references`, `meal_plans`, `marketplace_products`, integrative catalog). Anon can
+  `select`; anon cannot `insert/update/delete`.
+- [ ] **Admin/import tables are admin/service-role only** (`lab_tests` writes, `admin_review_actions`,
+  `admin_review_queue`, `product_submissions`, `ocr_label_submissions` review fields, `data_import_runs`).
+  A non-admin user cannot approve submissions or write recalls. `is_admin()` is SECURITY-DEFINER and lives
+  outside the API schema (`0017`).
+- [ ] **Storage buckets** (`scan-images`, `documents`) enforce per-user folder paths.
+- [ ] Supabase **Advisors** (Dashboard → Advisors, or `get_advisors`) shows **0 security lints**.
+
+---
+
+## 5. Data operations runbook (recalls / products / toxins)
+
+The ingestion code is **runnable but operator-owned** — it needs your project + a **service-role key**
+(server-side only; never shipped in the app) and someone to schedule + curate it.
+
+```bash
+cd expo
+# Recalls (openFDA, free): brand-matched, deduped, logged to data_import_runs
+SUPABASE_URL=https://<ref>.supabase.co SUPABASE_SERVICE_ROLE_KEY=<service-role> bun scripts/import-recalls.ts 200
+# Products (Open Pet Food Facts, free): imported as `open_database`, pending admin review
+SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… bun scripts/import-opff.ts <barcode> [barcode...]
+# Toxin DB → veterinary review checklist (pure, offline)
+bun scripts/export-toxin-review.ts > ../docs/toxin-review-checklist.md
+```
+
+- **Recommended production form:** wrap `recallImporter.run()` in a **Supabase Edge Function** (Deno) on a
+  daily **cron schedule** (Dashboard → Edge Functions + Cron), using the function's service-role env. The
+  importers take an injected client, so the same code runs from a script, an Edge Function, or the in-app
+  admin screen.
+- **Admin review:** sign in as a user with `profiles.is_admin = true` → **Settings → Admin → Data quality &
+  review queue** (`app/admin.tsx`) to see real/demo/no-lab counts and approve/reject OCR-label submissions.
+- **Lab / contaminant data — honest gap (unchanged):** there is **no free** pet-food contaminant feed. Real
+  purity confidence requires **licensing** (e.g. Clean Label Project), a **lab partnership**, or
+  **brand-provided COAs entered by an admin**. Until then the app keeps purity confidence low / "no public
+  lab test found", demo data is labeled `demo_seed`, and a photo never raises confidence (enforced by tests).
+
+---
+
+## 6. EAS build readiness (before you ship binaries)
+
+| Item | Status | Action |
+|---|---|---|
+| iOS bundle ID | ⚠️ placeholder `app.rork.u36ek53il5cxdlwr8ag9m` | set your reverse-DNS id in `app.json` → `ios.bundleIdentifier` |
+| Android package | ⚠️ placeholder `app.rork.u36ek53il5cxdlwr8ag9m` | set in `app.json` → `android.package` |
+| App slug / name | ⚠️ slug is a generated id | set a real `slug`/`name` (also used by the `start` scripts) |
+| App icon / splash | ⚠️ verify defaults replaced | provide production icon + splash assets |
+| Native permissions | ✅ camera/photos (image-picker), notifications declared in `app.json` | confirm usage strings read well in the store |
+| RevenueCat keys | ⚠️ env, placeholder value locally | set EAS secrets (per-store keys) |
+| Sentry DSN | ✅ env-driven, no-op without it | set EAS secret |
+| Supabase env vars | ✅ env-driven, local mode without them | set EAS secrets |
+| OCR / live barcode | ⚠️ native modules NOT bundled | optional: add `expo-text-extractor` + `expo-camera` in a dev build (see `docs/food-scanning.md`); the app falls back to manual label review without them |
+
+`eas secret:create` for each secret; `eas build` for the dev/prod client. IAP, local notifications, and
+on-device OCR **cannot** be tested in Expo Go / web — they need a dev build.
+
+---
+
+## 7. App-store compliance notes
+
+- **Positioning:** informational pet-health *guidance only* — **not** a diagnosis, **not** a substitute for
+  veterinary care, **not** for emergencies. This is stated in `app/terms.tsx` ("Not veterinary advice",
+  emergency disclaimer) and the in-app `Disclaimer` shown across triage/food/toxin/report screens.
+- **Emergencies & poisoning** route to a vet / emergency clinic / ASPCA (888-426-4435) / Pet Poison Helpline
+  (855-764-7661) with one-tap calling — never handled in-app.
+- **Subscriptions use native IAP** via RevenueCat (Apple/Google), with Restore + manage/cancel.
+- **No fake commerce / telehealth:** Marketplace is a labeled "Research preview" (no buy links, affiliate
+  disclosure present); Telehealth is "coming soon" and only exposes real actions (emergency-vet finder, call
+  your vet, vet report).
+- **Privacy:** export + delete-account implemented; Sentry runs with `sendDefaultPii: false`.
+
+---
+
+## 8. Dependency audit (as of this writing)
+
+`bun audit` reports advisories only in **transitive build/dev tooling** — `tar`/`@xmldom/xmldom` (Expo CLI &
+prebuild), `@babel/helpers` (transpile), `ajv` (ESLint), `brace-expansion`/`minimatch` (build globbing).
+**None ship in the runtime app bundle.** Do **not** run `audit fix --force` — it would risk breaking the Expo
+toolchain. These clear as Expo SDK / ESLint / Babel are updated. Re-check with `bun audit` before each release.

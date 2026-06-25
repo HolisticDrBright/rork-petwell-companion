@@ -27,8 +27,9 @@ export default function ProtocolsScreen() {
       <ScreenHeader title="Natural support library" subtitle="Food-first, vet-safe protocols" />
       <ScrollView contentContainerStyle={{ padding: Space.md, paddingBottom: 50 }} showsVerticalScrollIndicator={false}>
         <InfoNote>
-          Each protocol is supportive care — never a treatment for disease. Options are filtered for {selectedPet.name}
-          &apos;s species and safety on the detail page.
+          Each protocol is supportive care — never a treatment for disease. Content is curated from veterinary and
+          traditional sources and is not individually vet-reviewed for your pet — confirm with your vet. Options are
+          filtered for {selectedPet.name}&apos;s species and safety on the detail page.
         </InfoNote>
         <View style={{ height: Space.md }} />
         {ordered.map((c) => {

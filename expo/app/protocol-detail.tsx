@@ -276,6 +276,9 @@ export default function ProtocolDetailScreen() {
               "Supportive care complements — it does not replace — veterinary diagnosis and treatment."}
           </InfoNote>
         </View>
+        <Text style={{ color: Colors.inkFaint, fontSize: 11, lineHeight: 15, marginTop: Space.sm, textAlign: "center" }}>
+          Curated from veterinary and traditional sources · not individually vet-reviewed — confirm with your vet.
+        </Text>
       </ScrollView>
     </View>
   );

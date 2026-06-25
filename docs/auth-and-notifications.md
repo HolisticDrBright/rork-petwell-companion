@@ -34,5 +34,8 @@
 
 ## CI
 
-`.github/workflows/ci.yml` runs `tsc --noEmit`, `eslint .`, and the safety tests
-(`bun tests/safety.test.ts`) on every push/PR.
+`.github/workflows/ci.yml` runs `tsc --noEmit`, `eslint .`, and **all** test suites
+(`tests/safety.test.ts`, `tests/data.test.ts`, `tests/toxins.test.ts`) on every push/PR.
+Locally: `bun test` (or `npm test`) runs the same three suites; `npm run typecheck` /
+`npm run lint` mirror CI. If you install with npm instead of bun, use
+`npm install --legacy-peer-deps` (the repo's lockfile is `bun.lock`).
