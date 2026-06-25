@@ -59,6 +59,7 @@ function RootLayoutNav() {
       <Stack.Screen name="programs" options={{ headerShown: false, presentation: "card" }} />
       <Stack.Screen name="program-detail" options={{ headerShown: false, presentation: "card" }} />
       <Stack.Screen name="marketplace" options={{ headerShown: false, presentation: "card" }} />
+      <Stack.Screen name="toxins" options={{ title: "Is it toxic?", presentation: "card" }} />
     </Stack>
   );
 }

@@ -1,7 +1,7 @@
-import { Stack } from "expo-router";
-import { CheckCircle2, Home, Sparkles, Wind } from "lucide-react-native";
+import { Stack, useRouter } from "expo-router";
+import { CheckCircle2, ChevronRight, Home, ShieldAlert, Sparkles, Wind } from "lucide-react-native";
 import React, { useMemo } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { Card } from "@/components/ui";
 import { InfoNote, ScreenHeader } from "@/components/integrative";
@@ -16,6 +16,7 @@ const SEV: Record<EnvSeverity, { color: string; bg: string; label: string }> = {
 };
 
 export default function EnvironmentScreen() {
+  const router = useRouter();
   const { selectedPet } = usePets();
   const plan = useMemo(() => environmentFirstSteps(selectedPet), [selectedPet]);
   const checklist = useMemo(() => buildEnvironmentChecklist(selectedPet), [selectedPet]);
@@ -40,6 +41,23 @@ export default function EnvironmentScreen() {
             </View>
           ))}
         </Card>
+
+        {/* Quick link into the offline toxin database */}
+        <Pressable
+          style={({ pressed }) => [styles.toxinCard, pressed && { opacity: 0.85 }]}
+          onPress={() => router.push("/toxins")}
+          accessibilityRole="button"
+          accessibilityLabel="Check if a plant, food, or product is toxic"
+        >
+          <View style={styles.toxinIcon}>
+            <ShieldAlert size={18} color={Colors.coral600} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.toxinTitle}>Is it toxic?</Text>
+            <Text style={styles.toxinSub}>Look up a specific plant, food, product, or medicine — works offline.</Text>
+          </View>
+          <ChevronRight size={18} color={Colors.inkFaint} />
+        </Pressable>
 
         <Text style={styles.section}>Full home checklist</Text>
         <Text style={styles.sectionHint}>
@@ -91,6 +109,18 @@ const styles = StyleSheet.create({
   firstTitle: { ...Fonts.h3, color: "#fff", flex: 1 },
   stepRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
   stepText: { ...Fonts.small, color: Colors.teal100, flex: 1, lineHeight: 19, fontWeight: "500" },
+  toxinCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: Colors.coral100,
+    borderRadius: Radius.lg,
+    padding: Space.md,
+    marginTop: Space.md,
+  },
+  toxinIcon: { width: 38, height: 38, borderRadius: 19, backgroundColor: Colors.surface, alignItems: "center", justifyContent: "center" },
+  toxinTitle: { ...Fonts.h3, fontSize: 15, color: Colors.coral600 },
+  toxinSub: { ...Fonts.tiny, color: Colors.inkSoft, marginTop: 1, lineHeight: 15 },
   section: { ...Fonts.h2, fontSize: 17, marginTop: Space.lg },
   sectionHint: { ...Fonts.small, color: Colors.inkFaint, marginTop: 2, marginBottom: Space.sm, lineHeight: 18 },
   itemCard: { gap: 6, marginBottom: Space.sm },

@@ -1,3 +1,6 @@
+import { TOXINS } from "@/lib/toxins/data";
+import type { ToxinEntry } from "@/lib/toxins/types";
+
 import type { CatalogItem, PetLite, SafetyLevel } from "./types";
 
 /**
@@ -42,40 +45,31 @@ export interface ToxinRef {
   note: string;
 }
 
-export const TOXIC_FOODS: ToxinRef[] = [
-  { name: "Xylitol (birch sugar)", match: ["xylitol", "birch sugar"], species: "both", severity: "toxic", note: "Can cause life-threatening low blood sugar and liver failure in dogs." },
-  { name: "Grapes / raisins", match: ["grape", "raisin", "currant", "sultana"], species: "both", severity: "toxic", note: "Linked to acute kidney injury; no safe amount is established." },
-  { name: "Onion / garlic / chives", match: ["onion", "garlic", "chive", "leek", "shallot"], species: "both", severity: "high", note: "Damage red blood cells; cats are especially sensitive." },
-  { name: "Chocolate / cocoa", match: ["chocolate", "cocoa", "cacao", "theobromine"], species: "both", severity: "toxic", note: "Theobromine is toxic; darker chocolate is worse." },
-  { name: "Macadamia nuts", match: ["macadamia"], species: "dog", severity: "high", note: "Cause weakness, tremors and hyperthermia in dogs." },
-  { name: "Caffeine", match: ["caffeine", "coffee", "espresso"], species: "both", severity: "high", note: "Stimulant toxic to pets." },
-  { name: "Alcohol", match: ["alcohol", "ethanol"], species: "both", severity: "toxic", note: "Even small amounts are dangerous." },
-  { name: "Raw yeast dough", match: ["raw dough", "yeast dough"], species: "both", severity: "high", note: "Expands and ferments in the stomach." },
-];
+/** Bridge the rich local toxin entry to the engine's lightweight ToxinRef. */
+function toToxinRef(entry: ToxinEntry): ToxinRef {
+  return {
+    name: entry.name,
+    match: entry.aliases,
+    species: entry.species,
+    severity: entry.severity,
+    note: entry.note,
+  };
+}
 
-export const TOXIC_PLANTS: ToxinRef[] = [
-  { name: "Lily (true & day lilies)", match: ["lily", "lilies"], species: "cat", severity: "toxic", note: "Even pollen or vase water can cause fatal kidney failure in cats — remove entirely." },
-  { name: "Sago palm", match: ["sago", "cycad"], species: "both", severity: "toxic", note: "Highly toxic; causes liver failure." },
-  { name: "Azalea / rhododendron", match: ["azalea", "rhododendron"], species: "both", severity: "high", note: "Affects the heart and gut." },
-  { name: "Autumn crocus", match: ["autumn crocus", "colchicum"], species: "both", severity: "toxic", note: "Severe multi-organ toxicity." },
-  { name: "Oleander", match: ["oleander"], species: "both", severity: "toxic", note: "Cardiac toxin." },
-];
+// These three lists are now DERIVED from the canonical local toxin database
+// (lib/toxins) so the treat audit, environment scanner, and meal planner all
+// share one source of truth and stay in sync as the database grows.
+export const TOXIC_FOODS: ToxinRef[] = TOXINS.filter((e) => e.category === "food").map(toToxinRef);
+
+export const TOXIC_PLANTS: ToxinRef[] = TOXINS.filter((e) => e.category === "plant").map(toToxinRef);
 
 /**
  * Essential oils. Cats lack the liver enzymes (glucuronidation) to process many
  * of these and can be harmed by skin contact or diffused vapor.
  */
-export const RISKY_ESSENTIAL_OILS: ToxinRef[] = [
-  { name: "Tea tree (melaleuca)", match: ["tea tree", "melaleuca"], species: "both", severity: "toxic", note: "Toxic to dogs and cats even in small amounts." },
-  { name: "Pennyroyal", match: ["pennyroyal"], species: "both", severity: "toxic", note: "Can cause liver failure." },
-  { name: "Wintergreen", match: ["wintergreen"], species: "both", severity: "high", note: "Contains salicylates (aspirin-like)." },
-  { name: "Pine / fir oils", match: ["pine oil", "fir oil"], species: "cat", severity: "high", note: "Irritant; risky for cats." },
-  { name: "Citrus / d-limonene", match: ["citrus oil", "d-limonene", "limonene"], species: "cat", severity: "high", note: "Cats are sensitive to citrus oils." },
-  { name: "Peppermint", match: ["peppermint"], species: "cat", severity: "caution", note: "Can irritate cats; avoid direct exposure." },
-  { name: "Eucalyptus", match: ["eucalyptus"], species: "cat", severity: "high", note: "Risky for cats." },
-  { name: "Cinnamon / clove", match: ["cinnamon oil", "clove oil", "eugenol"], species: "both", severity: "caution", note: "Concentrated oils irritate skin and gut." },
-  { name: "Ylang ylang", match: ["ylang"], species: "cat", severity: "high", note: "Risky for cats." },
-];
+export const RISKY_ESSENTIAL_OILS: ToxinRef[] = TOXINS.filter((e) => e.category === "essential_oil").map(
+  toToxinRef,
+);
 
 const norm = (s: string) => s.toLowerCase();
 

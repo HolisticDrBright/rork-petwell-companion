@@ -4,6 +4,7 @@ import { Check, Download, FileText, HelpCircle, Minus, Share2, X } from "lucide-
 import React, { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
 
+import { EmergencyContacts } from "@/components/EmergencyContacts";
 import { Card, Disclaimer, PrimaryButton } from "@/components/ui";
 import Colors, { Fonts, Radius, Space, Urgency } from "@/constants/colors";
 import { RECORDS } from "@/constants/mockData";
@@ -322,6 +323,16 @@ export default function VetReportScreen() {
             </View>
           ))}
         </Card>
+
+        {/* Poison-control contacts when a toxin exposure is flagged */}
+        {data.redFlagsPresent.some((f) => /toxin|poison/i.test(f)) ? (
+          <>
+            <SectionHeader>If poisoning is suspected</SectionHeader>
+            <Card style={{ gap: 10 }}>
+              <EmergencyContacts showCallToAction={false} />
+            </Card>
+          </>
+        ) : null}
 
         {/* Allergies & conditions */}
         <SectionHeader>Allergies & conditions</SectionHeader>

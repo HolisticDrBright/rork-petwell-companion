@@ -17,6 +17,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { EmergencyContacts } from "@/components/EmergencyContacts";
 import { IntegrativePlanView } from "@/components/IntegrativePlan";
 import { Card, Disclaimer, PrimaryButton } from "@/components/ui";
 import Colors, { Fonts, Radius, Space, Urgency, softShadow } from "@/constants/colors";
@@ -100,6 +101,7 @@ export default function TriageResultScreen() {
   const u = Urgency[outcome.urgency];
   const needsVet = outcome.urgency !== "green";
   const escalated = outcome.urgency === "orange" || outcome.urgency === "red";
+  const toxinExposure = outcome.redFlags.some((f) => /toxin|poison/i.test(f));
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -164,6 +166,25 @@ export default function TriageResultScreen() {
                 <Text style={styles.redText}>{f}</Text>
               </View>
             ))}
+          </View>
+        ) : null}
+
+        {/* Possible poisoning — surface poison-control hotlines + the toxin lookup */}
+        {toxinExposure ? (
+          <View style={styles.poisonCard}>
+            <View style={styles.redHead}>
+              <ShieldAlert size={18} color={Colors.coral600} />
+              <Text style={[styles.redTitle, { color: Colors.coral600 }]}>Possible poisoning — act now</Text>
+            </View>
+            <EmergencyContacts />
+            <Pressable
+              style={({ pressed }) => [styles.lookupRow, pressed && { opacity: 0.7 }]}
+              onPress={() => router.push("/toxins")}
+              accessibilityRole="button"
+              accessibilityLabel="Look up what your pet ate or touched"
+            >
+              <Text style={styles.lookupText}>Look up what they ate or touched →</Text>
+            </Pressable>
           </View>
         ) : null}
 
@@ -366,6 +387,15 @@ const styles = StyleSheet.create({
   },
   redHead: { flexDirection: "row", alignItems: "center", gap: 8 },
   redTitle: { ...Fonts.h3, color: Colors.red600 },
+  poisonCard: {
+    marginTop: Space.md,
+    backgroundColor: Colors.coral100,
+    borderRadius: Radius.lg,
+    padding: Space.md,
+    gap: 12,
+  },
+  lookupRow: { alignItems: "center", paddingVertical: 2 },
+  lookupText: { ...Fonts.small, color: Colors.coral600, fontWeight: "800" },
   redRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
   redDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: Colors.red600, marginTop: 7 },
   redText: { ...Fonts.body, flex: 1, lineHeight: 20, color: Colors.ink, fontWeight: "600" },

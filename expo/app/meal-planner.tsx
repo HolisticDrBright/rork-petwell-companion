@@ -1,5 +1,5 @@
-import { Stack, useLocalSearchParams } from "expo-router";
-import { Droplets, Flame, Leaf, Package, Scale, Snowflake, Utensils, Wheat } from "lucide-react-native";
+import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { Droplets, Flame, Leaf, Package, Scale, ShieldAlert, Snowflake, Utensils, Wheat } from "lucide-react-native";
 import React, { useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
@@ -8,6 +8,7 @@ import { EvidenceBadge, InfoNote, ScreenHeader, VetNote } from "@/components/int
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
 import { MEAL_PLANS, mealPlanById, selectMealPlan, type MealPlan } from "@/lib/integrative/meals";
 import type { ThermalNature } from "@/lib/integrative/types";
+import { findToxinsInText } from "@/lib/toxins/lookup";
 import { usePets } from "@/providers/PetProvider";
 
 const THERMAL: Record<ThermalNature, { color: string; bg: string; Icon: React.ComponentType<{ size?: number; color?: string }> }> = {
@@ -31,6 +32,7 @@ function Row({ icon: Icon, label, value }: { icon: React.ComponentType<{ size?: 
 }
 
 export default function MealPlannerScreen() {
+  const router = useRouter();
   const { selectedPet } = usePets();
   const params = useLocalSearchParams<{ condition?: string; system?: string }>();
   const initial = useMemo(
@@ -41,6 +43,13 @@ export default function MealPlannerScreen() {
   const plan: MealPlan = mealPlanById(planId) ?? MEAL_PLANS[0];
   const t = THERMAL[plan.thermalNature];
   const catCaution = selectedPet.species === "cat" ? plan.catCaution : undefined;
+
+  // Defensive safety net: never let a plan's ideas silently include a food that's
+  // toxic to this species. Scans plan text against the local toxin database.
+  const planToxins = useMemo(
+    () => findToxinsInText([...plan.homemade, ...plan.commercial, plan.prep].join(" "), selectedPet.species),
+    [plan, selectedPet.species],
+  );
 
   return (
     <View style={styles.container}>
@@ -147,6 +156,19 @@ export default function MealPlannerScreen() {
 
         {/* Contraindications */}
         <Text style={styles.section}>Important cautions</Text>
+        {planToxins.length > 0 ? (
+          <Card style={[styles.toxinWarnCard, { gap: 8, marginBottom: Space.sm }]}>
+            <View style={styles.toxinWarnHead}>
+              <ShieldAlert size={16} color={Colors.red600} />
+              <Text style={styles.toxinWarnTitle}>Skip these for {selectedPet.name}</Text>
+            </View>
+            {planToxins.map((tox) => (
+              <Text key={tox.slug} style={styles.warnText}>
+                <Text style={{ fontWeight: "800" }}>{tox.name}</Text> — {tox.note}
+              </Text>
+            ))}
+          </Card>
+        ) : null}
         <Card style={[styles.warnCard, { gap: 8 }]}>
           {plan.contraindications.map((c, i) => (
             <View key={i} style={styles.bulletRow}>
@@ -154,6 +176,15 @@ export default function MealPlannerScreen() {
               <Text style={styles.warnText}>{c}</Text>
             </View>
           ))}
+          <Pressable
+            style={({ pressed }) => [styles.toxinLink, pressed && { opacity: 0.7 }]}
+            onPress={() => router.push("/toxins")}
+            accessibilityRole="button"
+            accessibilityLabel="Check if a food is toxic"
+          >
+            <ShieldAlert size={14} color={Colors.coral600} />
+            <Text style={styles.toxinLinkText}>Check if a food is safe — toxin lookup</Text>
+          </Pressable>
         </Card>
 
         <View style={{ marginTop: Space.md }}>
@@ -198,4 +229,9 @@ const styles = StyleSheet.create({
   warnCard: { backgroundColor: Colors.amber100 },
   warnDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: Colors.amber600, marginTop: 7 },
   warnText: { ...Fonts.small, color: Colors.ink, flex: 1, lineHeight: 19 },
+  toxinWarnCard: { backgroundColor: Colors.red100 },
+  toxinWarnHead: { flexDirection: "row", alignItems: "center", gap: 8 },
+  toxinWarnTitle: { ...Fonts.h3, fontSize: 14, color: Colors.red600 },
+  toxinLink: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 },
+  toxinLinkText: { ...Fonts.small, color: Colors.coral600, fontWeight: "800" },
 });
