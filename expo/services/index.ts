@@ -26,3 +26,12 @@ export {
   cancelReminder,
   requestNotificationPermission,
 } from "./notificationsService";
+// Real-data foundation: ingesters, evidence, and admin review.
+export { recallImporter } from "./recallImporter";
+export { openPetFoodFactsImporter } from "./openPetFoodFactsImporter";
+export { productMatcher } from "./productMatcher";
+export { labelSubmissionService } from "./labelSubmissionService";
+export { labEvidenceService } from "./labEvidenceService";
+export { evidenceService } from "./evidenceService";
+export { adminReviewService } from "./adminReviewService";
+export { dataQualityService } from "./dataQualityService";

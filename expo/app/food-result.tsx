@@ -12,6 +12,7 @@ import {
   Pencil,
   ShieldCheck,
   Sparkles,
+  Upload,
   X,
 } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
@@ -25,13 +26,53 @@ import { buildReview, type AlternativeItem } from "@/lib/food/engine";
 import type { FoodReview, PetContext, ProductBundle, Severity } from "@/lib/food/types";
 import { tcmForIngredients, thermalSummary } from "@/lib/integrative/engine";
 import { usePets } from "@/providers/PetProvider";
-import { foodService } from "@/services";
+import { foodService, labelSubmissionService } from "@/services";
 
 const TONE = {
   good: { color: Colors.green600, bg: Colors.green100 },
   watch: { color: Colors.amber600, bg: Colors.amber100 },
   bad: { color: Colors.coral600, bg: Colors.coral100 },
 } as const;
+
+type ProvTone = "good" | "info" | "warn" | "muted";
+const PROV_TONE: Record<ProvTone, { color: string; bg: string }> = {
+  good: { color: Colors.green600, bg: Colors.green100 },
+  info: { color: Colors.teal700, bg: Colors.teal50 },
+  warn: { color: Colors.amber600, bg: Colors.amber100 },
+  muted: { color: Colors.inkSoft, bg: Colors.cream2 },
+};
+
+function ProvChip({ label, tone }: { label: string; tone: ProvTone }) {
+  const c = PROV_TONE[tone];
+  return (
+    <View style={[styles.provChip, { backgroundColor: c.bg }]}>
+      <Text style={[styles.provChipText, { color: c.color }]}>{label}</Text>
+    </View>
+  );
+}
+
+/** Match-confidence label from how the product was found. */
+function matchLabel(source: string | undefined): string {
+  if (source === "barcode") return "Exact barcode match";
+  if (source === "photo" || source === "paste") return "Label match — confirm";
+  if (source === "search") return "You picked this";
+  return "Matched";
+}
+
+/** Lab-evidence badge from the review's purity summary (never overclaims). */
+function labBadge(purity: FoodReview["purity"]): { label: string; tone: ProvTone } {
+  if (!purity.hasEvidence) return { label: "No lab data", tone: "muted" };
+  if (purity.demoOnly) return { label: "Demo data", tone: "warn" };
+  if (purity.confidence === "supported" || purity.confidence === "moderate")
+    return { label: "Product-level lab", tone: "good" };
+  return { label: "Brand-level only", tone: "info" };
+}
+
+function sourceBadge(sources: FoodReview["sources"]): { label: string; tone: ProvTone } {
+  if (sources.length === 0) return { label: "No sources", tone: "muted" };
+  if (sources.some((s) => !s.isDemo)) return { label: "Open database", tone: "info" };
+  return { label: "Demo source", tone: "warn" };
+}
 
 const REC_STYLE = {
   good_fit: { color: Colors.green600, bg: Colors.green100, label: "Good fit" },
@@ -65,7 +106,7 @@ interface Loaded {
 export default function FoodResultScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { productId, raw, image } = useLocalSearchParams<{
+  const { productId, raw, image, source } = useLocalSearchParams<{
     productId: string;
     raw?: string;
     source?: string;
@@ -76,6 +117,21 @@ export default function FoodResultScreen() {
   const [data, setData] = useState<Loaded | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<boolean>(false);
+  const [reviewSubmitted, setReviewSubmitted] = useState<boolean>(false);
+
+  const onSubmitForReview = useCallback(async () => {
+    if (!raw || reviewSubmitted) return;
+    setReviewSubmitted(true);
+    try {
+      await labelSubmissionService.submit({
+        rawText: raw,
+        matchedProductId: productId ?? null,
+        matchConfidence: source ?? "manual",
+      });
+    } catch {
+      // best-effort; the optimistic confirmation stays
+    }
+  }, [raw, productId, source, reviewSubmitted]);
 
   const petContext: PetContext = useMemo(
     () => ({
@@ -205,6 +261,14 @@ export default function FoodResultScreen() {
 
   const { review, bundle, alternatives } = data;
   const rec = REC_STYLE[review.recommendation];
+  const lab = labBadge(review.purity);
+  const src = sourceBadge(review.sources);
+  const recallChip =
+    review.recallStatus.status === "active"
+      ? { label: "Recall history found", tone: "warn" as const }
+      : review.recallStatus.status === "watch"
+        ? { label: "Recall watch", tone: "warn" as const }
+        : { label: "No recalls found", tone: "good" as const };
   const tcm = tcmForIngredients(bundle.ingredients.map((i) => i.name), petContext.species);
   const tcmSummary = thermalSummary(tcm);
   const thermalTone = (n: string) =>
@@ -251,6 +315,14 @@ export default function FoodResultScreen() {
                 .join(" · ")}
             </Text>
           </View>
+        </View>
+
+        {/* Evidence & provenance — match confidence, lab level, recall status, source type */}
+        <View style={styles.badgesRow}>
+          <ProvChip label={matchLabel(source)} tone="info" />
+          <ProvChip label={lab.label} tone={lab.tone} />
+          <ProvChip label={recallChip.label} tone={recallChip.tone} />
+          <ProvChip label={src.label} tone={src.tone} />
         </View>
 
         {/* Overall score + recommendation (the headline overall_recommendation) */}
@@ -522,6 +594,24 @@ export default function FoodResultScreen() {
           <Text style={styles.correctText}>Not the right product? Correct this match</Text>
         </Pressable>
 
+        {/* Crowdsource a label for admin review — marked crowdsourced_unverified until reviewed */}
+        {raw ? (
+          <Pressable
+            style={styles.correctRow}
+            onPress={onSubmitForReview}
+            disabled={reviewSubmitted}
+            accessibilityRole="button"
+            accessibilityLabel="Submit this label for review"
+          >
+            <Upload size={15} color={reviewSubmitted ? Colors.inkFaint : Colors.teal700} />
+            <Text style={[styles.correctText, reviewSubmitted ? { color: Colors.inkFaint } : null]}>
+              {reviewSubmitted
+                ? "Submitted for review — thank you"
+                : "Submit this label to improve our data"}
+            </Text>
+          </Pressable>
+        ) : null}
+
         {/* Actions */}
         <View style={styles.actions}>
           <PrimaryButton
@@ -581,6 +671,9 @@ const styles = StyleSheet.create({
     ...softShadow,
   },
   matchRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  badgesRow: { flexDirection: "row", flexWrap: "wrap", gap: 7, marginTop: 12 },
+  provChip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: Radius.pill },
+  provChipText: { fontSize: 11.5, fontWeight: "700" },
   matchIcon: {
     width: 44,
     height: 44,
