@@ -1,6 +1,7 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+
 import { normalizePetFoodRecalls, type OpenFdaRecall } from "@/lib/food/recallNormalize";
-import { supabase } from "@/lib/supabase";
-import type { Json } from "@/types/db";
+import type { Database, Json } from "@/types/db";
 
 /**
  * openFDA Food Enforcement → recall_events importer. Fetches recent FDA food
@@ -8,9 +9,14 @@ import type { Json } from "@/types/db";
  * by FDA recall number, brand-matches where possible (brand-level, NOT an exact
  * product recall), and logs the run. Marked `verified_official`.
  *
- * Runs against the project's service-role context (RLS limits recall_events
- * writes); in the app it's invoked from an admin/server job, not anon clients.
+ * The Supabase client is INJECTED so this runs in two contexts:
+ *  - server-side (scripts/import-recalls.ts) with a SERVICE-ROLE key — RLS limits
+ *    recall_events writes to admin/service-role, so writes need that key;
+ *  - in-app from a protected admin screen (passing the app's authed client).
+ * It imports no React Native modules, so it's safe to run under Bun/Node.
  */
+
+type Db = SupabaseClient<Database>;
 
 const OPENFDA_URL = "https://api.fda.gov/food/enforcement.json";
 const asJson = (v: unknown): Json => v as unknown as Json;
@@ -31,19 +37,19 @@ async function fetchRecentFoodRecalls(limit: number): Promise<OpenFdaRecall[]> {
 }
 
 /** Brand-level match only — we never claim an exact product recall from a name. */
-async function matchBrand(brandName: string | null): Promise<string | null> {
+async function matchBrand(db: Db, brandName: string | null): Promise<string | null> {
   if (!brandName) return null;
   const token = brandName.split(/\s+/)[0];
   if (!token || token.length < 3) return null;
-  const { data } = await supabase.from("food_brands").select("id").ilike("name", `%${token}%`).limit(1);
+  const { data } = await db.from("food_brands").select("id").ilike("name", `%${token}%`).limit(1);
   return data?.[0]?.id ?? null;
 }
 
 export const recallImporter = {
   /** Pull recent pet-food recalls and upsert them. Best-effort + logged. */
-  async run(opts: { limit?: number } = {}): Promise<ImportResult> {
+  async run(db: Db, opts: { limit?: number } = {}): Promise<ImportResult> {
     const result: ImportResult = { seen: 0, created: 0, skipped: 0, errors: [] };
-    const { data: run } = await supabase
+    const { data: run } = await db
       .from("data_import_runs")
       .insert({ source: "openfda_recalls", status: "running" })
       .select("id")
@@ -57,8 +63,8 @@ export const recallImporter = {
 
       for (const n of recalls) {
         try {
-          const brandId = await matchBrand(n.brandName);
-          const { error } = await supabase.from("recall_events").upsert(
+          const brandId = await matchBrand(db, n.brandName);
+          const { error } = await db.from("recall_events").upsert(
             {
               fda_recall_number: n.fdaRecallNumber,
               event_id: n.eventId,
@@ -91,7 +97,7 @@ export const recallImporter = {
       }
 
       if (runId) {
-        await supabase
+        await db
           .from("data_import_runs")
           .update({
             status: "success",
@@ -106,7 +112,7 @@ export const recallImporter = {
     } catch (e) {
       result.errors.push(e instanceof Error ? e.message : String(e));
       if (runId) {
-        await supabase
+        await db
           .from("data_import_runs")
           .update({ status: "error", finished_at: new Date().toISOString(), errors: asJson(result.errors) })
           .eq("id", runId);

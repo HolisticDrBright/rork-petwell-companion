@@ -138,6 +138,17 @@ export function getAuthInfo(): { userId: string | null; email: string | null; is
   return { userId: currentUserId, email: currentEmail, isAnonymous: currentIsAnonymous };
 }
 
+/** Whether the signed-in user has the admin flag (profiles.is_admin). Best-effort. */
+export async function isCurrentUserAdmin(): Promise<boolean> {
+  if (!isSupabaseConfigured || !currentUserId) return false;
+  try {
+    const { data } = await supabase.from("profiles").select("is_admin").eq("id", currentUserId).maybeSingle();
+    return !!data?.is_admin;
+  } catch {
+    return false;
+  }
+}
+
 export interface AuthResult {
   ok: boolean;
   /** True when the account was created but email confirmation is still required. */

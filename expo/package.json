@@ -8,7 +8,14 @@
     "start-web": "bunx rork start -p u36ek53il5cxdlwr8ag9m --web --tunnel",
     "start-web-dev": "DEBUG=expo* bunx rork start -p u36ek53il5cxdlwr8ag9m --web --tunnel",
     "lint": "expo lint",
-    "test": "bun tests/safety.test.ts"
+    "typecheck": "tsc --noEmit",
+    "test": "bun tests/safety.test.ts && bun tests/data.test.ts && bun tests/toxins.test.ts",
+    "test:safety": "bun tests/safety.test.ts",
+    "test:data": "bun tests/data.test.ts",
+    "test:toxins": "bun tests/toxins.test.ts",
+    "import:recalls": "bun scripts/import-recalls.ts",
+    "import:opff": "bun scripts/import-opff.ts",
+    "toxins:export-review": "bun scripts/export-toxin-review.ts"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",

@@ -5,6 +5,7 @@ import {
   ChevronRight,
   CreditCard,
   Crown,
+  Database,
   Download,
   FileText,
   ImageOff,
@@ -23,6 +24,7 @@ import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Switch, 
 
 import { Card } from "@/components/ui";
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
+import { isCurrentUserAdmin } from "@/lib/backend";
 import { exportJson } from "@/lib/report/export";
 import { usePets } from "@/providers/PetProvider";
 import { useSubscription } from "@/providers/SubscriptionProvider";
@@ -50,6 +52,11 @@ export default function SettingsScreen() {
   const [status, setStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState<boolean>(false);
   const [confirm, setConfirm] = useState<"images" | "account" | null>(null);
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
+
+  useEffect(() => {
+    isCurrentUserAdmin().then(setIsAdmin).catch(() => {});
+  }, []);
 
   const onRestore = useCallback(async () => {
     setBusy(true);
@@ -268,6 +275,16 @@ export default function SettingsScreen() {
           <ActionRow icon={Sparkles} label="Talk to a vet" onPress={() => router.push("/telehealth")} />
         </Card>
       </View>
+
+      {/* Admin — only rendered for users with profiles.is_admin (RLS-enforced) */}
+      {isAdmin ? (
+        <View style={styles.group}>
+          <Text style={styles.groupTitle}>Admin</Text>
+          <Card style={{ gap: 0 }}>
+            <ActionRow icon={Database} label="Data quality & review queue" onPress={() => router.push("/admin")} />
+          </Card>
+        </View>
+      ) : null}
 
       {busy ? (
         <View style={styles.busy}>

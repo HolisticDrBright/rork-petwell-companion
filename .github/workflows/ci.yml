@@ -30,3 +30,9 @@ jobs:
 
       - name: Safety tests
         run: bun tests/safety.test.ts
+
+      - name: Data-integrity tests
+        run: bun tests/data.test.ts
+
+      - name: Toxin database tests
+        run: bun tests/toxins.test.ts
