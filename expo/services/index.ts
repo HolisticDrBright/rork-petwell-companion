@@ -20,3 +20,9 @@ export {
 export { integrativeService } from "./integrativeService";
 export { patternsService } from "./patternsService";
 export { storage } from "./storage";
+export {
+  notificationsService,
+  syncReminder,
+  cancelReminder,
+  requestNotificationPermission,
+} from "./notificationsService";

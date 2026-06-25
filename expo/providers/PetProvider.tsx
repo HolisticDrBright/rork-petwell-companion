@@ -1,7 +1,7 @@
 import createContextHook from "@nkzw/create-context-hook";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   CARE_ITEMS,
@@ -14,7 +14,15 @@ import {
   TRENDS,
   UPCOMING,
 } from "@/constants/mockData";
-import { getUserId, initBackend } from "@/lib/backend";
+import {
+  getAuthInfo,
+  getUserId,
+  initBackend,
+  signInWithEmail,
+  signOutToAnonymous,
+  signUpWithEmail,
+  type AuthResult,
+} from "@/lib/backend";
 import { clampAge, clampWeight } from "@/lib/petValidation";
 import { supabase } from "@/lib/supabase";
 import {
@@ -304,6 +312,78 @@ export const [PetProvider, usePets] = createContextHook(() => {
     [remoteMode, queryClient, persist]
   );
 
+  // ── Auth (email + password) ──
+  const [authInfo, setAuthInfo] = useState<{ email: string | null; isAnonymous: boolean }>({
+    email: null,
+    isAnonymous: true,
+  });
+
+  useEffect(() => {
+    const a = getAuthInfo();
+    setAuthInfo({ email: a.email, isAnonymous: a.isAnonymous });
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+      const u = session?.user;
+      setAuthInfo({ email: u?.email ?? null, isAnonymous: u?.is_anonymous ?? !u?.email });
+    });
+    return () => sub.subscription.unsubscribe();
+  }, [backendQuery.data?.mode]);
+
+  /** Best-effort: upload locally-created pets to the account on first auth. */
+  const migrateLocalPets = useCallback(async () => {
+    if (!remoteMode) return;
+    const base = local ?? stateQuery.data ?? DEFAULT_STATE;
+    if (base.extraPets.length === 0) return;
+    for (const p of base.extraPets) {
+      try {
+        await petsService.createPet({
+          name: p.name,
+          species: p.species,
+          breed: p.breed,
+          ageYears: p.ageYears,
+          weightLb: p.weightLb,
+          photo: p.photo || undefined,
+          conditions: p.conditions,
+        });
+      } catch (e) {
+        console.warn("[petwell] pet migration skipped:", e);
+      }
+    }
+    persist((prev) => ({ ...prev, extraPets: [] }));
+    await queryClient.invalidateQueries({ queryKey: ["pets"] });
+  }, [remoteMode, local, stateQuery.data, persist, queryClient]);
+
+  const refreshAfterAuth = useCallback(async () => {
+    const a = getAuthInfo();
+    setAuthInfo({ email: a.email, isAnonymous: a.isAnonymous });
+    await migrateLocalPets();
+    await queryClient.invalidateQueries();
+  }, [migrateLocalPets, queryClient]);
+
+  const signUp = useCallback(
+    async (email: string, password: string): Promise<AuthResult> => {
+      const res = await signUpWithEmail(email, password);
+      if (res.ok) await refreshAfterAuth();
+      return res;
+    },
+    [refreshAfterAuth]
+  );
+
+  const signIn = useCallback(
+    async (email: string, password: string): Promise<AuthResult> => {
+      const res = await signInWithEmail(email, password);
+      if (res.ok) await refreshAfterAuth();
+      return res;
+    },
+    [refreshAfterAuth]
+  );
+
+  const signOut = useCallback(async () => {
+    await signOutToAnonymous();
+    const a = getAuthInfo();
+    setAuthInfo({ email: a.email, isAnonymous: a.isAnonymous });
+    await queryClient.invalidateQueries();
+  }, [queryClient]);
+
   const setPremium = useCallback(
     (value: boolean) => {
       persist((prev) => ({ ...prev, premium: value }));
@@ -365,6 +445,13 @@ export const [PetProvider, usePets] = createContextHook(() => {
       insightCards: derived.insightCards,
       timeline,
       upcoming: derived.upcoming,
+      // Auth
+      authEmail: authInfo.email,
+      isAuthenticated: remoteMode && !authInfo.isAnonymous && !!authInfo.email,
+      canUseAuth: remoteMode,
+      signUp,
+      signIn,
+      signOut,
     }),
     [
       loaded,
@@ -385,6 +472,11 @@ export const [PetProvider, usePets] = createContextHook(() => {
       completeOnboarding,
       derived,
       timeline,
+      authInfo,
+      remoteMode,
+      signUp,
+      signIn,
+      signOut,
     ]
   );
 });

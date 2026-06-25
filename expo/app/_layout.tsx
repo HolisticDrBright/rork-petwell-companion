@@ -5,6 +5,7 @@ import { StatusBar } from "expo-status-bar";
 import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Colors from "@/constants/colors";
 import { PetProvider } from "@/providers/PetProvider";
 
@@ -39,6 +40,9 @@ function RootLayoutNav() {
       <Stack.Screen name="reminders" options={{ title: "Reminders", presentation: "card" }} />
       <Stack.Screen name="premium" options={{ headerShown: false, presentation: "modal" }} />
       <Stack.Screen name="settings" options={{ title: "Settings & privacy", presentation: "card" }} />
+      <Stack.Screen name="account" options={{ title: "Account", presentation: "card" }} />
+      <Stack.Screen name="privacy-policy" options={{ title: "Privacy Policy", presentation: "card" }} />
+      <Stack.Screen name="terms" options={{ title: "Terms of Use", presentation: "card" }} />
       <Stack.Screen name="devices" options={{ title: "Connected devices", presentation: "card" }} />
       <Stack.Screen name="health-score" options={{ headerShown: false, presentation: "card" }} />
       <Stack.Screen name="patterns" options={{ headerShown: false, presentation: "card" }} />
@@ -60,13 +64,15 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <PetProvider>
-        <GestureHandlerRootView style={{ flex: 1 }}>
-          <StatusBar style="dark" />
-          <RootLayoutNav />
-        </GestureHandlerRootView>
-      </PetProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <PetProvider>
+          <GestureHandlerRootView style={{ flex: 1 }}>
+            <StatusBar style="dark" />
+            <RootLayoutNav />
+          </GestureHandlerRootView>
+        </PetProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }

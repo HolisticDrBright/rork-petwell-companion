@@ -10,9 +10,11 @@ import {
   Lock,
   Mail,
   PawPrint,
+  ScrollText,
   Shield,
   Sparkles,
   Trash2,
+  UserCircle,
 } from "lucide-react-native";
 import React, { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
@@ -38,13 +40,12 @@ const PERMISSIONS: Toggle[] = [
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const { premium, selectedPet, timeline, mode } = usePets();
+  const { premium, selectedPet, timeline, mode, authEmail, isAuthenticated, canUseAuth } = usePets();
 
   const [prefs, setPrefs] = useState<PrivacyPrefs>(DEFAULT_PRIVACY);
   const [status, setStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState<boolean>(false);
   const [confirm, setConfirm] = useState<"images" | "account" | null>(null);
-  const [policyOpen, setPolicyOpen] = useState<boolean>(false);
 
   useEffect(() => {
     privacyService.getPrefs().then(setPrefs).catch(() => {});
@@ -133,6 +134,34 @@ export default function SettingsScreen() {
         </Text>
       </View>
 
+      {/* Account */}
+      <View style={styles.group}>
+        <Text style={styles.groupTitle}>Account</Text>
+        <Card style={{ gap: 0 }}>
+          <Pressable
+            onPress={() => router.push("/account")}
+            style={({ pressed }) => [styles.row, pressed && { opacity: 0.7 }]}
+            accessibilityRole="button"
+            accessibilityLabel={isAuthenticated ? "Account settings" : "Create account or sign in"}
+          >
+            <UserCircle size={19} color={Colors.teal700} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.rowLabel}>
+                {isAuthenticated ? "Account" : canUseAuth ? "Create account or sign in" : "Account (offline)"}
+              </Text>
+              <Text style={styles.rowDetail}>
+                {isAuthenticated
+                  ? `Signed in as ${authEmail}`
+                  : canUseAuth
+                    ? "Back up and sync your pets across devices"
+                    : "Running in local mode on this device"}
+              </Text>
+            </View>
+            <ChevronRight size={17} color={Colors.inkFaint} />
+          </Pressable>
+        </Card>
+      </View>
+
       {/* Data permissions */}
       <View style={styles.group}>
         <Text style={styles.groupTitle}>Data permissions</Text>
@@ -175,18 +204,10 @@ export default function SettingsScreen() {
             <ActionRow icon={ImageOff} label="Delete stored scan images" onPress={() => setConfirm("images")} danger />
           )}
           <View style={styles.divider} />
-          <ActionRow icon={Lock} label="Privacy policy" onPress={() => setPolicyOpen((v) => !v)} />
+          <ActionRow icon={Lock} label="Privacy policy" onPress={() => router.push("/privacy-policy")} />
+          <View style={styles.divider} />
+          <ActionRow icon={ScrollText} label="Terms of use" onPress={() => router.push("/terms")} />
         </Card>
-        {policyOpen ? (
-          <View style={styles.policyBox}>
-            <Text style={styles.policyText}>
-              Petwell stores your pet&apos;s profile, logs, scans, and reports so you can access and
-              export them anytime. Data is private to your account and protected by row-level security.
-              We do not sell pet photos or health data. You can opt out of model training, delete stored
-              photos, or delete your account and data at any time from this screen. Export is always free.
-            </Text>
-          </View>
-        ) : null}
       </View>
 
       {/* Pets & care */}

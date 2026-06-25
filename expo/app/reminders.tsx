@@ -9,7 +9,7 @@ import { PetSwitcher } from "@/components/PetSwitcher";
 import { Card, PrimaryButton } from "@/components/ui";
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
 import { usePets } from "@/providers/PetProvider";
-import { remindersService } from "@/services";
+import { remindersService, syncReminder } from "@/services";
 import type { Reminder } from "@/types/pet";
 
 export default function RemindersScreen() {
@@ -54,6 +54,8 @@ export default function RemindersScreen() {
       setExtraByPet((prev) => ({ ...prev, [selectedPet.id]: [...(prev[selectedPet.id] ?? []), reminder] }));
       setExtraEnabled((prev) => ({ ...prev, [reminder.id]: true }));
     }
+    // Schedule a daily device notification for the new reminder (no-op on web).
+    syncReminder(reminder, true).catch(() => {});
     setLabel("");
     setTime("");
     setAddOpen(false);
@@ -102,11 +104,12 @@ export default function RemindersScreen() {
             </View>
             <Switch
               value={r.enabled}
-              onValueChange={(v) =>
-                local
-                  ? setExtraEnabled((prev) => ({ ...prev, [r.id]: v }))
-                  : toggleReminder(`${selectedPet.id}:${r.id}`, v)
-              }
+              onValueChange={(v) => {
+                if (local) setExtraEnabled((prev) => ({ ...prev, [r.id]: v }));
+                else toggleReminder(`${selectedPet.id}:${r.id}`, v);
+                // Schedule/cancel a device notification (no-op on web).
+                syncReminder(r, v).catch(() => {});
+              }}
               trackColor={{ true: Colors.teal500, false: Colors.hairline }}
               thumbColor="#fff"
             />
