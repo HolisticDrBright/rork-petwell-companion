@@ -6,16 +6,25 @@ import {
   Bone,
   Brush,
   Calendar,
+  CalendarCheck,
   Camera,
   Check,
+  ChevronRight,
+  Cookie,
   Droplets,
+  Eye,
   FileText,
   Heart,
+  HeartPulse,
+  Home as HomeIcon,
+  Leaf,
   MessageCircleQuestion,
   Pill,
   Plus,
+  ShoppingBag,
   Sparkles,
   Syringe,
+  Utensils,
   X,
 } from "lucide-react-native";
 import React, { memo, useCallback, useEffect, useMemo, useState } from "react";
@@ -44,6 +53,18 @@ function greeting(): string {
   if (h < 18) return "Good afternoon";
   return "Good evening";
 }
+
+type HubEntry = { label: string; sub: string; route: string; Icon: React.ComponentType<{ size?: number; color?: string }> };
+const HUB_ITEMS: HubEntry[] = [
+  { label: "Health Score", sub: "8 system check-in", route: "/health-score", Icon: HeartPulse },
+  { label: "Patterns", sub: "Watch from logs", route: "/patterns", Icon: Eye },
+  { label: "Support plans", sub: "Food-first protocols", route: "/protocols", Icon: Leaf },
+  { label: "Meal planner", sub: "Condition meals", route: "/meal-planner", Icon: Utensils },
+  { label: "Treat audit", sub: "Check any treat", route: "/treat-audit", Icon: Cookie },
+  { label: "Home check", sub: "Environment", route: "/environment", Icon: HomeIcon },
+  { label: "Programs", sub: "7/14/30-day", route: "/programs", Icon: CalendarCheck },
+  { label: "Trusted picks", sub: "No pay-to-rank", route: "/marketplace", Icon: ShoppingBag },
+];
 
 const CareRow = memo(function CareRow({
   item,
@@ -161,15 +182,21 @@ export default function TodayScreen() {
 
         {/* Health status card */}
         <Card style={styles.statusCard}>
-          <View style={styles.statusTop}>
+          <Pressable
+            onPress={() => router.push("/health-score")}
+            accessibilityRole="button"
+            accessibilityLabel="Open Petwell Health Score"
+            style={({ pressed }) => [styles.statusTop, pressed && { opacity: 0.7 }]}
+          >
             <View style={styles.heartWrap}>
               <Heart size={20} color={Colors.green600} fill={Colors.green100} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={Fonts.tiny}>HEALTH STATUS</Text>
+              <Text style={Fonts.tiny}>HEALTH STATUS · TAP FOR SCORE</Text>
               <Text style={styles.statusBig}>{selectedPet.statusNote}</Text>
             </View>
-          </View>
+            <ChevronRight size={20} color={Colors.inkFaint} />
+          </Pressable>
           <View style={styles.statusDivider} />
           <View style={styles.statusItem}>
             <View style={[styles.statusDot, { backgroundColor: Colors.green600 }]} />
@@ -251,6 +278,16 @@ export default function TodayScreen() {
               icon={<FileText size={22} color={Colors.teal700} />}
               onPress={() => router.push("/vet-report")}
             />
+          </View>
+        </View>
+
+        {/* Integrative / longevity hub */}
+        <View style={styles.section}>
+          <SectionTitle title="Integrative care" />
+          <View style={styles.hubGrid}>
+            {HUB_ITEMS.map((h) => (
+              <HubItem key={h.route} item={h} onPress={() => router.push(h.route as never)} />
+            ))}
           </View>
         </View>
 
@@ -342,6 +379,26 @@ const QuickAction = memo(function QuickAction({
     >
       <View style={styles.quickIcon}>{icon}</View>
       <Text style={styles.quickLabel}>{label}</Text>
+    </Pressable>
+  );
+});
+
+const HubItem = memo(function HubItem({ item, onPress }: { item: HubEntry; onPress: () => void }) {
+  const { Icon } = item;
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={item.label}
+      style={({ pressed }) => [styles.hubItem, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
+    >
+      <View style={styles.hubIcon}>
+        <Icon size={20} color={Colors.teal700} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.hubLabel}>{item.label}</Text>
+        <Text style={styles.hubSub}>{item.sub}</Text>
+      </View>
     </Pressable>
   );
 });
@@ -478,6 +535,28 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   quickLabel: { ...Fonts.h3, flex: 1, fontSize: 14.5 },
+  hubGrid: { flexDirection: "row", flexWrap: "wrap", gap: Space.sm },
+  hubItem: {
+    width: "48%",
+    flexGrow: 1,
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.md,
+    padding: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    ...cardShadow,
+  },
+  hubIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: Colors.teal50,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  hubLabel: { ...Fonts.h3, fontSize: 14 },
+  hubSub: { ...Fonts.tiny, color: Colors.inkFaint, marginTop: 1 },
   upRow: { flexDirection: "row", alignItems: "center", gap: Space.sm, paddingVertical: 12 },
   upIcon: {
     width: 38,

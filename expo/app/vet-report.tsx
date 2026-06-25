@@ -13,9 +13,28 @@ import { buildReportHtml, buildReportText } from "@/lib/report/html";
 import type { ReportData } from "@/lib/report/types";
 import { getQuestion } from "@/lib/triage/engine";
 import { useTriage } from "@/lib/triage/store";
+import { getActiveProgramRuns, type ProgramRunView } from "@/lib/programs/store";
+import { programById } from "@/lib/integrative/programs";
 import { usePets } from "@/providers/PetProvider";
 import { reportService } from "@/services";
 import type { TimelineEntry } from "@/types/pet";
+
+const SUPP_KEYWORDS = [
+  "probiotic", "omega", "fish oil", "glucosamine", "chondroitin", "supplement",
+  "milk thistle", "enzyme", "vitamin", "cranberry", "slippery elm", "chamomile",
+  "turmeric", "curcumin", "l-theanine", "calming",
+];
+
+function supplementsInUse(timeline: TimelineEntry[]): string[] {
+  const out = new Set<string>();
+  for (const t of timeline) {
+    const text = `${t.title} ${t.detail ?? ""}`.toLowerCase();
+    if (t.category === "meds" || SUPP_KEYWORDS.some((k) => text.includes(k))) {
+      if (SUPP_KEYWORDS.some((k) => text.includes(k))) out.add(t.title);
+    }
+  }
+  return [...out].slice(0, 8);
+}
 
 const SectionHeader = memo(function SectionHeader({ children }: { children: string }) {
   return <Text style={styles.sectionHeader}>{children}</Text>;
@@ -30,6 +49,21 @@ export default function VetReportScreen() {
   const [data, setData] = useState<ReportData | null>(null);
   const [saved, setSaved] = useState<boolean>(false);
   const [status, setStatus] = useState<string | null>(null);
+  const [programs, setPrograms] = useState<ProgramRunView[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    getActiveProgramRuns(selectedPet.id)
+      .then((runs) => {
+        if (active) setPrograms(runs);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [selectedPet.id]);
+
+  const suppsUsed = useMemo(() => supplementsInUse(timeline), [timeline]);
 
   // In-session triage (local mode / freshly run) from the store.
   const tOutcome = useTriage((s) => s.outcome);
@@ -312,6 +346,48 @@ export default function VetReportScreen() {
           ) : (
             <Text style={styles.bodyText}>None on file.</Text>
           )}
+        </Card>
+
+        {/* Integrative support tried */}
+        <SectionHeader>Integrative support tried</SectionHeader>
+        <Card style={{ gap: 12 }}>
+          {programs.length === 0 && suppsUsed.length === 0 ? (
+            <Text style={styles.bodyText}>
+              No integrative programs or supplements logged yet. Started programs and logged supplements/herbs will
+              appear here for your vet.
+            </Text>
+          ) : null}
+          {programs.length > 0 ? (
+            <View style={{ gap: 8 }}>
+              <Text style={styles.subLabel}>Guided programs</Text>
+              {programs.map((p) => {
+                const t = programById(p.templateId);
+                return (
+                  <View key={p.id} style={styles.bulletRow}>
+                    <View style={styles.dot} />
+                    <Text style={styles.bulletText}>
+                      {t?.title ?? p.templateId}
+                      <Text style={{ color: Colors.inkFaint }}> · {p.progress.summaryLine}</Text>
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+          ) : null}
+          {suppsUsed.length > 0 ? (
+            <View style={{ gap: 8 }}>
+              <Text style={styles.subLabel}>Supplements & herbs in use</Text>
+              {suppsUsed.map((s, i) => (
+                <View key={i} style={styles.bulletRow}>
+                  <View style={styles.dot} />
+                  <Text style={styles.bulletText}>{s}</Text>
+                </View>
+              ))}
+              <Text style={[Fonts.tiny, { color: Colors.inkFaint, lineHeight: 16 }]}>
+                Please confirm doses and interactions — these are owner-reported.
+              </Text>
+            </View>
+          ) : null}
         </Card>
 
         {/* Food changes */}

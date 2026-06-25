@@ -40,6 +40,16 @@ function RootLayoutNav() {
       <Stack.Screen name="premium" options={{ headerShown: false, presentation: "modal" }} />
       <Stack.Screen name="settings" options={{ title: "Settings & privacy", presentation: "card" }} />
       <Stack.Screen name="devices" options={{ title: "Connected devices", presentation: "card" }} />
+      <Stack.Screen name="health-score" options={{ headerShown: false, presentation: "card" }} />
+      <Stack.Screen name="patterns" options={{ headerShown: false, presentation: "card" }} />
+      <Stack.Screen name="protocols" options={{ headerShown: false, presentation: "card" }} />
+      <Stack.Screen name="protocol-detail" options={{ headerShown: false, presentation: "card" }} />
+      <Stack.Screen name="meal-planner" options={{ headerShown: false, presentation: "card" }} />
+      <Stack.Screen name="treat-audit" options={{ headerShown: false, presentation: "card" }} />
+      <Stack.Screen name="environment" options={{ headerShown: false, presentation: "card" }} />
+      <Stack.Screen name="programs" options={{ headerShown: false, presentation: "card" }} />
+      <Stack.Screen name="program-detail" options={{ headerShown: false, presentation: "card" }} />
+      <Stack.Screen name="marketplace" options={{ headerShown: false, presentation: "card" }} />
     </Stack>
   );
 }

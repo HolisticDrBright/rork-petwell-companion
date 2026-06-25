@@ -20,6 +20,14 @@ export interface ConditionTemplate {
   whenToAskVet: string[];
   notes: string[];
   catGuidance?: string;
+  // ── Richer protocol fields (used by the Natural Support detail screen) ──
+  whoFor?: string;
+  whoNotFor?: string;
+  environment?: string[];
+  timeline?: string;
+  evidence?: EvidenceGrade;
+  /** Concise text an owner can hand to (or read with) their vet. */
+  vetSummary?: string;
 }
 
 export const CONDITION_TEMPLATES: ConditionTemplate[] = [
@@ -28,6 +36,12 @@ export const CONDITION_TEMPLATES: ConditionTemplate[] = [
     title: "Pancreatitis low-fat support",
     system: "hepatic",
     pattern: "Fat maldigestion / pancreatic inflammation",
+    whoFor: "Dogs recovering from or prone to pancreatitis, once a vet confirms it's safe to eat.",
+    whoNotFor: "Any pet with acute/severe signs (repeated vomiting, severe pain) — that needs a vet now, not a home plan. Cats need a feline-specific approach.",
+    environment: ["Block garbage, counters, and table-scrap access", "Keep meal times calm and scheduled", "Tell everyone in the home: no fatty treats"],
+    timeline: "Acute signs are a vet emergency. With care, many dogs improve over days to weeks; fat control continues for life to prevent relapse.",
+    evidence: "B",
+    vetSummary: "Owner pursuing low-fat dietary support for suspected/known pancreatitis. Tracking appetite, vomiting, stool, energy, and weight. Requesting guidance on therapeutic diet choice and when to recheck.",
     redFlags: [
       "Repeated vomiting",
       "Severe belly pain (hunched, splinting, won't lie down)",
@@ -87,6 +101,12 @@ export const CONDITION_TEMPLATES: ConditionTemplate[] = [
     title: "Chronic diarrhea gut-reset support",
     system: "gut",
     pattern: "Microbiome imbalance / digestive inflammation",
+    whoFor: "Pets with mild, non-emergency loose stool or a sensitive stomach.",
+    whoNotFor: "Pets with blood in stool, repeated vomiting, lethargy, or a very young/old pet declining quickly — see a vet.",
+    environment: ["Keep fresh water available", "Avoid sudden diet changes", "Stay current on parasite prevention"],
+    timeline: "Many simple cases settle within 2–4 days of bland support; reintroduce the normal diet over 5–7 days.",
+    evidence: "B",
+    vetSummary: "Owner using a short bland gut-reset for mild GI upset. Tracking stool score/frequency, food, water, energy. Requesting fecal testing if recurrent and guidance on diet transition.",
     redFlags: [
       "Blood in stool or black/tarry stool",
       "Repeated vomiting",
@@ -139,6 +159,12 @@ export const CONDITION_TEMPLATES: ConditionTemplate[] = [
     title: "Itchy skin / allergy support",
     system: "skin",
     pattern: "Allergic / atopic inflammation; damp-heat pattern (TCM)",
+    whoFor: "Itchy pets with chronic or seasonal skin signs, alongside a vet work-up.",
+    whoNotFor: "Pets with facial swelling, hives, breathing trouble, or spreading/oozing sores — urgent vet care.",
+    environment: ["Wipe paws and coat after walks", "Wash bedding weekly, fragrance-free", "Switch to stainless/ceramic bowls", "Reduce indoor allergens and fragrances"],
+    timeline: "Skin work takes weeks — an elimination diet runs 8–12 weeks. Consistency matters more than any single product.",
+    evidence: "A",
+    vetSummary: "Owner supporting chronic itch with diet, omega-3s, and environment changes. Tracking itch score, affected areas/photos, foods, and flare timing. Requesting elimination-trial guidance and infection check.",
     redFlags: [
       "Facial swelling, hives, or trouble breathing",
       "Open, spreading, or oozing sores",
@@ -190,6 +216,12 @@ export const CONDITION_TEMPLATES: ConditionTemplate[] = [
     title: "Kidney hydration support",
     system: "renal",
     pattern: "Dehydration / increased renal workload",
+    whoFor: "Pets needing urinary/renal hydration support, or diagnosed early kidney change.",
+    whoNotFor: "A male cat straining or unable to urinate — that is an emergency, not a hydration plan.",
+    environment: ["Offer several fresh water stations", "Consider a pet water fountain", "Reduce stress, especially for cats"],
+    timeline: "Hydration habits build over weeks; if kidney disease is diagnosed, support is lifelong and vet-guided.",
+    evidence: "A",
+    vetSummary: "Owner increasing dietary moisture and water access for renal/urinary support. Tracking intake, urination, appetite, weight. Requesting bloodwork/urinalysis and renal-diet guidance if indicated.",
     redFlags: [
       "Straining or unable to urinate (especially a male cat) → emergency",
       "Not eating with vomiting",
@@ -240,6 +272,12 @@ export const CONDITION_TEMPLATES: ConditionTemplate[] = [
     title: "Obesity / metabolic support",
     system: "metabolic",
     pattern: "Weight / insulin dysregulation",
+    whoFor: "Overweight pets cleared by a vet to begin a measured weight-loss plan.",
+    whoNotFor: "Pets with sudden weight change plus excess thirst/urination (possible diabetes) before a vet check; cats must never be crash-dieted.",
+    environment: ["Feed in puzzle feeders to slow eating", "Increase activity gradually", "Weigh in every 2 weeks"],
+    timeline: "Aim for slow, steady loss (~1–2% body weight/week for dogs; even slower for cats). Expect months, not weeks.",
+    evidence: "A",
+    vetSummary: "Owner on a measured-calorie weight-loss plan. Tracking weight, body condition, food/treat calories, activity. Requesting a target weight, calorie goal, and metabolic-disease screen.",
     redFlags: [
       "Sudden weakness, collapse, or labored breathing",
       "Excessive thirst/urination with weight loss (possible diabetes) → see a vet",
@@ -290,6 +328,12 @@ export const CONDITION_TEMPLATES: ConditionTemplate[] = [
     title: "Arthritis mobility support",
     system: "msk",
     pattern: "Joint wear / osteoarthritis (TCM: Wind-Damp / Blood stasis)",
+    whoFor: "Pets with stiffness or known arthritis, for long-term comfort support.",
+    whoNotFor: "Pets that are non-weight-bearing, dragging a limb, or suddenly wobbly — urgent vet care.",
+    environment: ["Add ramps and non-slip rugs", "Provide a warm, soft orthopedic bed", "Keep nails trimmed; avoid slippery floors"],
+    timeline: "Weight and activity changes help within weeks; joint support builds over 4–8 weeks. This is ongoing maintenance.",
+    evidence: "A",
+    vetSummary: "Owner supporting mobility with weight control, omega-3s, and low-impact activity. Tracking stiffness, activity tolerance, weight. Requesting pain-management options and physical-therapy/acupuncture referral.",
     redFlags: [
       "Non-weight-bearing or dragging a limb",
       "Sudden severe pain or known trauma",
@@ -334,6 +378,12 @@ export const CONDITION_TEMPLATES: ConditionTemplate[] = [
     title: "Anxiety / stress support",
     system: "behavior",
     pattern: "Stress / anxiety response; gut-brain axis",
+    whoFor: "Pets with mild–moderate anxiety or stress-driven behavior.",
+    whoNotFor: "Pets with self-injury, panic, aggression risk, or a sudden senior behavior change — see a behavior vet to rule out pain/illness.",
+    environment: ["Create a safe 'den' space", "Keep a predictable daily routine", "Use a species-appropriate pheromone diffuser"],
+    timeline: "Behavior change takes weeks of consistency; pair any support with training and environment work.",
+    evidence: "C",
+    vetSummary: "Owner addressing anxiety with routine, enrichment, and gut-brain support. Tracking triggers, calming strategies, appetite/sleep. Requesting behavior-plan guidance and medication review for interactions.",
     redFlags: [
       "Self-injury, panic that won't settle, or aggression risk",
       "Not eating or drinking due to stress",
@@ -373,6 +423,139 @@ export const CONDITION_TEMPLATES: ConditionTemplate[] = [
     ],
     notes: ["Behavior change takes weeks of consistency — pair any product with training and environment changes."],
   },
+  {
+    id: "dental_inflammation",
+    title: "Dental inflammation support",
+    system: "dental",
+    pattern: "Periodontal inflammation / oral discomfort",
+    whoFor: "Pets with bad breath, tartar, or mild gum inflammation, for at-home support between vet dental care.",
+    whoNotFor: "Pets that won't eat, have facial swelling, or a broken/bleeding tooth — see a vet promptly.",
+    environment: ["Introduce daily tooth-brushing gradually", "Offer VOHC-accepted dental chews (counted in calories)", "Avoid hard items that can fracture teeth"],
+    timeline: "Home care slows buildup over weeks, but established tartar/gingivitis needs a professional cleaning to resolve.",
+    evidence: "B",
+    vetSummary: "Owner supporting oral health with brushing and dental chews. Tracking breath, chewing, dropped food, appetite. Requesting a dental exam and grading of periodontal status.",
+    redFlags: [
+      "Not eating or clear mouth pain",
+      "Facial swelling or a broken, bleeding tooth",
+      "Lethargy with a foul mouth odor",
+    ],
+    foodFirst: [
+      {
+        title: "Dental-supportive diet or chews",
+        detail: "A VOHC-accepted dental diet or chew can help reduce plaque/tartar as part of daily care (count the calories).",
+        evidence: "B",
+        source: "Veterinary Oral Health Council–accepted products.",
+      },
+      {
+        title: "Keep meals soft if the mouth is sore",
+        detail: "Soften kibble with warm water while gums are tender, and keep nutrition up.",
+        evidence: "C",
+        source: "Supportive oral-care practice.",
+      },
+    ],
+    lifestyle: [
+      "Brush teeth daily with pet-safe toothpaste (never human toothpaste)",
+      "Use dental chews/toys appropriate to chewing style",
+      "Schedule professional cleanings as your vet advises",
+    ],
+    considerItems: ["omega3", "probiotic"],
+    whatToTrack: ["Breath and gum color", "Chewing comfort and dropped food", "Appetite", "Any loose or broken teeth"],
+    whenToAskVet: [
+      "Won't eat, drooling, or pawing at the mouth",
+      "Facial swelling or a broken tooth",
+      "Persistent bad breath despite home care (time for a dental exam)",
+    ],
+    notes: ["Home care helps prevention, but it can't reverse established periodontal disease — a professional cleaning is the foundation."],
+  },
+  {
+    id: "ear_yeast",
+    title: "Ear yeast / allergy watch",
+    system: "skin",
+    pattern: "Allergy-driven otitis / yeast overgrowth (TCM: Damp-Heat)",
+    whoFor: "Pets with recurrent itchy, smelly ears tied to allergies, for support alongside a vet ear exam.",
+    whoNotFor: "Pets with a painful, swollen, or discharging ear, head tilt, or balance loss — see a vet before putting anything in the ear.",
+    environment: ["Keep ears dry after baths and swims", "Wash bedding fragrance-free", "Reduce environmental allergens"],
+    timeline: "Ear flares can settle in 1–2 weeks once the cause is treated, but allergic ears recur without addressing the root allergy.",
+    evidence: "B",
+    vetSummary: "Owner managing recurrent allergic ear flares with drying, allergen reduction, and skin-barrier support. Tracking ear odor/itch, head-shaking, photos. Requesting otoscopic exam and cytology before any ear product.",
+    redFlags: [
+      "Painful, swollen, hot, or discharging ear",
+      "Head tilt, circling, or loss of balance",
+      "Sudden hearing loss or bleeding from the ear",
+    ],
+    foodFirst: [
+      {
+        title: "Address the underlying allergy",
+        detail: "Recurrent yeast ears are usually a symptom of allergy — a vet-guided diet trial or allergy plan targets the root cause.",
+        evidence: "A",
+        source: "Dermatology consensus: otitis is often secondary to allergy.",
+      },
+      {
+        title: "Skin-barrier support",
+        detail: "Omega-3-rich foods may support the skin and ear-canal barrier over time.",
+        evidence: "B",
+        source: "Omega-3s in allergic skin disease.",
+      },
+    ],
+    lifestyle: [
+      "Dry ears gently after baths/swimming",
+      "Have your vet check and clean ears before using any product",
+      "Keep allergy management consistent year-round",
+    ],
+    considerItems: ["omega3", "probiotic", "duck"],
+    whatToTrack: ["Ear odor, redness, and itch", "Head-shaking frequency", "Photos of each ear", "Flare timing vs season/diet"],
+    whenToAskVet: [
+      "Pain, swelling, or discharge → urgent",
+      "Head tilt or balance problems",
+      "Repeat flares (time to target the underlying allergy)",
+    ],
+    notes: ["Never put drops or cleaners in a painful ear without a vet exam — a ruptured eardrum changes what's safe to use."],
+  },
+  {
+    id: "senior_maintenance",
+    title: "Senior pet maintenance",
+    system: "metabolic",
+    pattern: "Healthy-aging support (multi-system)",
+    whoFor: "Senior pets without an acute problem, to support comfortable, healthy aging.",
+    whoNotFor: "Any senior with sudden changes (weight loss, increased thirst, new pain) — those need a vet work-up, not just maintenance.",
+    environment: ["Add ramps, rugs, and soft bedding", "Keep food/water easy to reach", "Maintain a calm, predictable routine"],
+    timeline: "Ongoing. Reassess every 6 months; seniors change faster, so trends matter.",
+    evidence: "B",
+    vetSummary: "Owner on a senior wellness routine (weight, mobility, hydration, dental, cognition). Tracking weight, appetite, activity, water. Requesting twice-yearly exams and baseline senior bloodwork.",
+    redFlags: [
+      "Unplanned weight loss or appetite drop",
+      "Increased thirst/urination",
+      "New or worsening pain, confusion, or collapse",
+    ],
+    foodFirst: [
+      {
+        title: "Right-sized senior nutrition",
+        detail: "Feed a balanced senior diet adjusted to hold an ideal body condition; keep quality protein up unless your vet advises otherwise.",
+        evidence: "B",
+        source: "Senior nutrition guidance.",
+      },
+      {
+        title: "Hydration and joint support",
+        detail: "Favor moisture (especially for cats) and omega-3-rich foods for joints and cognition.",
+        evidence: "B",
+        source: "Omega-3s and moisture in senior care.",
+      },
+    ],
+    lifestyle: [
+      "Twice-yearly vet checks and senior bloodwork",
+      "Gentle, regular low-impact activity",
+      "Dental care and weight monitoring",
+    ],
+    considerItems: ["omega3", "glucosamine", "probiotic"],
+    whatToTrack: ["Weight and body condition", "Appetite and water intake", "Mobility and energy", "Any new lumps or behavior changes"],
+    whenToAskVet: [
+      "Any sudden change in weight, thirst, appetite, or behavior",
+      "New pain or mobility loss",
+      "To set a senior screening schedule",
+    ],
+    notes: ["The biggest senior win is catching change early — consistent logging turns 'seemed fine' into a clear trend for your vet."],
+    catGuidance: "Senior cats hide illness well: weigh regularly, prioritize hydration, and book twice-yearly exams to catch kidney/thyroid changes early.",
+  },
 ];
 
 export const DEFAULT_CONDITION_FOR_SYSTEM: Record<string, string> = {
@@ -384,7 +567,22 @@ export const DEFAULT_CONDITION_FOR_SYSTEM: Record<string, string> = {
   msk: "arthritis",
   behavior: "anxiety",
   immune: "itchy_skin",
+  dental: "dental_inflammation",
 };
+
+/** Stable display order for the Natural Support protocol library. */
+export const PROTOCOL_ORDER: string[] = [
+  "chronic_diarrhea",
+  "itchy_skin",
+  "pancreatitis",
+  "kidney_hydration",
+  "arthritis",
+  "obesity_metabolic",
+  "dental_inflammation",
+  "anxiety",
+  "ear_yeast",
+  "senior_maintenance",
+];
 
 export function conditionById(id: string): ConditionTemplate | undefined {
   return CONDITION_TEMPLATES.find((c) => c.id === id);
