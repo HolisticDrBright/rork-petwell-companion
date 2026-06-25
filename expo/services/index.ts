@@ -18,3 +18,5 @@ export {
   type PrivacyKey,
 } from "./privacyService";
 export { integrativeService } from "./integrativeService";
+export { patternsService } from "./patternsService";
+export { storage } from "./storage";

@@ -33,8 +33,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { MiniTrend } from "@/components/Charts";
 import { PetSwitcher } from "@/components/PetSwitcher";
+import { HealthScoreBadge, PatternsPreview } from "@/components/longevitySurfaces";
 import { Card, EmptyState, SectionTitle } from "@/components/ui";
 import Colors, { Fonts, Radius, Space, cardShadow } from "@/constants/colors";
+import { computeHealthScore } from "@/lib/health/score";
+import { detectPatterns } from "@/lib/integrative/patterns";
 import { usePets } from "@/providers/PetProvider";
 import type { CareItem, UpcomingItem } from "@/types/pet";
 
@@ -121,9 +124,15 @@ const UpcomingRow = memo(function UpcomingRow({ item }: { item: UpcomingItem }) 
 export default function TodayScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { selectedPet, careItems, toggleCareItem, smartInsight, trends, upcoming, onboarded, isLoading } =
+  const { selectedPet, careItems, toggleCareItem, smartInsight, trends, timeline, upcoming, onboarded, isLoading } =
     usePets();
   const [fabOpen, setFabOpen] = useState<boolean>(false);
+
+  const healthScore = useMemo(
+    () => computeHealthScore(selectedPet, timeline, trends),
+    [selectedPet, timeline, trends],
+  );
+  const patterns = useMemo(() => detectPatterns(selectedPet, timeline), [selectedPet, timeline]);
 
   useEffect(() => {
     if (!isLoading && !onboarded) {
@@ -195,6 +204,7 @@ export default function TodayScreen() {
               <Text style={Fonts.tiny}>HEALTH STATUS · TAP FOR SCORE</Text>
               <Text style={styles.statusBig}>{selectedPet.statusNote}</Text>
             </View>
+            <HealthScoreBadge overall={healthScore.overall} band={healthScore.band} />
             <ChevronRight size={20} color={Colors.inkFaint} />
           </Pressable>
           <View style={styles.statusDivider} />
@@ -213,6 +223,17 @@ export default function TodayScreen() {
             </Text>
           </View>
         </Card>
+
+        {/* Patterns to watch (from real logs) */}
+        {patterns.length > 0 ? (
+          <View style={styles.section}>
+            <PatternsPreview
+              patterns={patterns}
+              onSeeAll={() => router.push("/patterns")}
+              onOpen={() => router.push("/patterns")}
+            />
+          </View>
+        ) : null}
 
         {/* Daily care checklist */}
         <View style={styles.section}>

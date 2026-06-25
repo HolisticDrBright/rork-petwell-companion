@@ -19,9 +19,12 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { BarChart, LineChart } from "@/components/Charts";
 import { PetSwitcher } from "@/components/PetSwitcher";
+import { HealthScoreChip, PatternsPreview } from "@/components/longevitySurfaces";
 import { Card, EmptyState } from "@/components/ui";
 import Colors, { Fonts, Radius, Space, cardShadow } from "@/constants/colors";
 import { TODAY_ISO } from "@/constants/mockData";
+import { computeHealthScore, SCORE_BAND_LABEL } from "@/lib/health/score";
+import { detectPatterns } from "@/lib/integrative/patterns";
 import { usePets } from "@/providers/PetProvider";
 import type { LogCategory, TimelineEntry } from "@/types/pet";
 
@@ -111,6 +114,12 @@ export default function TimelineScreen() {
   const { selectedPet, timeline, insightCards, trends } = usePets();
   const [filter, setFilter] = useState<LogCategory | "all">("all");
 
+  const healthScore = useMemo(
+    () => computeHealthScore(selectedPet, timeline, trends),
+    [selectedPet, timeline, trends],
+  );
+  const patterns = useMemo(() => detectPatterns(selectedPet, timeline), [selectedPet, timeline]);
+
   const filtered = useMemo(
     () => (filter === "all" ? timeline : timeline.filter((e) => e.category === filter)),
     [filter, timeline]
@@ -164,6 +173,25 @@ export default function TimelineScreen() {
           <Text style={styles.logBtnText}>Log</Text>
         </Pressable>
       </View>
+
+      {/* Health score + real patterns from logs */}
+      <View style={styles.longevity}>
+        <HealthScoreChip
+          overall={healthScore.overall}
+          band={healthScore.band}
+          bandLabel={SCORE_BAND_LABEL[healthScore.band]}
+          onPress={() => router.push("/health-score")}
+        />
+      </View>
+      {patterns.length > 0 ? (
+        <View style={styles.longevity}>
+          <PatternsPreview
+            patterns={patterns}
+            onSeeAll={() => router.push("/patterns")}
+            onOpen={() => router.push("/patterns")}
+          />
+        </View>
+      ) : null}
 
       {/* Insight cards */}
       <ScrollView
@@ -279,6 +307,7 @@ export default function TimelineScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.cream },
+  longevity: { paddingHorizontal: Space.md, marginBottom: Space.md },
   header: { paddingHorizontal: Space.md, marginBottom: Space.sm },
   titleRow: {
     flexDirection: "row",

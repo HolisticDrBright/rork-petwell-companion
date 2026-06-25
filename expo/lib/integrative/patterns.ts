@@ -405,6 +405,51 @@ const anxietyStress: Detector = (_pet, idx) => {
   };
 };
 
+// 11 ── Medication adherence (missed meds + symptom flare) ──────
+const adherenceMissedMeds: Detector = (pet, idx) => {
+  const missed = idx.find(
+    ["missed", "forgot", "skipped", "ran out", "late dose", "no dose", "out of", "off meds"],
+    ["meds", "symptom"],
+  );
+  const symptomFlare = idx.all.filter((e) => e.category === "symptom");
+  const medsLogs = idx.all.filter((e) => e.category === "meds");
+  const chronicMed = pet.conditions.some((c) =>
+    /apoquel|cytopoint|insulin|thyroid|phenobarb|seizure|epilep|steroid|prednis|gabapentin|nsaid|carprofen|daily med|on .*mg/i.test(c),
+  );
+  const signals: string[] = [];
+  let core = 0;
+  if (missed.length) { core++; signals.push(`Missed-dose note: ${missed[0].title}`); }
+  if (symptomFlare.length) { core++; signals.push(`Symptom flare: ${symptomFlare[0].title}`); }
+  if (chronicMed) signals.push("On ongoing medication (per profile)");
+  // Surface only with a flare AND either an explicit miss or a chronic-med dosing gap.
+  const gap = chronicMed && symptomFlare.length > 0 && medsLogs.length === 0;
+  if (!(missed.length && symptomFlare.length) && !gap) return null;
+  if (gap && !missed.length) { core++; signals.push("No recent medication logged despite ongoing treatment"); }
+  return {
+    id: "adherence_missed_meds",
+    name: "Medication adherence pattern",
+    system: "immune",
+    systemLabel: "Medication & adherence",
+    confidence: confidenceFromCount(core),
+    urgent: false,
+    summary: `Symptom flares that line up with missed or unlogged medication can mean doses are being skipped. ${NOT_A_DIAGNOSIS}`,
+    supportingSignals: signals,
+    missingInfo: ["The exact dosing schedule", "Which doses were missed and when", "Whether the flare followed the gap"],
+    nextLogs: ["Log each medication dose as you give it", "Note symptom changes against doses", "Set a medication reminder"],
+    safeFirstSteps: [
+      "Set a daily reminder for each medication",
+      "Use a pill organizer or refill alert so you don't run out",
+      "Never double-up to 'catch up' — ask your vet how to handle a missed dose",
+    ],
+    whenToEscalate: [
+      "A flare that won't settle, or symptoms worsening off medication",
+      "Seizures, breathing trouble, or collapse → emergency",
+      "Before changing any dose — confirm with your vet",
+    ],
+    conditionId: undefined,
+  };
+};
+
 const DETECTORS: Detector[] = [
   urinaryObstructionMaleCat, // urgent first
   pancreatitisConcern,
@@ -416,6 +461,7 @@ const DETECTORS: Detector[] = [
   dentalInflammation,
   seniorMobility,
   anxietyStress,
+  adherenceMissedMeds,
 ];
 
 export function detectPatterns(pet: Pet, timeline: TimelineEntry[]): DetectedPattern[] {

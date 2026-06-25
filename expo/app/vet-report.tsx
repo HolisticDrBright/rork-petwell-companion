@@ -15,6 +15,7 @@ import { getQuestion } from "@/lib/triage/engine";
 import { useTriage } from "@/lib/triage/store";
 import { getActiveProgramRuns, type ProgramRunView } from "@/lib/programs/store";
 import { programById } from "@/lib/integrative/programs";
+import { detectPatterns, PATTERN_CONFIDENCE_LABEL } from "@/lib/integrative/patterns";
 import { usePets } from "@/providers/PetProvider";
 import { reportService } from "@/services";
 import type { TimelineEntry } from "@/types/pet";
@@ -64,6 +65,7 @@ export default function VetReportScreen() {
   }, [selectedPet.id]);
 
   const suppsUsed = useMemo(() => supplementsInUse(timeline), [timeline]);
+  const patterns = useMemo(() => detectPatterns(selectedPet, timeline), [selectedPet, timeline]);
 
   // In-session triage (local mode / freshly run) from the store.
   const tOutcome = useTriage((s) => s.outcome);
@@ -388,6 +390,35 @@ export default function VetReportScreen() {
               </Text>
             </View>
           ) : null}
+        </Card>
+
+        {/* Patterns to watch */}
+        <SectionHeader>Patterns to watch</SectionHeader>
+        <Card style={{ gap: 14 }}>
+          {patterns.length === 0 ? (
+            <Text style={styles.bodyText}>No clear patterns detected from the current logs.</Text>
+          ) : (
+            patterns.slice(0, 5).map((p) => (
+              <View key={p.id} style={{ gap: 4 }}>
+                <Text style={styles.qaA}>
+                  {p.name}
+                  {p.urgent ? <Text style={{ color: Colors.red600 }}> · vet now</Text> : null}
+                </Text>
+                <Text style={styles.qaQ}>
+                  {p.systemLabel} · {PATTERN_CONFIDENCE_LABEL[p.confidence]}
+                </Text>
+                {p.supportingSignals.slice(0, 2).map((s, i) => (
+                  <View key={i} style={styles.bulletRow}>
+                    <View style={styles.dot} />
+                    <Text style={styles.bulletText}>{s}</Text>
+                  </View>
+                ))}
+              </View>
+            ))
+          )}
+          <Text style={[Fonts.tiny, { color: Colors.inkFaint, lineHeight: 16 }]}>
+            Patterns to watch from the pet&apos;s logs — not diagnoses.
+          </Text>
         </Card>
 
         {/* Food changes */}
