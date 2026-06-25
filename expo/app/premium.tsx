@@ -5,19 +5,22 @@ import {
   Crown,
   Heart,
   Infinity as InfinityIcon,
+  Settings2,
   Sparkles,
   TrendingUp,
   Users,
   Watch,
   X,
 } from "lucide-react-native";
-import React, { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { PrimaryButton } from "@/components/ui";
 import Colors, { Fonts, Radius, Space, cardShadow } from "@/constants/colors";
-import { usePets } from "@/providers/PetProvider";
+import { mapPlans } from "@/lib/purchases/plans";
+import type { PurchasesPackage } from "@/lib/purchases/types";
+import { useSubscription } from "@/providers/SubscriptionProvider";
 
 const FREE = [
   "Pet profile & care reminders",
@@ -35,11 +38,65 @@ const PREMIUM = [
   { label: "Multi-pet family sharing", icon: Users },
 ];
 
+interface PlanRow {
+  key: string;
+  label: string;
+  sub: string;
+  pkg: PurchasesPackage;
+  best?: boolean;
+}
+
 export default function PremiumScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { setPremium } = usePets();
-  const [plan, setPlan] = useState<"yearly" | "monthly">("yearly");
+  const { isPro, ready, isSupported, offerings, purchase, restore, presentPaywall, manageSubscription } =
+    useSubscription();
+
+  const plans = useMemo(() => mapPlans(offerings), [offerings]);
+  const ordered = useMemo<PlanRow[]>(() => {
+    const list: PlanRow[] = [];
+    if (plans.yearly) list.push({ key: "yearly", label: "Yearly", sub: "Billed annually", pkg: plans.yearly, best: true });
+    if (plans.monthly) list.push({ key: "monthly", label: "Monthly", sub: "Billed monthly", pkg: plans.monthly });
+    if (plans.lifetime) list.push({ key: "lifetime", label: "Lifetime", sub: "One-time — yours forever", pkg: plans.lifetime });
+    return list;
+  }, [plans]);
+
+  const [selected, setSelected] = useState<string | null>(null);
+  const [busy, setBusy] = useState<boolean>(false);
+  const [status, setStatus] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!selected && ordered.length) setSelected(ordered[0].key);
+  }, [ordered, selected]);
+
+  const selectedPkg = ordered.find((p) => p.key === selected)?.pkg ?? null;
+
+  const onSubscribe = async () => {
+    if (!selectedPkg || busy) return;
+    setBusy(true);
+    setStatus(null);
+    const out = await purchase(selectedPkg);
+    setBusy(false);
+    if (out.cancelled) return; // user backed out — say nothing
+    if (!out.ok) setStatus(out.error ?? "Couldn't complete that purchase.");
+    // On success isPro flips and the screen switches to the active state.
+  };
+
+  const onCompareAll = async () => {
+    setStatus(null);
+    const res = await presentPaywall();
+    if (res === "error") setStatus("Couldn't open the plans right now.");
+  };
+
+  const onRestore = async () => {
+    if (busy) return;
+    setBusy(true);
+    setStatus(null);
+    const out = await restore();
+    setBusy(false);
+    if (out.ok && !out.isPro) setStatus("No previous purchases found to restore.");
+    else if (!out.ok) setStatus(out.error ?? "Couldn't restore purchases.");
+  };
 
   return (
     <View style={styles.container}>
@@ -48,14 +105,22 @@ export default function PremiumScreen() {
         <X size={22} color={Colors.ink} />
       </Pressable>
 
-      <ScrollView contentContainerStyle={{ paddingTop: insets.top + 50, paddingBottom: insets.bottom + 120, paddingHorizontal: Space.md }} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={{
+          paddingTop: insets.top + 50,
+          paddingBottom: insets.bottom + 140,
+          paddingHorizontal: Space.md,
+        }}
+        showsVerticalScrollIndicator={false}
+      >
         <LinearGradient colors={[Colors.teal700, Colors.teal900]} style={styles.crown}>
           <Crown size={40} color={Colors.amber500} />
         </LinearGradient>
-        <Text style={styles.title}>Petwell Premium</Text>
+        <Text style={styles.title}>Petwell Pro</Text>
         <Text style={styles.subtitle}>
-          Deeper insight into your pet&apos;s health. Honest pricing, no dark patterns — cancel
-          anytime.
+          {isPro
+            ? "You're a Pro member — thank you for supporting Petwell."
+            : "Deeper insight into your pet's health. Honest pricing, no dark patterns — cancel anytime."}
         </Text>
 
         {/* Premium features */}
@@ -71,7 +136,7 @@ export default function PremiumScreen() {
           ))}
         </View>
 
-        {/* Free reminder */}
+        {/* Always-free reminder */}
         <View style={styles.freeCard}>
           <Text style={styles.freeTitle}>Always free</Text>
           {FREE.map((f) => (
@@ -82,44 +147,99 @@ export default function PremiumScreen() {
           ))}
         </View>
 
-        {/* Plan picker */}
-        <View style={styles.plans}>
-          <Pressable
-            onPress={() => setPlan("yearly")}
-            style={[styles.plan, plan === "yearly" && styles.planActive]}
-          >
-            <View style={styles.bestBadge}>
-              <Text style={styles.bestText}>BEST VALUE · SAVE 34%</Text>
-            </View>
-            <Text style={styles.planName}>Yearly</Text>
-            <Text style={styles.planPrice}>
-              $79<Text style={styles.planUnit}>/yr</Text>
+        {/* Plan picker — real prices straight from the store via RevenueCat */}
+        {!isPro && isSupported && ordered.length > 0 ? (
+          <View style={styles.plans}>
+            {ordered.map((p) => (
+              <Pressable
+                key={p.key}
+                onPress={() => setSelected(p.key)}
+                style={[styles.plan, selected === p.key && styles.planActive]}
+                accessibilityRole="button"
+                accessibilityLabel={`${p.label} plan ${p.pkg.product.priceString}`}
+              >
+                {p.best ? (
+                  <View style={styles.bestBadge}>
+                    <Text style={styles.bestText}>BEST VALUE</Text>
+                  </View>
+                ) : null}
+                <Text style={styles.planName}>{p.label}</Text>
+                <Text style={styles.planPrice}>{p.pkg.product.priceString}</Text>
+                <Text style={styles.planEq}>{p.sub}</Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
+
+        {/* Loading / unavailable states */}
+        {!isPro && isSupported && ordered.length === 0 ? (
+          <View style={styles.note}>
+            {ready ? (
+              <Text style={styles.noteText}>
+                Plans aren&apos;t available yet. Tap “See all plans” below, or check your RevenueCat offering setup.
+              </Text>
+            ) : (
+              <ActivityIndicator color={Colors.teal700} />
+            )}
+          </View>
+        ) : null}
+
+        {!isSupported && !isPro ? (
+          <View style={styles.note}>
+            <Text style={styles.noteText}>
+              Subscriptions are available in the Petwell app for iOS and Android.
             </Text>
-            <Text style={styles.planEq}>≈ $6.58/mo</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => setPlan("monthly")}
-            style={[styles.plan, plan === "monthly" && styles.planActive]}
-          >
-            <Text style={styles.planName}>Monthly</Text>
-            <Text style={styles.planPrice}>
-              $9.99<Text style={styles.planUnit}>/mo</Text>
-            </Text>
-            <Text style={styles.planEq}>Billed monthly</Text>
-          </Pressable>
-        </View>
+          </View>
+        ) : null}
+
+        {status ? <Text style={styles.status}>{status}</Text> : null}
       </ScrollView>
 
+      {/* Sticky footer */}
       <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
-        <PrimaryButton
-          label={plan === "yearly" ? "Start yearly — $79/yr" : "Start monthly — $9.99/mo"}
-          variant="coral"
-          onPress={() => {
-            setPremium(true);
-            router.back();
-          }}
-        />
-        <Text style={styles.footNote}>Exports stay free whether or not you subscribe.</Text>
+        {isPro ? (
+          <>
+            <View style={styles.proActive}>
+              <Check size={16} color={Colors.green600} strokeWidth={3} />
+              <Text style={styles.proActiveText}>Petwell Pro is active</Text>
+            </View>
+            {isSupported ? (
+              <PrimaryButton
+                label="Manage subscription"
+                variant="outline"
+                icon={<Settings2 size={18} color={Colors.teal700} />}
+                onPress={manageSubscription}
+              />
+            ) : null}
+          </>
+        ) : (
+          <>
+            <PrimaryButton
+              label={
+                busy
+                  ? "Working…"
+                  : selectedPkg
+                    ? `Subscribe — ${selectedPkg.product.priceString}`
+                    : "Choose a plan"
+              }
+              variant="coral"
+              onPress={onSubscribe}
+              disabled={!selectedPkg || busy}
+            />
+            {isSupported ? (
+              <View style={styles.linkRow}>
+                <Pressable onPress={onCompareAll} hitSlop={8}>
+                  <Text style={styles.link}>See all plans</Text>
+                </Pressable>
+                <Text style={styles.linkDot}>·</Text>
+                <Pressable onPress={onRestore} hitSlop={8}>
+                  <Text style={styles.link}>Restore purchases</Text>
+                </Pressable>
+              </View>
+            ) : null}
+            <Text style={styles.footNote}>Exports stay free whether or not you subscribe.</Text>
+          </>
+        )}
       </View>
     </View>
   );
@@ -186,10 +306,16 @@ const styles = StyleSheet.create({
   },
   bestText: { fontSize: 9, fontWeight: "800", color: Colors.amber600, letterSpacing: 0.3 },
   planName: { ...Fonts.h3 },
-  planPrice: { fontSize: 26, fontWeight: "800", color: Colors.ink, marginTop: 4 },
-  planUnit: { fontSize: 14, fontWeight: "700", color: Colors.inkFaint },
+  planPrice: { fontSize: 22, fontWeight: "800", color: Colors.ink, marginTop: 4 },
   planEq: { ...Fonts.small, color: Colors.inkFaint, marginTop: 2 },
+  note: { marginTop: Space.lg, padding: Space.md, backgroundColor: Colors.cream2, borderRadius: Radius.md, alignItems: "center" },
+  noteText: { ...Fonts.small, color: Colors.inkSoft, textAlign: "center", lineHeight: 19 },
+  status: { ...Fonts.small, color: Colors.coral600, textAlign: "center", marginTop: Space.md, lineHeight: 18 },
   footer: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
     paddingHorizontal: Space.md,
     paddingTop: Space.sm,
     gap: 8,
@@ -198,4 +324,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.cream,
   },
   footNote: { ...Fonts.small, color: Colors.inkFaint, textAlign: "center" },
+  proActive: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 4 },
+  proActiveText: { ...Fonts.h3, fontSize: 15, color: Colors.green600 },
+  linkRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10 },
+  link: { ...Fonts.small, color: Colors.teal700, fontWeight: "700" },
+  linkDot: { ...Fonts.small, color: Colors.inkFaint },
 });

@@ -3,6 +3,7 @@ import {
   Bell,
   Bluetooth,
   ChevronRight,
+  CreditCard,
   Crown,
   Download,
   FileText,
@@ -10,6 +11,7 @@ import {
   Lock,
   Mail,
   PawPrint,
+  RefreshCw,
   ScrollText,
   Shield,
   Sparkles,
@@ -23,6 +25,7 @@ import { Card } from "@/components/ui";
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
 import { exportJson } from "@/lib/report/export";
 import { usePets } from "@/providers/PetProvider";
+import { useSubscription } from "@/providers/SubscriptionProvider";
 import { DEFAULT_PRIVACY, privacyService, type PrivacyKey, type PrivacyPrefs } from "@/services";
 
 interface Toggle {
@@ -40,12 +43,26 @@ const PERMISSIONS: Toggle[] = [
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const { premium, selectedPet, timeline, mode, authEmail, isAuthenticated, canUseAuth } = usePets();
+  const { selectedPet, timeline, mode, authEmail, isAuthenticated, canUseAuth } = usePets();
+  const { isPro, isSupported, manageSubscription, restore } = useSubscription();
 
   const [prefs, setPrefs] = useState<PrivacyPrefs>(DEFAULT_PRIVACY);
   const [status, setStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState<boolean>(false);
   const [confirm, setConfirm] = useState<"images" | "account" | null>(null);
+
+  const onRestore = useCallback(async () => {
+    setBusy(true);
+    setStatus(null);
+    try {
+      const out = await restore();
+      if (out.ok && out.isPro) setStatus("Purchases restored — Petwell Pro is active.");
+      else if (out.ok) setStatus("No previous purchases found to restore.");
+      else setStatus(out.error ?? "Couldn't restore purchases.");
+    } finally {
+      setBusy(false);
+    }
+  }, [restore]);
 
   useEffect(() => {
     privacyService.getPrefs().then(setPrefs).catch(() => {});
@@ -118,9 +135,9 @@ export default function SettingsScreen() {
           <Crown size={22} color={Colors.amber500} />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={styles.premiumTitle}>{premium ? "Premium active" : "Petwell Premium"}</Text>
+          <Text style={styles.premiumTitle}>{isPro ? "Petwell Pro active" : "Petwell Pro"}</Text>
           <Text style={styles.premiumSub}>
-            {premium ? "Thanks for supporting Petwell" : "Unlimited scans, correlations & more"}
+            {isPro ? "Thanks for supporting Petwell" : "Unlimited scans, correlations & more"}
           </Text>
         </View>
         <ChevronRight size={20} color="rgba(255,255,255,0.8)" />
@@ -161,6 +178,22 @@ export default function SettingsScreen() {
           </Pressable>
         </Card>
       </View>
+
+      {/* Subscription — RevenueCat (hidden on web where purchases aren't supported) */}
+      {isSupported ? (
+        <View style={styles.group}>
+          <Text style={styles.groupTitle}>Subscription</Text>
+          <Card style={{ gap: 0 }}>
+            <ActionRow
+              icon={CreditCard}
+              label={isPro ? "Manage subscription" : "See Petwell Pro plans"}
+              onPress={isPro ? () => { void manageSubscription(); } : () => router.push("/premium")}
+            />
+            <View style={styles.divider} />
+            <ActionRow icon={RefreshCw} label="Restore purchases" onPress={() => { void onRestore(); }} />
+          </Card>
+        </View>
+      ) : null}
 
       {/* Data permissions */}
       <View style={styles.group}>

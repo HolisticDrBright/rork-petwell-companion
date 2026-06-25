@@ -9,6 +9,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Colors from "@/constants/colors";
 import { initSentry } from "@/lib/sentry";
 import { PetProvider } from "@/providers/PetProvider";
+import { SubscriptionProvider } from "@/providers/SubscriptionProvider";
 
 // Start crash/error reporting as early as possible (no-op without a DSN).
 initSentry();
@@ -71,10 +72,12 @@ export default function RootLayout() {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <PetProvider>
-          <GestureHandlerRootView style={{ flex: 1 }}>
-            <StatusBar style="dark" />
-            <RootLayoutNav />
-          </GestureHandlerRootView>
+          <SubscriptionProvider>
+            <GestureHandlerRootView style={{ flex: 1 }}>
+              <StatusBar style="dark" />
+              <RootLayoutNav />
+            </GestureHandlerRootView>
+          </SubscriptionProvider>
         </PetProvider>
       </QueryClientProvider>
     </ErrorBoundary>

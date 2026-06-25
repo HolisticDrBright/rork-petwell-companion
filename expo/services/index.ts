@@ -26,6 +26,9 @@ export {
   cancelReminder,
   requestNotificationPermission,
 } from "./notificationsService";
+// Subscriptions / in-app purchases (RevenueCat). Platform-resolved: the native
+// build uses subscriptionService.native.ts; web uses the no-op default.
+export { subscriptionService } from "./subscriptionService";
 // Real-data foundation: ingesters, evidence, and admin review.
 export { recallImporter } from "./recallImporter";
 export { openPetFoodFactsImporter } from "./openPetFoodFactsImporter";
