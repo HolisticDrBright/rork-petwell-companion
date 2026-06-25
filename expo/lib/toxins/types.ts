@@ -1,67 +1,77 @@
 /**
- * Petwell local toxin reference — types.
+ * Petwell local toxin reference — types (aligned to the approved design spec:
+ * docs/superpowers/specs/2026-06-25-toxin-database-design.md).
  *
- * V1 scope: dogs and cats only. This data ships in the app bundle so toxin
- * lookup works fully OFFLINE (no network, no Supabase needed). Every entry
- * carries provenance: the public source it was curated from, when it was last
- * reviewed, and whether a veterinarian has signed off.
+ * V1 scope: dogs and cats only. Data ships in the app bundle so lookup works
+ * fully OFFLINE, with an optional Supabase hydration path later (toxinService).
  *
- * Safety rules baked into the model:
- *  - NO dosing, antidotes, decontamination, or treatment instructions live here.
- *    The data describes what a toxin is and what signs an owner might see — then
- *    routes to a vet / poison hotline. Treatment is a clinician's job.
- *  - Absence from this list NEVER implies a substance is safe (see lookup.ts).
+ * Safety rules baked in:
+ *  - NO dosing, antidotes, decontamination, or treatment instructions. We
+ *    describe the hazard, where pets meet it, and the signs an owner might see —
+ *    then route to a vet / poison hotline. `doseWarning` is a *warning* (e.g.
+ *    "no amount is known to be safe"), never a dose calculator.
+ *  - Severity is PER-SPECIES; the same item can be an emergency for cats and a
+ *    caution for dogs (e.g. true lilies, acetaminophen).
+ *  - Absence from this list NEVER implies a substance is safe (see search.ts).
  */
 
 /** V1 supports dogs and cats only. */
-export type ToxinSpecies = "dog" | "cat" | "both";
+export type ToxinSpeciesScope = "dog" | "cat" | "both";
 
 export type ToxinCategory =
   | "food"
   | "plant"
-  | "household"
   | "medication"
-  | "rodenticide"
-  | "essential_oil";
+  | "supplement"
+  | "household"
+  | "essential_oil"
+  | "recreational";
 
 /**
- * Severity of the hazard (not a clinical grade):
- *  - "toxic"   : can be life-threatening; treat any exposure as an emergency
- *  - "high"    : seriously harmful; call a vet / hotline promptly
- *  - "caution" : can cause illness (often GI/irritation); monitor and call if unsure
+ * Per-species severity (spec vocabulary):
+ *  - "emergency"    : call a vet / poison control now
+ *  - "high"         : contact a vet / poison control promptly
+ *  - "caution"      : may be unsafe depending on amount/size/context; ask a vet
+ *  - "usually_safe" : not known to be toxic, but monitor and call if signs appear
+ *  - "unknown"      : not enough information; ask a vet / poison control
  */
-export type ToxinSeverity = "toxic" | "high" | "caution";
+export type ToxinSeverity = "emergency" | "high" | "caution" | "usually_safe" | "unknown";
 
-/**
- * Review status drives the provenance badge and the "pending vet review" list.
- *  - "curated_public_source" : transcribed from a named public authority
- *    (ASPCA APCC / Pet Poison Helpline) but NOT yet verified by a clinician.
- *  - "vet_reviewed"          : a licensed veterinarian has reviewed this entry.
- */
-export type ToxinReviewStatus = "curated_public_source" | "vet_reviewed";
+/** Provenance state of an entry (spec vocabulary). */
+export type ToxinEvidenceStatus = "source_cited" | "vet_reviewed" | "needs_review" | "deprecated";
 
 export interface ToxinSource {
   name: string;
+  publisher: string;
   url: string;
+  /** spec source_type */
+  type: "poison_control_public" | "veterinary_manual" | "regulatory" | "academic" | "manufacturer" | "internal_review";
 }
 
 export interface ToxinEntry {
-  /** Stable identifier (kebab-case). */
   slug: string;
   name: string;
-  /** Lowercased match tokens / common names used for search + free-text scanning. */
-  aliases: string[];
   category: ToxinCategory;
-  species: ToxinSpecies;
-  severity: ToxinSeverity;
+  speciesScope: ToxinSpeciesScope;
+  dogSeverity: ToxinSeverity;
+  catSeverity: ToxinSeverity;
+  /** Lowercased common names / lay terms / brand-like terms for search + text scan. */
+  aliases: string[];
   /** Body systems most affected, e.g. ["Kidney"], ["Heart", "Nervous"]. */
   bodySystems: string[];
+  /** Concise, original Petwell summary of why it's dangerous. No treatment. */
+  summary: string;
   /** Owner-observable clinical signs — descriptive only, NEVER treatment. */
-  signs: string[];
-  /** One-line plain-language reason it's dangerous. No dosing/treatment. */
-  note: string;
+  clinicalSigns: string[];
+  /** Where pets typically encounter it. */
+  commonSources: string;
+  /** Optional non-dosing warning, e.g. "No amount is known to be safe." */
+  doseWarning?: string;
+  /** Primary cited source. */
   source: ToxinSource;
+  evidenceStatus: ToxinEvidenceStatus;
   /** ISO date (YYYY-MM-DD) this entry was last reviewed/curated. */
   lastReviewed: string;
-  reviewStatus: ToxinReviewStatus;
+  /** Veterinarian (or reviewer) who signed off, or null when pending review. */
+  reviewedBy: string | null;
 }

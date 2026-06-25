@@ -45,14 +45,21 @@ export interface ToxinRef {
   note: string;
 }
 
+/** Collapse the per-species severities to the engine's 3-level scale. */
+function worstSeverity(entry: ToxinEntry): ToxinRef["severity"] {
+  const rank = { emergency: 4, high: 3, caution: 2, usually_safe: 1, unknown: 1 } as const;
+  const worst = Math.max(rank[entry.dogSeverity], rank[entry.catSeverity]);
+  return worst >= 4 ? "toxic" : worst === 3 ? "high" : "caution";
+}
+
 /** Bridge the rich local toxin entry to the engine's lightweight ToxinRef. */
 function toToxinRef(entry: ToxinEntry): ToxinRef {
   return {
     name: entry.name,
     match: entry.aliases,
-    species: entry.species,
-    severity: entry.severity,
-    note: entry.note,
+    species: entry.speciesScope,
+    severity: worstSeverity(entry),
+    note: entry.summary,
   };
 }
 

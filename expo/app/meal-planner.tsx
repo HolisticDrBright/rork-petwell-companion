@@ -8,7 +8,7 @@ import { EvidenceBadge, InfoNote, ScreenHeader, VetNote } from "@/components/int
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
 import { MEAL_PLANS, mealPlanById, selectMealPlan, type MealPlan } from "@/lib/integrative/meals";
 import type { ThermalNature } from "@/lib/integrative/types";
-import { findToxinsInText } from "@/lib/toxins/lookup";
+import { matchToxinsInText } from "@/lib/toxins/search";
 import { usePets } from "@/providers/PetProvider";
 
 const THERMAL: Record<ThermalNature, { color: string; bg: string; Icon: React.ComponentType<{ size?: number; color?: string }> }> = {
@@ -47,7 +47,7 @@ export default function MealPlannerScreen() {
   // Defensive safety net: never let a plan's ideas silently include a food that's
   // toxic to this species. Scans plan text against the local toxin database.
   const planToxins = useMemo(
-    () => findToxinsInText([...plan.homemade, ...plan.commercial, plan.prep].join(" "), selectedPet.species),
+    () => matchToxinsInText([...plan.homemade, ...plan.commercial, plan.prep].join(" "), selectedPet.species),
     [plan, selectedPet.species],
   );
 
@@ -164,7 +164,7 @@ export default function MealPlannerScreen() {
             </View>
             {planToxins.map((tox) => (
               <Text key={tox.slug} style={styles.warnText}>
-                <Text style={{ fontWeight: "800" }}>{tox.name}</Text> — {tox.note}
+                <Text style={{ fontWeight: "800" }}>{tox.name}</Text> — {tox.summary}
               </Text>
             ))}
           </Card>
