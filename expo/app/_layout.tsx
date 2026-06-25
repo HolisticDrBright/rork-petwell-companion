@@ -7,7 +7,11 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Colors from "@/constants/colors";
+import { initSentry } from "@/lib/sentry";
 import { PetProvider } from "@/providers/PetProvider";
+
+// Start crash/error reporting as early as possible (no-op without a DSN).
+initSentry();
 
 SplashScreen.preventAutoHideAsync();
 

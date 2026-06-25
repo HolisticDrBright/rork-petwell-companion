@@ -3,6 +3,7 @@ import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
+import { captureError } from "@/lib/sentry";
 
 /**
  * Global error boundary. Catches render-time crashes anywhere in the tree and
@@ -21,8 +22,8 @@ export class ErrorBoundary extends React.Component<{ children: React.ReactNode }
   }
 
   componentDidCatch(error: Error, info: { componentStack: string }): void {
-    // Surface for logs now; wire a crash reporter (e.g. Sentry) here later.
     console.error("[petwell] uncaught UI error:", error, info.componentStack);
+    captureError(error, { componentStack: info.componentStack });
   }
 
   reset = (): void => {
