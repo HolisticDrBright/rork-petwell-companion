@@ -74,6 +74,159 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_chat_messages: {
+        Row: {
+          content: string | null
+          created_at: string
+          id: string
+          role: string
+          safety_flags: Json | null
+          thread_id: string
+          tool_name: string | null
+          tool_payload: Json | null
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          role: string
+          safety_flags?: Json | null
+          thread_id: string
+          tool_name?: string | null
+          tool_payload?: Json | null
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          role?: string
+          safety_flags?: Json | null
+          thread_id?: string
+          tool_name?: string | null
+          tool_payload?: Json | null
+        }
+        Relationships: []
+      }
+      ai_chat_threads: {
+        Row: {
+          created_at: string
+          id: string
+          owner_id: string
+          pet_id: string | null
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          owner_id?: string
+          pet_id?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          owner_id?: string
+          pet_id?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ai_extracted_records: {
+        Row: {
+          created_at: string
+          extracted: Json | null
+          generation_id: string | null
+          id: string
+          owner_id: string
+          pet_id: string | null
+          record_type: string
+          review_status: string
+          source_document_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          extracted?: Json | null
+          generation_id?: string | null
+          id?: string
+          owner_id?: string
+          pet_id?: string | null
+          record_type: string
+          review_status?: string
+          source_document_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          extracted?: Json | null
+          generation_id?: string | null
+          id?: string
+          owner_id?: string
+          pet_id?: string | null
+          record_type?: string
+          review_status?: string
+          source_document_id?: string | null
+        }
+        Relationships: []
+      }
+      ai_generations: {
+        Row: {
+          created_at: string
+          estimated_cost_cents: number
+          feature: string
+          id: string
+          input_refs: Json | null
+          model: string | null
+          output: Json | null
+          owner_id: string
+          pet_id: string | null
+          prompt_version: string | null
+          provider: string
+          review_status: string
+          safety_flags: Json | null
+          token_input: number
+          token_output: number
+          user_visible_text: string | null
+        }
+        Insert: {
+          created_at?: string
+          estimated_cost_cents?: number
+          feature: string
+          id?: string
+          input_refs?: Json | null
+          model?: string | null
+          output?: Json | null
+          owner_id?: string
+          pet_id?: string | null
+          prompt_version?: string | null
+          provider?: string
+          review_status?: string
+          safety_flags?: Json | null
+          token_input?: number
+          token_output?: number
+          user_visible_text?: string | null
+        }
+        Update: {
+          created_at?: string
+          estimated_cost_cents?: number
+          feature?: string
+          id?: string
+          input_refs?: Json | null
+          model?: string | null
+          output?: Json | null
+          owner_id?: string
+          pet_id?: string | null
+          prompt_version?: string | null
+          provider?: string
+          review_status?: string
+          safety_flags?: Json | null
+          token_input?: number
+          token_output?: number
+          user_visible_text?: string | null
+        }
+        Relationships: []
+      }
       biological_systems: {
         Row: {
           created_at: string
