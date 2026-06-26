@@ -151,5 +151,13 @@ ck("10 vision function logs crowdsourced/unverified", /label_ocr_unverified|crow
 // The label-extraction schema has no field that could express contaminant confidence.
 ck("10 label schema has no contaminant/purity field", !/contaminant|purity|heavy_?metal|pfas/i.test(/labelExtractionSchema[\s\S]*?\};/.exec(schemasSrc)?.[0] ?? ""));
 
+// ── 11. Explain wrapper adds no new conclusions, preserves urgency ───────────
+const explainPrompt = has("../../prompts/explain-v1.md") ? read("../../prompts/explain-v1.md") : "";
+ck("11 explain prompt: add no new conclusion", /not add any new conclusion|do not.*change.*result|explain the existing result/i.test(explainPrompt));
+ck("11 explain prompt: preserve urgency", /urgency/i.test(explainPrompt) && /emergency/i.test(explainPrompt));
+ck("11 explain prompt: preserve evidence status", /no public lab test found|evidence status/i.test(explainPrompt));
+const explainFnSrc = has("../../supabase/functions/ai-explain/index.ts") ? read("../../supabase/functions/ai-explain/index.ts") : "";
+ck("11 explain function reviews output + flags urgent", /reviewOutput\(/.test(explainFnSrc) && /emergency_vet/.test(explainFnSrc));
+
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);

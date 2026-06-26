@@ -22,6 +22,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Card, Disclaimer, PrimaryButton } from "@/components/ui";
 import Colors, { Fonts, Radius, Space, softShadow } from "@/constants/colors";
 import { PHOTO_LIMITATION } from "@/lib/food/evidence";
+import { AiExplainCard } from "@/components/ai/AiExplainCard";
 import { EVIDENCE_COPY, evidenceBasis } from "@/lib/food/provenance";
 import { buildReview, type AlternativeItem } from "@/lib/food/engine";
 import type { FoodReview, PetContext, ProductBundle, Severity } from "@/lib/food/types";
@@ -641,6 +642,10 @@ export default function FoodResultScreen() {
             onPress={() => router.replace("/food-scan")}
             style={{ flex: 1 }}
           />
+        </View>
+
+        <View style={{ marginTop: Space.lg }}>
+          <AiExplainCard feature="food_score" result={review} label="Explain this score with AI" />
         </View>
 
         <View style={{ marginTop: Space.lg }}>

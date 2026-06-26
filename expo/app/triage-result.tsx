@@ -18,6 +18,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { EmergencyContacts } from "@/components/EmergencyContacts";
+import { AiExplainCard } from "@/components/ai/AiExplainCard";
 import { IntegrativePlanView } from "@/components/IntegrativePlan";
 import { Card, Disclaimer, PrimaryButton } from "@/components/ui";
 import Colors, { Fonts, Radius, Space, Urgency, softShadow } from "@/constants/colors";
@@ -326,6 +327,10 @@ export default function TriageResultScreen() {
         <View style={styles.chipRow}>
           <NextChip label="Log a photo" icon={<Camera size={16} color={Colors.teal700} />} onPress={() => router.push("/scan")} />
           <NextChip label="12-hour check-in" icon={<Bell size={16} color={Colors.teal700} />} onPress={() => router.push("/reminders")} />
+        </View>
+
+        <View style={{ marginTop: Space.lg }}>
+          <AiExplainCard feature="triage_result" result={{ concernLabel, ...outcome }} label="Explain this result with AI" />
         </View>
 
         <View style={{ marginTop: Space.lg }}>
