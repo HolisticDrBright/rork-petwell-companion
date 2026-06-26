@@ -48,6 +48,24 @@ The single most important finding: **no mainstream dog/cat food brand publishes 
 Fancy Feast, Beneful, Alpo, Whiskas, Sheba, Eukanuba, Purina Cat Chow, Hill's Prescription Diet, Authority (PetSmart), American Journey (Chewy), Canidae, NutriSource — all `no_public_coa_found`. Many huge sellers (Pro Plan, Hill's Science Diet, Pedigree, Blue Buffalo) are only `needs_review` (named in CLP study, but no per-product values).
 
 ## 6. Recommended next products/brands to research
+
+### Next COA wave (deferred — brief for a future session)
+Expand beyond top-volume brands into six categories, under the **same conservative
+rules** (every row a real cited source; gaps → `no_public_coa_found`; never invent a
+COA; brand claims stay `brand_claim`; nothing surfaces until admin review):
+1. **Prescription / veterinary diets** — Hill's Rx, Royal Canin Veterinary, Purina Pro Plan Vet, Blue Natural Veterinary. (Expect many `no_public_coa_found`.)
+2. **Freeze-dried / raw** — Stella & Chewy's, Primal, Open Farm, Instinct, Vital Essentials, Steve's. (Most likely to expose real per-lot COA tools → `batch_lot_coa`.)
+3. **Treats / chews** — Greenies, Milk-Bone, Blue Bits, Zuke's, rawhide / bully-stick makers.
+4. **Supplements** — Nutramax (Dasuquin / Cosequin), VetriScience, Zesty Paws, Native Pet.
+5. **Puppy / kitten formulas** — life-stage SKUs of already-catalogued brands.
+6. **Allergy / limited-ingredient** — Natural Balance L.I.D., Hill's z/d, Royal Canin HP, Blue Basics.
+
+Process (no schema change needed — just more rows in the existing structure): add
+brands to `brands.csv`, products to `products.csv`, evidence to `lab_evidence.csv`
+(+ `coa_sources.csv` / `no_public_coa_found.csv`), then regenerate
+`import_food_evidence.sql` with `build_sql.py`.
+
+### Standing recommendations
 - Re-run the **openFDA importer** monthly (cron / edge function) — recall data is live.
 - Pursue **Clean Label Project licensing** to obtain per-product numeric values (the only path to real product-level purity in-app).
 - Capture **actual per-lot COAs** from Open Farm / Stella & Chewy's / Natural Balance using real product lots (admin task) → these can become genuine `batch_lot_coa` documents.
