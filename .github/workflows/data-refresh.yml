@@ -1,0 +1,91 @@
+name: Data refresh
+
+# Scheduled refresh of the evidence data that genuinely changes over time.
+# IMPORTANT: every importer only writes provenance-graded rows and queues them
+# into admin_review_queue — NOTHING here is surfaced to users until an admin
+# reviews it. Jobs are no-ops unless the Supabase service-role secrets are set,
+# so forks and unconfigured repos never fail.
+#
+# Cadence (see docs/DATA_REFRESH.md for the full policy, including the manual
+# COA / marketplace / breed cycles that cannot be automated):
+#   recalls (openFDA)          weekly   — Mondays 07:00 UTC
+#   Open Pet Food Facts        monthly  — 1st of month 08:00 UTC
+
+on:
+  schedule:
+    - cron: "0 7 * * 1" # recalls — weekly
+    - cron: "0 8 1 * *" # Open Pet Food Facts — monthly
+  workflow_dispatch:
+    inputs:
+      job:
+        description: Which refresh to run
+        type: choice
+        options: [recalls, opff, both]
+        default: recalls
+
+concurrency:
+  group: data-refresh
+  cancel-in-progress: false
+
+jobs:
+  recalls:
+    name: Refresh FDA recalls (weekly)
+    if: >-
+      (github.event_name == 'workflow_dispatch' && (inputs.job == 'recalls' || inputs.job == 'both'))
+      || (github.event_name == 'schedule' && github.event.schedule == '0 7 * * 1')
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: expo
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - name: Import openFDA pet-food recalls (queues to admin review)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "::notice::Supabase secrets not set — skipping. Add SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY to enable."
+            exit 0
+          fi
+          bun scripts/import-recalls.ts 300
+
+  opff:
+    name: Refresh Open Pet Food Facts catalog (monthly)
+    if: >-
+      (github.event_name == 'workflow_dispatch' && (inputs.job == 'opff' || inputs.job == 'both'))
+      || (github.event_name == 'schedule' && github.event.schedule == '0 8 1 * *')
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: expo
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - name: Refresh tracked barcodes from Open Pet Food Facts (queues to admin review)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "::notice::Supabase secrets not set — skipping. Add SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY to enable."
+            exit 0
+          fi
+          # Re-import the barcodes we already track (from the committed dataset),
+          # capped to respect OPFF rate limits. New products are added via the
+          # in-app submission queue, not here.
+          BARCODES=$(awk -F, 'NR>1 && $0 ~ /[0-9]/ {print $1}' ../data/food-evidence/products.csv \
+            | grep -E '^[0-9]{8,14}$' | head -40 | tr '\n' ' ')
+          if [ -z "$BARCODES" ]; then
+            echo "::notice::No barcodes found in data/food-evidence/products.csv — nothing to refresh."
+            exit 0
+          fi
+          echo "Refreshing $(echo "$BARCODES" | wc -w) tracked barcode(s)…"
+          bun scripts/import-opff.ts $BARCODES

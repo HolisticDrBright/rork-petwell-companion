@@ -23,7 +23,7 @@ export default function MarketplaceScreen() {
   return (
     <View style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
-      <ScreenHeader title="Trusted picks" subtitle="Ranked on merit — never pay-to-rank" />
+      <ScreenHeader title="Trusted picks" subtitle="Best fit on the evidence we can verify — never pay-to-rank" />
       <ScrollView contentContainerStyle={{ padding: Space.md, paddingBottom: 60 }} showsVerticalScrollIndicator={false}>
         {/* Trust banner */}
         <Card style={styles.trustCard}>
@@ -33,8 +33,10 @@ export default function MarketplaceScreen() {
               <Text style={styles.previewPillText}>{MARKETPLACE_STATUS}</Text>
             </View>
             <Text style={styles.trustText}>
-              Ranked only on pet fit, species safety, evidence, transparency, ingredient quality, and lab testing — no
-              brand can pay for placement. &ldquo;Cleanest/best&rdquo; claims need real lab/recall data.
+              These are the most transparent foods based on public evidence — ranked on pet fit, species safety, recalls,
+              ingredient transparency, and any lab testing, never on payment. We say &ldquo;best fit on available
+              data,&rdquo; not &ldquo;cleanest&rdquo; or &ldquo;safest&rdquo;: those need product-level lab proof no
+              mainstream brand publishes yet.
             </Text>
           </View>
         </Card>

@@ -76,6 +76,9 @@ ck("2 'animal crackers' excluded", petRecall("Frosted Animal Crackers, 1 lb", { 
 ck("2 'fresh mango' excluded", petRecall("Fresh Mango Chunks, refrigerated", { product_type: "Food" }) === false);
 ck("2 'corn dog' excluded", petRecall("Beef Corn Dogs, frozen", { product_type: "Food" }) === false);
 ck("2 'hush puppies' excluded", petRecall("Hush Puppies, cornmeal, frozen", { product_type: "Food" }) === false);
+ck("2 'cat fish' (spaced seafood) excluded", petRecall("Cat Fish fillets, frozen, farm-raised", { product_type: "Food" }) === false);
+ck("2 'catfish' one-word seafood excluded", petRecall("Catfish nuggets, breaded, food", { product_type: "Food" }) === false);
+ck("2 'chili dog' excluded", petRecall("Chili Dog sauce, canned", { product_type: "Food" }) === false);
 
 // Other human / livestock — EXCLUDED
 ck("2 human-only (infant formula) excluded", petRecall("Infant formula, milk-based") === false);

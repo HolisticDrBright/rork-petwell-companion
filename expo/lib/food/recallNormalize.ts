@@ -50,9 +50,11 @@ export interface NormalizedRecall {
  * recalling firm, whose name is noisy ("Salty Dog Cafe" is a human deli).
  */
 
-// Human foods whose names contain a pet substring — always exclude.
+// Human foods whose names contain a pet substring — always exclude. (Single-word
+// "catfish"/"dogfish" are already safe via word boundaries; the spaced forms and
+// "cat tongue" cookies are added defensively.)
 const HUMAN_FOOD_FALSE_POSITIVE =
-  /\b(hot ?dogs?|corn ?dogs?|chili ?dogs?|dog ?buns?|hush ?pupp(?:y|ies)|puppy ?chow|animal ?crackers?)\b/i;
+  /\b(hot ?dogs?|corn ?dogs?|chili ?dogs?|dog ?buns?|hush ?pupp(?:y|ies)|puppy ?chow|animal ?crackers?|cat ?fish|dog ?fish|cat ?tongue)\b/i;
 
 // Clear human-only markers.
 const HUMAN_ONLY_HINT = /\b(infant formula|baby food|human consumption|for human)\b/i;

@@ -28,12 +28,38 @@ export interface ImportResult {
   errors: string[];
 }
 
-async function fetchRecentFoodRecalls(limit: number): Promise<OpenFdaRecall[]> {
-  const url = `${OPENFDA_URL}?sort=recall_initiation_date:desc&limit=${Math.min(1000, limit)}`;
+// Pet/animal recalls are filed in openFDA's *food* enforcement endpoint (the FDA
+// "Animal & Veterinary > Recalls & Withdrawals" pages are the human-readable view
+// of the same enforcement reports — https://www.fda.gov/animal-veterinary/safety-health/recalls-withdrawals).
+// There is no separate animal enforcement API, so we query the food endpoint but
+// BIAS the search toward pet terms to surface more genuine pet recalls within the
+// limit (most food recalls are human food). `isPetFoodRecall` remains the
+// authoritative conservative filter; the bias is only about what we fetch.
+const PET_BIAS_SEARCH =
+  'search=' +
+  encodeURIComponent(
+    'product_description:(dog OR cat OR pet OR puppy OR kitten OR canine OR feline OR kibble) ' +
+      'OR reason_for_recall:(dog OR cat OR pet OR animal)'
+  );
+
+async function fetchJson(url: string): Promise<OpenFdaRecall[]> {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`openFDA HTTP ${res.status}`);
   const json = (await res.json()) as { results?: OpenFdaRecall[] };
   return json.results ?? [];
+}
+
+async function fetchRecentFoodRecalls(limit: number): Promise<OpenFdaRecall[]> {
+  const capped = Math.min(1000, limit);
+  // Best-effort pet-biased query; fall back to the broad date-sorted fetch so a
+  // search-syntax issue or an empty result degrades to prior behavior, never breaks.
+  try {
+    const biased = await fetchJson(`${OPENFDA_URL}?${PET_BIAS_SEARCH}&sort=recall_initiation_date:desc&limit=${capped}`);
+    if (biased.length > 0) return biased;
+  } catch {
+    // ignore and fall through to the broad fetch
+  }
+  return fetchJson(`${OPENFDA_URL}?sort=recall_initiation_date:desc&limit=${capped}`);
 }
 
 /** Brand-level match only — we never claim an exact product recall from a name. */
