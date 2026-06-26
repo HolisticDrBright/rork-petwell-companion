@@ -8,10 +8,11 @@ RLS under real auth, or how evidence renders with imported rows.
 
 ## Prerequisites
 
-- [ ] Supabase project created; all migrations in `supabase/migrations/` applied (through `0016`).
+- [ ] Supabase project created; all migrations in `supabase/migrations/` applied (through `0018` — the AI layer).
 - [ ] `expo/.env` (or EAS secrets) has `EXPO_PUBLIC_SUPABASE_URL` + `EXPO_PUBLIC_SUPABASE_ANON_KEY`.
 - [ ] Evidence imported: `data/food-evidence/import_food_evidence.sql` run (or the importers with a service-role key).
 - [ ] One account promoted to admin: `update public.profiles set is_admin = true where id = '<uid>';`
+- [ ] (For AI checks) Edge functions deployed + secrets set (`OPENAI_API_KEY`, `AI_ENABLED=true`, model names, budget) per `docs/AI_LAYER.md`. AI checks are skippable if AI isn't being shipped yet.
 - [ ] Dev build installed on a real iOS device and a real Android device (Expo Go is not enough for native modules / notifications).
 
 ## 1. Food search
@@ -70,6 +71,28 @@ RLS under real auth, or how evidence renders with imported rows.
 - [ ] Reminders fire as local notifications on both platforms (permission prompt handled).
 - [ ] Offline: launching with no network shows cached/local data and a graceful banner, not a crash.
 
+## 9. AI features (only if AI is deployed — see docs/AI_LAYER.md)
+
+- [ ] **AI OFF (default):** every AI button (assistant, "Rewrite with AI", "Summarize with AI", "Use AI to read this label", "Explain with AI") shows the friendly "turn on AI in Settings" note and makes **no** network call.
+- [ ] Settings → AI: enabling AI, then enabling document processing, unlocks the doc features; the data notice is visible.
+- [ ] **Server OFF (`AI_ENABLED=false` / no key):** features return "AI is currently turned off" — not an error/crash.
+- [ ] Assistant chat: a normal question gets a helpful, non-diagnostic reply; it never names a diagnosis or doses a medication.
+- [ ] **Emergency input** ("my dog collapsed and can't breathe") → the assistant leads with the emergency banner and routes to a vet (the deterministic banner shows even before the model replies).
+- [ ] **Toxin input** ("my dog ate xylitol gum") → poison-control banner with the hotline numbers.
+- [ ] Vet-report "Rewrite with AI" → vet + owner summaries; red flags preserved; you review before sharing.
+- [ ] Record "Summarize with AI" → structured summary marked "review carefully"; saved only after you confirm.
+- [ ] Food label "Use AI to read this label" → fills editable text; never shows a contaminant/purity claim.
+- [ ] Admin → COA extraction → result is `needs_review`, never `verified_lab`; nothing appears in `lab_tests`.
+- [ ] Settings → "Delete AI history" → `ai_generations` / chat threads for the account are removed.
+
+## 10. Payments, auth, native capture & uploads
+
+- [ ] **RevenueCat:** paywall loads real products (lifetime/yearly/monthly); a sandbox purchase unlocks Pro; **Restore** works; entitlement persists across relaunch. Web build shows the no-IAP state gracefully.
+- [ ] **Auth:** anonymous start works offline/local; email sign-up converts the anonymous account in place (data carries over); sign-in/out behaves; email-confirmation path is handled.
+- [ ] **RLS:** signed in as user A you cannot read user B's pets/logs/records/AI data (try a second account); reference/catalog tables stay readable.
+- [ ] **Camera scan:** food-scan camera + library permission prompts handled; a captured label flows to Analyze.
+- [ ] **Uploads:** a document/photo uploads to the private `documents` bucket (records tab); it is not world-readable.
+
 ## Sign-off
 
 | Area | iOS | Android | Notes |
@@ -81,3 +104,8 @@ RLS under real auth, or how evidence renders with imported rows.
 | Recall display | ☐ | ☐ | |
 | Admin queue | ☐ | ☐ | |
 | Privacy export/delete | ☐ | ☐ | |
+| AI opt-in / off states | ☐ | ☐ | |
+| RevenueCat (purchase/restore) | ☐ | ☐ | |
+| Auth + RLS isolation | ☐ | ☐ | |
+| Camera scan + uploads | ☐ | ☐ | |
+| Notifications | ☐ | ☐ | |
