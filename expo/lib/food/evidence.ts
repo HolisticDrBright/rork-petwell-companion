@@ -4,6 +4,7 @@
  * sources are sorted last and flagged so the UI labels them clearly.
  */
 
+import { countsAsProductLevelPurity, isProductSpecificResult } from "./provenance";
 import type { EvidenceSource, LabTest, ProductBundle } from "./types";
 
 export const PHOTO_LIMITATION =
@@ -42,7 +43,9 @@ export function puritySummary(bundle: ProductBundle): PuritySummary {
     };
   }
   const realTests = tests.filter((t) => !t.isDemo);
-  const flagged = tests.some((t) => t.status === "elevated" || t.status === "fail");
+  // Only a product/lot-specific elevated result flags this product; a brand- or
+  // study-level finding is surfaced as evidence context, never a this-product flag.
+  const flagged = tests.some((t) => (t.status === "elevated" || t.status === "fail") && isProductSpecificResult(t.level));
   const demoOnly = realTests.length === 0;
 
   if (flagged) {
@@ -63,12 +66,25 @@ export function puritySummary(bundle: ProductBundle): PuritySummary {
       demoOnly: true,
     };
   }
+  // Only independent, current, PRODUCT-level passing evidence can raise purity.
+  // Brand-, study-, or batch-level rows (and unverified-status rows) are real
+  // evidence but are never presented as product-level purity.
+  const productPass = tests.filter(countsAsProductLevelPurity);
+  if (productPass.length > 0) {
+    return {
+      confidence: productPass.length >= 2 ? "supported" : "moderate",
+      text:
+        productPass.length >= 2
+          ? "Verified product-level lab data on file. Even so, a photo alone can't establish purity."
+          : "Limited verified product-level lab data on file (single report). A photo alone can't establish purity.",
+      tests,
+      hasEvidence: true,
+      demoOnly: false,
+    };
+  }
   return {
-    confidence: realTests.length >= 2 ? "supported" : "moderate",
-    text:
-      realTests.length >= 2
-        ? "Verified product-level lab data on file. Even so, a photo alone can't establish purity."
-        : "Limited verified lab data on file (single report). A photo alone can't establish purity.",
+    confidence: "limited",
+    text: "Brand- or study-level lab evidence only — not specific to this product or lot, so product purity stays unconfirmed.",
     tests,
     hasEvidence: true,
     demoOnly: false,

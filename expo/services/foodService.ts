@@ -3,6 +3,7 @@ import { buildReview, pickAlternatives, type AlternativeItem } from "@/lib/food/
 import { matchByText, type CatalogItem } from "@/lib/food/match";
 import { buildAliasMap } from "@/lib/food/normalize";
 import { parseLabelText } from "@/lib/food/ocr";
+import { isStale } from "@/lib/food/provenance";
 import type {
   EvidenceSource,
   FoodReview,
@@ -132,32 +133,49 @@ export const foodService = {
 
     const productIds = products.map((p) => p.id);
     const brandIds = [...new Set(products.map((p) => p.brand_id).filter(Boolean))] as string[];
+    const nowIso = new Date().toISOString();
+    const emptyRows = () => Promise.resolve({ data: [] as Record<string, unknown>[] });
 
-    const [ingRes, labRes, recallProdRes, recallBrandRes, linkProdRes, linkBrandRes] = await Promise.all([
-      supabase
-        .from("food_product_ingredients")
-        .select(`product_id, position, food_ingredients ( name, category, is_common_allergen, ingredient_flags ( flag_type, severity, message ) )`)
-        .in("product_id", productIds)
-        .order("position", { ascending: true }),
-      supabase
-        .from("contaminant_tests")
-        .select(`product_id, substance, substance_category, result, status, tested_at, lab, is_demo, evidence_sources ( title )`)
-        .in("product_id", productIds),
-      supabase.from("recall_events").select("product_id, recall_date, reason, severity, source_url").in("product_id", productIds),
-      brandIds.length
-        ? supabase.from("recall_events").select("brand_id, recall_date, reason, severity, source_url").in("brand_id", brandIds)
-        : Promise.resolve({ data: [] as Record<string, unknown>[] }),
-      supabase
-        .from("evidence_links")
-        .select(`product_id, relation, evidence_sources ( title, publisher, url, source_type )`)
-        .in("product_id", productIds),
-      brandIds.length
-        ? supabase
-            .from("evidence_links")
-            .select(`brand_id, relation, evidence_sources ( title, publisher, url, source_type )`)
-            .in("brand_id", brandIds)
-        : Promise.resolve({ data: [] as Record<string, unknown>[] }),
-    ]);
+    const [ingRes, labRes, labTestProdRes, labTestBrandRes, recallProdRes, recallBrandRes, linkProdRes, linkBrandRes] =
+      await Promise.all([
+        supabase
+          .from("food_product_ingredients")
+          .select(`product_id, position, food_ingredients ( name, category, is_common_allergen, ingredient_flags ( flag_type, severity, message ) )`)
+          .in("product_id", productIds)
+          .order("position", { ascending: true }),
+        // Product-level contaminant tests (original catalog table) — carry provenance.
+        supabase
+          .from("contaminant_tests")
+          .select(`product_id, substance, substance_category, result, status, tested_at, lab, is_demo, level, evidence_status, expires_at, evidence_sources ( title )`)
+          .in("product_id", productIds),
+        // Generalized lab evidence (migration 0016): product-level rows for these products…
+        supabase
+          .from("lab_tests")
+          .select("product_id, level, contaminant_category, substance, result_value, status, test_date, lab_name, source_url, evidence_status, expires_at")
+          .in("product_id", productIds),
+        // …and brand-level rows (no product_id) attached to every product of the brand.
+        brandIds.length
+          ? supabase
+              .from("lab_tests")
+              .select("brand_id, level, contaminant_category, substance, result_value, status, test_date, lab_name, source_url, evidence_status, expires_at")
+              .in("brand_id", brandIds)
+              .is("product_id", null)
+          : emptyRows(),
+        supabase.from("recall_events").select("product_id, recall_date, reason, severity, source_url").in("product_id", productIds),
+        brandIds.length
+          ? supabase.from("recall_events").select("brand_id, recall_date, reason, severity, source_url").in("brand_id", brandIds)
+          : emptyRows(),
+        supabase
+          .from("evidence_links")
+          .select(`product_id, relation, evidence_sources ( title, publisher, url, source_type )`)
+          .in("product_id", productIds),
+        brandIds.length
+          ? supabase
+              .from("evidence_links")
+              .select(`brand_id, relation, evidence_sources ( title, publisher, url, source_type )`)
+              .in("brand_id", brandIds)
+          : emptyRows(),
+      ]);
 
     const ingByProduct = new Map<string, IngredientInfo[]>();
     for (const row of (ingRes.data ?? []) as Record<string, unknown>[]) {
@@ -178,10 +196,20 @@ export const foodService = {
       ingByProduct.set(row.product_id as string, arr);
     }
 
+    // An expired lab row is downgraded to `stale` so it can never raise purity.
+    const provStatus = (status: unknown, expiresAt: unknown): LabTest["evidenceStatus"] =>
+      isStale(expiresAt as string | null, nowIso) ? "stale" : ((status as LabTest["evidenceStatus"]) ?? null);
+
     const labByProduct = new Map<string, LabTest[]>();
+    const pushLab = (productId: string, t: LabTest) => {
+      const arr = labByProduct.get(productId) ?? [];
+      arr.push(t);
+      labByProduct.set(productId, arr);
+    };
+
+    // contaminant_tests: product-level seeds and any real product-level COAs.
     for (const row of (labRes.data ?? []) as Record<string, unknown>[]) {
-      const arr = labByProduct.get(row.product_id as string) ?? [];
-      arr.push({
+      pushLab(row.product_id as string, {
         substance: row.substance as string,
         substanceCategory: (row.substance_category as string) ?? null,
         result: row.result as string,
@@ -190,8 +218,33 @@ export const foodService = {
         lab: (row.lab as string) ?? null,
         isDemo: !!row.is_demo,
         sourceTitle: one(row.evidence_sources as { title: string } | null)?.title ?? null,
+        level: (row.level as LabTest["level"]) ?? "product",
+        evidenceStatus: provStatus(row.evidence_status, row.expires_at),
       });
-      labByProduct.set(row.product_id as string, arr);
+    }
+
+    // lab_tests (migration 0016): generalized brand/study/batch evidence. These are
+    // never demo; provenance gating keeps brand/study rows from raising purity.
+    const toLabTest = (row: Record<string, unknown>): LabTest => ({
+      substance: (row.substance as string) ?? (row.contaminant_category as string) ?? "Contaminant panel",
+      substanceCategory: (row.contaminant_category as string) ?? null,
+      result: (row.result_value as string) ?? "see report",
+      status: (row.status as LabTest["status"]) ?? null,
+      testedAt: (row.test_date as string) ?? null,
+      lab: (row.lab_name as string) ?? null,
+      isDemo: false,
+      sourceTitle: (row.lab_name as string) ?? null,
+      level: (row.level as LabTest["level"]) ?? "brand",
+      evidenceStatus: provStatus(row.evidence_status, row.expires_at),
+    });
+    for (const row of (labTestProdRes.data ?? []) as Record<string, unknown>[]) {
+      pushLab(row.product_id as string, toLabTest(row));
+    }
+    const labTestByBrand = new Map<string, LabTest[]>();
+    for (const row of (labTestBrandRes.data ?? []) as Record<string, unknown>[]) {
+      const arr = labTestByBrand.get(row.brand_id as string) ?? [];
+      arr.push(toLabTest(row));
+      labTestByBrand.set(row.brand_id as string, arr);
     }
 
     const recallByProduct = new Map<string, RecallInfo[]>();
@@ -277,7 +330,7 @@ export const foodService = {
               kcalPer100g: nut.kcal_per_100g,
             }
           : null,
-        labTests: labByProduct.get(p.id) ?? [],
+        labTests: [...(labByProduct.get(p.id) ?? []), ...(brandId ? labTestByBrand.get(brandId) ?? [] : [])],
         recalls: [...(recallByProduct.get(p.id) ?? []), ...(brandId ? recallByBrand.get(brandId) ?? [] : [])],
         sources: [...(srcByProduct.get(p.id) ?? []), ...(brandId ? srcByBrand.get(brandId) ?? [] : [])],
       };

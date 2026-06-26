@@ -8,6 +8,8 @@
  * score is driven ONLY by that evidence — never by the photo.
  */
 
+import type { EvidenceLevel, EvidenceStatus } from "./provenance";
+
 export type Severity = "good" | "watch" | "bad";
 export type Recommendation = "good_fit" | "use_caution" | "avoid";
 export type LifeStage = "puppy" | "kitten" | "adult" | "senior" | "all";
@@ -54,6 +56,10 @@ export interface LabTest {
   lab: string | null;
   isDemo: boolean;
   sourceTitle: string | null;
+  /** Evidence level — product-level is the only level that can raise purity. */
+  level?: EvidenceLevel;
+  /** DB provenance status; null for legacy product seeds (pre-provenance). */
+  evidenceStatus?: EvidenceStatus | null;
 }
 
 export interface RecallInfo {

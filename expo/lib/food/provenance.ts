@@ -84,6 +84,50 @@ export function isStale(expiresAt: string | null | undefined, nowIso: string): b
   return expiresAt < nowIso.slice(0, 10);
 }
 
+/**
+ * Statuses that may support a REAL (non-demo) purity claim. A brand self-report
+ * (`brand_claim`), open-database row, crowdsourced submission, demo seed, stale,
+ * or rejected row can NEVER raise contaminant confidence — only independent lab
+ * verification, an official source, or an admin sign-off can.
+ */
+export const PURITY_TRUSTED_STATUSES: ReadonlySet<EvidenceStatus> = new Set<EvidenceStatus>([
+  "verified_lab",
+  "verified_official",
+  "admin_reviewed",
+]);
+
+/**
+ * SAFETY-CRITICAL gate (single source of truth, used by both the purity summary
+ * and the contaminant sub-score). Does this lab row count as real, current,
+ * product-level evidence that may raise purity confidence? Demo, non-pass,
+ * brand/study/batch-level, or unverified-status rows never qualify — matching the
+ * model cap that only an independent, current, product-level COA unlocks "high".
+ * A `null` status preserves legacy product seeds that predate the provenance column.
+ */
+export function countsAsProductLevelPurity(t: {
+  isDemo: boolean;
+  status: string | null;
+  level?: EvidenceLevel | null;
+  evidenceStatus?: EvidenceStatus | string | null;
+}): boolean {
+  if (t.isDemo) return false;
+  if (t.status !== "pass") return false;
+  if ((t.level ?? "product") !== "product") return false;
+  if (t.evidenceStatus == null) return true; // legacy product seed, pre-provenance
+  return PURITY_TRUSTED_STATUSES.has(t.evidenceStatus as EvidenceStatus);
+}
+
+/**
+ * Is a result specific to THIS product or lot (so an elevated/fail value may flag
+ * it), versus a brand- or study-level finding (e.g. a category average) that must
+ * never be presented as a this-product failure? Mirrors the recall rule that a
+ * brand-level match is never an exact-product recall.
+ */
+export function isProductSpecificResult(level: EvidenceLevel | null | undefined): boolean {
+  const l = level ?? "product";
+  return l === "product" || l === "batch";
+}
+
 export type ContaminantConfidence = "none" | "low" | "moderate" | "high";
 
 export interface LabEvidenceInput {

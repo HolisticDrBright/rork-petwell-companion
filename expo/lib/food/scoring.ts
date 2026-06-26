@@ -8,6 +8,7 @@
  * is treated as illustrative only and can never read as verified purity.
  */
 
+import { countsAsProductLevelPurity, isProductSpecificResult } from "./provenance";
 import type {
   LifeStage,
   PetContext,
@@ -182,25 +183,33 @@ export function scoreContaminantConfidence(bundle: ProductBundle): SubScore {
   }
 
   const realTests = tests.filter((t) => !t.isDemo);
-  const flagged = tests.filter((t) => t.status === "elevated" || t.status === "fail");
+  // A hard floor applies ONLY to a result specific to this product/lot. A brand-
+  // or study-level elevated finding (e.g. a category average) is never presented
+  // as a this-product failure — that would imply an exact-product result we don't
+  // have, the same way a brand-level recall is never an exact-product recall.
+  const flagged = tests.filter((t) => (t.status === "elevated" || t.status === "fail") && isProductSpecificResult(t.level));
   let score: number;
 
   if (flagged.length > 0) {
     score = 30;
     for (const t of flagged) reasons.push({ text: `${t.substance}: ${t.result}`, severity: "bad" });
   } else {
-    // Only a real PASSING test earns high confidence — a real but un-resulted
-    // (null / not_tested) row must not inflate the score.
-    const realPass = tests.some((t) => !t.isDemo && t.status === "pass");
-    score = realPass ? 85 : 55;
-    for (const t of tests.filter((t) => t.status === "pass").slice(0, 4))
+    // Only an independent, current, PRODUCT-level passing test earns high
+    // confidence. Brand-, study-, or batch-level (or unverified-status) passing
+    // evidence is real but caps at "moderate" (55) — never product-level purity.
+    const productPass = tests.some(countsAsProductLevelPurity);
+    score = productPass ? 85 : 55;
+    for (const t of tests.filter((t) => t.status === "pass" && isProductSpecificResult(t.level)).slice(0, 4))
       reasons.push({ text: `${t.substance}: ${t.result}`, severity: "good" });
   }
 
   const demoOnly = realTests.length === 0;
+  const productEvidence = tests.some(countsAsProductLevelPurity);
   const note = demoOnly
     ? "Based on Petwell demo/seed lab data — illustrative only, NOT real testing. Verified purity requires real lab reports."
-    : "Based on available lab reports. A photo alone can't establish purity.";
+    : productEvidence
+      ? "Based on product-level lab reports. A photo alone can't establish purity."
+      : "Based on brand- or study-level evidence only — not specific to this product/lot. A photo alone can't establish purity.";
 
   return { key: "contaminant_confidence", label: "Contaminant confidence", score: clamp(score), reasons, note };
 }

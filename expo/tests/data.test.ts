@@ -17,6 +17,7 @@ import {
   type OpenFdaRecall,
 } from "../lib/food/recallNormalize";
 import {
+  countsAsProductLevelPurity,
   EVIDENCE_COPY,
   EVIDENCE_STATUS_BADGE,
   evidenceBasis,
@@ -160,6 +161,18 @@ const bannedWords = [/\bcleanest\b/i, /\bsafest\b/i, /\bverified clean\b/i, /\bp
 let copyOverclaim = 0;
 for (const t of allCopy) for (const re of bannedWords) if (re.test(t)) { console.log(`  OVERCLAIM: "${t}"`); copyOverclaim++; }
 ck("10 no cleanest/safest/pure/verified-clean in evidence copy or badges", copyOverclaim === 0);
+
+// ── 11. product-level purity gate (lab_tests wiring) ─────────────────────────
+// Only an independent, current, product-level passing test may raise purity.
+ck("11 product + verified_lab + pass counts", countsAsProductLevelPurity({ isDemo: false, status: "pass", level: "product", evidenceStatus: "verified_lab" }) === true);
+ck("11 legacy product seed (null status) counts", countsAsProductLevelPurity({ isDemo: false, status: "pass", level: "product", evidenceStatus: null }) === true);
+ck("11 brand-level never counts", countsAsProductLevelPurity({ isDemo: false, status: "pass", level: "brand", evidenceStatus: "verified_lab" }) === false);
+ck("11 study-level never counts", countsAsProductLevelPurity({ isDemo: false, status: "pass", level: "study", evidenceStatus: "verified_lab" }) === false);
+ck("11 product + brand_claim (unverified) never counts", countsAsProductLevelPurity({ isDemo: false, status: "pass", level: "product", evidenceStatus: "brand_claim" }) === false);
+ck("11 product + open_database never counts", countsAsProductLevelPurity({ isDemo: false, status: "pass", level: "product", evidenceStatus: "open_database" }) === false);
+ck("11 stale product evidence never counts", countsAsProductLevelPurity({ isDemo: false, status: "pass", level: "product", evidenceStatus: "stale" }) === false);
+ck("11 demo never counts", countsAsProductLevelPurity({ isDemo: true, status: "pass", level: "product", evidenceStatus: "verified_lab" }) === false);
+ck("11 non-pass (elevated) never counts", countsAsProductLevelPurity({ isDemo: false, status: "elevated", level: "product", evidenceStatus: "verified_lab" }) === false);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);

@@ -151,6 +151,19 @@ const real = puritySummary(bundle([lab(), lab({ substance: "Cadmium" })]));
 ck("3 verified product-level lab => supported", real.confidence === "supported" && real.demoOnly === false);
 ck("3 verified copy says product-level", /product-level/i.test(real.text));
 
+// Brand-/study-level lab evidence is real but must NEVER read as product-level purity.
+const brandLab = puritySummary(bundle([lab({ level: "brand" }), lab({ level: "brand", substance: "Cadmium" })]));
+ck("3 brand-level lab never reaches 'supported'", brandLab.confidence !== "supported" && /brand- or study-level/i.test(brandLab.text));
+// A product-level row that is only an unverified brand_claim cannot unlock high purity.
+const unverified = puritySummary(bundle([lab({ level: "product", evidenceStatus: "brand_claim" }), lab({ level: "product", evidenceStatus: "brand_claim", substance: "Cadmium" })]));
+ck("3 unverified-status product lab never 'supported'", unverified.confidence !== "supported");
+// Stale (expired) product-level evidence is treated as out of date.
+const staleLab = puritySummary(bundle([lab({ level: "product", evidenceStatus: "stale" }), lab({ level: "product", evidenceStatus: "stale", substance: "Cadmium" })]));
+ck("3 stale product lab never 'supported'", staleLab.confidence !== "supported");
+// A study-level elevated finding (a category average) is NOT presented as a this-product flag.
+const studyElevated = puritySummary(bundle([lab({ level: "study", status: "elevated" })]));
+ck("3 study-level elevated is not a this-product flag", !/flagged as elevated/i.test(studyElevated.text) && /brand- or study-level/i.test(studyElevated.text));
+
 // ── 4. Food: a photo / OCR text can't raise contaminant confidence ───────────
 (() => {
   const pc: PetContext = { name: "Buddy", species: "dog", ageYears: 5, allergies: [], conditions: [] };
