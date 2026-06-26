@@ -34,9 +34,9 @@ export interface Badge {
 export const EVIDENCE_STATUS_BADGE: Record<EvidenceStatus, Badge> = {
   verified_official: { label: "Official source", tone: "good" },
   verified_lab: { label: "Lab verified", tone: "good" },
-  brand_claim: { label: "Brand-stated", tone: "info" },
-  open_database: { label: "Open database", tone: "info" },
-  crowdsourced_unverified: { label: "User submitted · needs review", tone: "warn" },
+  brand_claim: { label: "Brand claim only", tone: "info" },
+  open_database: { label: "Open database · pending review", tone: "info" },
+  crowdsourced_unverified: { label: "Needs review", tone: "warn" },
   admin_reviewed: { label: "Admin reviewed", tone: "good" },
   demo_seed: { label: "Demo data", tone: "warn" },
   stale: { label: "Stale data", tone: "warn" },
@@ -135,6 +135,15 @@ export function labEvidence(input: LabEvidenceInput): { confidence: ContaminantC
       text: "Verified product-level lab data on file. Even so, a photo alone can't establish purity.",
     };
   }
+  if (input.level === "study") {
+    // A public study (e.g. a category/brand-level contaminant study) is real
+    // evidence but is NOT specific to this product or lot.
+    return {
+      confidence: "low",
+      badge: { label: "Public study", tone: "info" },
+      text: "Public study evidence — not specific to this product.",
+    };
+  }
   // Evidence exists but only at the brand level (or unspecified) — never present as product-level.
   return {
     confidence: "low",
@@ -166,4 +175,39 @@ export const SOURCE_TYPE_LABEL: Record<string, string> = {
 export function sourceTypeLabel(sourceType: string | null | undefined): string {
   if (!sourceType) return "Source unknown";
   return SOURCE_TYPE_LABEL[sourceType] ?? sourceType;
+}
+
+/**
+ * Conservative, mandated evidence copy. NEVER use "cleanest / safest / pure /
+ * verified clean" anywhere — those require product-level VERIFIED lab evidence,
+ * which the public dataset does not have (research found ZERO public, downloadable,
+ * product-level independent COAs for mainstream dog/cat brands).
+ */
+export const EVIDENCE_COPY = {
+  /** No product-level COA found, dated. `asOf` is an ISO date (YYYY-MM-DD). */
+  noProductCoa: (asOf: string) => `No public product-level COA found as of ${asOf.slice(0, 10)}.`,
+  noPublicLabTest: "No public lab test found for this product.",
+  brandClaimOnly: "Brand claim only — not independent lab verification.",
+  publicStudy: "Public study evidence — not product-specific.",
+  brandLevelOnly: "Brand-level evidence only.",
+  openDatabasePending: "Open database product data; pending review.",
+  pendingAdminReview: "Evidence pending admin review.",
+} as const;
+
+/**
+ * Classify the strongest evidence BASIS behind a product from its (non-demo)
+ * sources, with conservative copy. Strength order: public study > brand claim >
+ * open database. This never implies product-level lab verification — that path is
+ * `labEvidence`. Returns null when there is no real (non-demo) source.
+ */
+export function evidenceBasis(
+  sources: { sourceType: string | null; isDemo: boolean }[],
+): { label: string; tone: BadgeTone; text: string } | null {
+  const real = sources.filter((s) => !s.isDemo);
+  if (real.length === 0) return null;
+  const has = (t: string) => real.some((s) => (s.sourceType ?? "").toLowerCase().includes(t));
+  if (has("study")) return { label: "Public study", tone: "info", text: EVIDENCE_COPY.publicStudy };
+  if (has("brand")) return { label: "Brand claim only", tone: "info", text: EVIDENCE_COPY.brandClaimOnly };
+  if (has("open")) return { label: "Open database · pending review", tone: "info", text: EVIDENCE_COPY.openDatabasePending };
+  return null;
 }

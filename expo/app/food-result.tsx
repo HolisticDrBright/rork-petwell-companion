@@ -22,6 +22,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Card, Disclaimer, PrimaryButton } from "@/components/ui";
 import Colors, { Fonts, Radius, Space, softShadow } from "@/constants/colors";
 import { PHOTO_LIMITATION } from "@/lib/food/evidence";
+import { EVIDENCE_COPY, evidenceBasis } from "@/lib/food/provenance";
 import { buildReview, type AlternativeItem } from "@/lib/food/engine";
 import type { FoodReview, PetContext, ProductBundle, Severity } from "@/lib/food/types";
 import { tcmForIngredients, thermalSummary } from "@/lib/integrative/engine";
@@ -265,6 +266,11 @@ export default function FoodResultScreen() {
   const rec = REC_STYLE[review.recommendation];
   const lab = labBadge(review.purity);
   const src = sourceBadge(review.sources);
+  // Conservative evidence basis (public study > brand claim > open database).
+  // Never implies product-level lab verification — that's `review.purity`.
+  const basis = evidenceBasis(bundle.sources);
+  // True only when a verified product-level lab test backs this product.
+  const hasProductLab = review.purity.confidence === "supported" || review.purity.confidence === "moderate";
   const recallChip =
     review.recallStatus.status === "active"
       ? { label: "Recall history found", tone: "warn" as const }
@@ -325,7 +331,12 @@ export default function FoodResultScreen() {
           <ProvChip label={lab.label} tone={lab.tone} />
           <ProvChip label={recallChip.label} tone={recallChip.tone} />
           <ProvChip label={src.label} tone={src.tone} />
+          {basis ? <ProvChip label={basis.label} tone="info" /> : null}
         </View>
+        {basis ? <Text style={styles.basisNote}>{basis.text}</Text> : null}
+        <Pressable onPress={() => router.push("/food-trust")} hitSlop={6} accessibilityRole="button">
+          <Text style={styles.howScored}>How Petwell scores food →</Text>
+        </Pressable>
 
         {/* Overall score + recommendation (the headline overall_recommendation) */}
         <View style={[styles.hero, { backgroundColor: rec.bg }]}>
@@ -406,6 +417,7 @@ export default function FoodResultScreen() {
             </Text>
           </View>
           <Text style={styles.purityText}>{review.purity.text}</Text>
+          {!hasProductLab ? <Text style={styles.coaNote}>{EVIDENCE_COPY.noProductCoa(todayIso)}</Text> : null}
           {review.purity.tests.map((t, i) => (
             <View key={i} style={styles.labRow}>
               <View style={[styles.labStatus, { backgroundColor: t.status === "pass" ? Colors.green100 : Colors.coral100 }]}>
@@ -744,6 +756,9 @@ const styles = StyleSheet.create({
   purityHead: { flexDirection: "row", alignItems: "center", gap: 8 },
   purityConfidence: { ...Fonts.h3, fontSize: 14.5, flex: 1, textTransform: "capitalize" },
   purityText: { ...Fonts.small, color: Colors.inkSoft, lineHeight: 19 },
+  coaNote: { ...Fonts.small, color: Colors.amber600, lineHeight: 18, fontWeight: "700" },
+  basisNote: { ...Fonts.tiny, color: Colors.inkSoft, marginTop: 6, lineHeight: 16 },
+  howScored: { ...Fonts.small, color: Colors.teal700, fontWeight: "700", marginTop: 8 },
   labRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   labStatus: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: Radius.sm, minWidth: 58, alignItems: "center" },
   labStatusText: { fontSize: 10.5, fontWeight: "800" },

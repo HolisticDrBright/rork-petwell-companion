@@ -17,6 +17,9 @@ import {
   type OpenFdaRecall,
 } from "../lib/food/recallNormalize";
 import {
+  EVIDENCE_COPY,
+  EVIDENCE_STATUS_BADGE,
+  evidenceBasis,
   evidenceLevelRank,
   isStale,
   labEvidence,
@@ -54,11 +57,29 @@ ck("1 maps brand/product/reason", norm.brandName === "Acme Pet Foods Inc" && /Ac
 ck("1 Class I -> severity bad", norm.severity === "bad" && severityFromClassification("Class III") === "watch");
 ck("1 dedup key uses recall number", recallDedupKey(rawRecall) === "rn:F-1234-2026");
 
-// ── 2. pet-food filter ───────────────────────────────────────
-ck("2 pet term -> included", isPetFoodRecall(rawRecall) === true);
-ck("2 cat food included", isPetFoodRecall({ product_description: "Whisker Cat Food pate" }) === true);
-ck("2 human-only excluded", isPetFoodRecall({ product_description: "Infant formula, milk-based" }) === false);
-ck("2 generic human food excluded", isPetFoodRecall({ product_description: "Romaine lettuce, bagged salad" }) === false);
+// ── 2. pet-food filter (conservative: excludes human-food false positives) ───
+const petRecall = (product_description: string, extra: Partial<OpenFdaRecall> = {}) =>
+  isPetFoodRecall({ product_description, ...extra });
+
+// True pet-food recalls — INCLUDED
+ck("2 true dog food included", isPetFoodRecall(rawRecall) === true);
+ck("2 true cat food included", petRecall("Whisker Cat Food pate") === true);
+ck("2 pet treats included", petRecall("Premium Pet Treats, peanut butter") === true);
+ck("2 dog treats included", petRecall("Chicken jerky dog treats") === true);
+ck("2 kibble included", petRecall("Grain-free puppy kibble, 12 lb") === true);
+ck("2 animal feed for dogs included", petRecall("Animal feed for dogs and cats, medicated") === true);
+
+// Human-food FALSE POSITIVES (contain dog/animal/puppy) — EXCLUDED
+ck("2 'hot dog buns' excluded", petRecall("Brand X Hot Dog Buns, 8 ct", { product_type: "Food" }) === false);
+ck("2 'animal crackers' excluded", petRecall("Frosted Animal Crackers, 1 lb", { product_type: "Food" }) === false);
+ck("2 'fresh mango' excluded", petRecall("Fresh Mango Chunks, refrigerated", { product_type: "Food" }) === false);
+ck("2 'corn dog' excluded", petRecall("Beef Corn Dogs, frozen", { product_type: "Food" }) === false);
+ck("2 'hush puppies' excluded", petRecall("Hush Puppies, cornmeal, frozen", { product_type: "Food" }) === false);
+
+// Other human / livestock — EXCLUDED
+ck("2 human-only (infant formula) excluded", petRecall("Infant formula, milk-based") === false);
+ck("2 generic produce excluded", petRecall("Romaine lettuce, bagged salad") === false);
+ck("2 livestock animal feed excluded (no companion hint)", petRecall("Cattle animal feed, 50 lb", { product_type: "Food" }) === false);
 
 // ── 3. dedup across a batch ──────────────────────────────────
 const batch: OpenFdaRecall[] = [
@@ -112,6 +133,33 @@ ck("8 red urgency suppresses supplements/herbs", hasNatural === false);
 // ── 9. toxic-ingredient safety gate (cats stricter) ──────────
 const turmericCat = checkItemSafety(catalogById("turmeric")!, { name: "Luna", species: "cat", ageYears: 6, conditions: [], allergies: [] });
 ck("9 turmeric blocked for cats", turmericCat.allowed === false);
+
+// ── 10. conservative evidence copy + basis (real dataset integration) ─────────
+// A public study is real evidence but NOT product-specific.
+const study = labEvidence({ hasEvidence: true, level: "study", demoOnly: false, stale: false, flagged: false, realProductTests: 0 });
+ck("10 public study -> low confidence, not product-level", study.confidence === "low" && study.badge.label !== "Product-level lab" && /not specific to this product/i.test(study.text));
+
+// Dated no-COA copy reflects the research finding (zero product-level COAs).
+ck("10 no-product-COA copy is dated + says product-level", /no public product-level coa found as of \d{4}-\d{2}-\d{2}\./i.test(EVIDENCE_COPY.noProductCoa("2026-06-26")));
+ck("10 brand-claim copy says not independent lab verification", /not independent lab verification/i.test(EVIDENCE_COPY.brandClaimOnly));
+ck("10 open-database copy says pending review", /pending review/i.test(EVIDENCE_COPY.openDatabasePending));
+
+// evidenceBasis: study > brand > open; null when only demo sources.
+ck("10 basis prefers public study", evidenceBasis([{ sourceType: "study", isDemo: false }, { sourceType: "brand", isDemo: false }])?.text === EVIDENCE_COPY.publicStudy);
+ck("10 basis brand claim is not lab verified", evidenceBasis([{ sourceType: "brand", isDemo: false }])?.text === EVIDENCE_COPY.brandClaimOnly);
+ck("10 basis open database pends review", evidenceBasis([{ sourceType: "open_pet_food_facts", isDemo: false }])?.text === EVIDENCE_COPY.openDatabasePending);
+ck("10 demo-only sources yield no basis (never shown as evidence)", evidenceBasis([{ sourceType: "lab", isDemo: true }]) === null);
+
+// No overclaim words anywhere in the mandated copy or status-badge labels.
+const allCopy = [
+  ...Object.values(EVIDENCE_COPY).map((v) => (typeof v === "function" ? v("2026-06-26") : v)),
+  ...Object.values(EVIDENCE_STATUS_BADGE).map((b) => b.label),
+  study.text,
+];
+const bannedWords = [/\bcleanest\b/i, /\bsafest\b/i, /\bverified clean\b/i, /\bpure\b/i, /guaranteed (pure|safe|clean)/i];
+let copyOverclaim = 0;
+for (const t of allCopy) for (const re of bannedWords) if (re.test(t)) { console.log(`  OVERCLAIM: "${t}"`); copyOverclaim++; }
+ck("10 no cleanest/safest/pure/verified-clean in evidence copy or badges", copyOverclaim === 0);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);

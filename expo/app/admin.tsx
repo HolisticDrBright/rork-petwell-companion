@@ -86,6 +86,9 @@ export default function AdminScreen() {
                 <Metric label="Products" value={metrics.totalProducts} />
                 <Metric label="Products with REAL product-level lab" value={metrics.productsWithRealLab} good />
                 <Metric label="Products with no lab evidence" value={metrics.productsWithNoLab} warn />
+                <Metric label="Open-database products (pending review)" value={metrics.openDatabaseProducts} warn />
+                <Metric label="Brand-claim products" value={metrics.brandClaimProducts} warn />
+                <Metric label="Products needing review" value={metrics.needsReviewProducts} warn />
                 <Metric label="Lab tests — real" value={metrics.realLabTests} good />
                 <Metric label="Lab tests — demo/seed" value={metrics.demoLabTests} warn />
                 <Metric label="Lab tests — stale" value={metrics.staleLabTests} warn />

@@ -40,6 +40,7 @@ function RootLayoutNav() {
       <Stack.Screen name="scan-result" options={{ headerShown: false, presentation: "card" }} />
       <Stack.Screen name="food-scan" options={{ title: "Food Intelligence", presentation: "card" }} />
       <Stack.Screen name="food-result" options={{ headerShown: false, presentation: "card" }} />
+      <Stack.Screen name="food-trust" options={{ title: "How we score food", presentation: "card" }} />
       <Stack.Screen name="telehealth" options={{ headerShown: false, presentation: "card" }} />
       <Stack.Screen name="vet-report" options={{ title: "Vet-ready summary", presentation: "modal" }} />
       <Stack.Screen name="reminders" options={{ title: "Reminders", presentation: "card" }} />

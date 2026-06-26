@@ -8,6 +8,7 @@ import {
   Database,
   Download,
   FileText,
+  FlaskConical,
   ImageOff,
   Lock,
   Mail,
@@ -264,6 +265,8 @@ export default function SettingsScreen() {
           <ActionRow icon={Lock} label="Privacy policy" onPress={() => router.push("/privacy-policy")} />
           <View style={styles.divider} />
           <ActionRow icon={ScrollText} label="Terms of use" onPress={() => router.push("/terms")} />
+          <View style={styles.divider} />
+          <ActionRow icon={FlaskConical} label="How we score food" onPress={() => router.push("/food-trust")} />
         </Card>
       </View>
 

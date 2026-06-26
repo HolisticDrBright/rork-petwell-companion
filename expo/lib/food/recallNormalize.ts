@@ -39,16 +39,46 @@ export interface NormalizedRecall {
   raw: OpenFdaRecall;
 }
 
-const PET_TERMS =
-  /\b(pet|pets|dog|dogs|puppy|puppies|cat|cats|kitten|kittens|canine|feline|animal|animals|kibble|pet food|petfood|dog food|cat food|pet treat|chew|rawhide)\b/i;
+/**
+ * openFDA's food endpoint is human-food-first; naive matching on "dog"/"animal"
+ * pulls in hot dog buns, corn dogs, animal crackers, hush puppies, etc. We use a
+ * layered, CONSERVATIVE filter: hard-exclude known human foods, include only on a
+ * genuine pet-food signal, treat "animal feed" as livestock unless a companion
+ * animal is named, and never infer pet food from an ambiguous token alone.
+ *
+ * We match against the product description + product type + reason only — NOT the
+ * recalling firm, whose name is noisy ("Salty Dog Cafe" is a human deli).
+ */
 
-const HUMAN_ONLY_HINT = /\b(infant formula|baby food|human consumption only)\b/i;
+// Human foods whose names contain a pet substring — always exclude.
+const HUMAN_FOOD_FALSE_POSITIVE =
+  /\b(hot ?dogs?|corn ?dogs?|chili ?dogs?|dog ?buns?|hush ?pupp(?:y|ies)|puppy ?chow|animal ?crackers?)\b/i;
 
-/** Heuristic: does this FDA food recall concern pet/animal food? */
+// Clear human-only markers.
+const HUMAN_ONLY_HINT = /\b(infant formula|baby food|human consumption|for human)\b/i;
+
+// Unambiguous pet-food signals — if present, it's pet food.
+const STRONG_PET_SIGNAL =
+  /\b(dog food|cat food|pet food|puppy food|kitten food|dog treats?|cat treats?|pet treats?|dog chews?|rawhide|kibble|canine|feline|dog biscuits?|dog cookies?|pet supplement|companion animal|dog snacks?|cat snacks?|dog diet|cat diet)\b/i;
+
+// "animal feed"/"animal food" is livestock UNLESS a companion animal is named.
+const ANIMAL_FEED = /\banimal (?:feed|food)\b/i;
+const COMPANION_HINT = /\b(dogs?|cats?|pupp(?:y|ies)|kittens?|pets?|companion)\b/i;
+
+// Ambiguous tokens that only count alongside a real food context (and no false positive).
+const WEAK_PET_TOKEN = /\b(dogs?|cats?|pupp(?:y|ies)|kittens?|pets?)\b/i;
+const FOOD_CONTEXT =
+  /\b(food|treats?|chews?|kibble|diet|feed|snacks?|biscuits?|cookies?|jerky|nuggets?|formula|supplement|pate|meal|gravy|broth)\b/i;
+
+/** Heuristic: does this FDA food recall concern dog/cat/pet food? Conservative. */
 export function isPetFoodRecall(r: OpenFdaRecall): boolean {
-  const hay = `${r.product_description ?? ""} ${r.reason_for_recall ?? ""} ${r.recalling_firm ?? ""} ${r.product_type ?? ""}`;
+  const hay = `${r.product_description ?? ""} ${r.product_type ?? ""} ${r.reason_for_recall ?? ""}`;
+  if (HUMAN_FOOD_FALSE_POSITIVE.test(hay)) return false;
   if (HUMAN_ONLY_HINT.test(hay)) return false;
-  return PET_TERMS.test(hay);
+  if (STRONG_PET_SIGNAL.test(hay)) return true;
+  if (ANIMAL_FEED.test(hay)) return COMPANION_HINT.test(hay);
+  if (WEAK_PET_TOKEN.test(hay)) return FOOD_CONTEXT.test(hay);
+  return false;
 }
 
 function isoDate(yyyymmdd: string | undefined): string | null {

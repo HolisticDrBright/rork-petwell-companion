@@ -22,6 +22,10 @@ export interface DataQualityMetrics {
   staleLabTests: number;
   productsWithRealLab: number;
   productsWithNoLab: number;
+  // Product evidence basis (from food_products.evidence_status)
+  openDatabaseProducts: number;
+  brandClaimProducts: number;
+  needsReviewProducts: number;
   // Review backlog
   pendingSubmissions: number;
   unmatchedRecalls: number;
@@ -30,7 +34,7 @@ export interface DataQualityMetrics {
 export const dataQualityService = {
   async getMetrics(): Promise<DataQualityMetrics> {
     const head = { count: "exact" as const, head: true };
-    const [pending, unmatched, products, recalls, labTotal, labReal, labDemo, labStale, realProductRows] =
+    const [pending, unmatched, products, recalls, labTotal, labReal, labDemo, labStale, realProductRows, openDb, brandClaim, needsReview] =
       await Promise.all([
         supabase.from("ocr_label_submissions").select("id", head).eq("review_status", "pending"),
         supabase.from("recall_events").select("id", head).eq("brand_match_level", "unmatched"),
@@ -47,6 +51,9 @@ export const dataQualityService = {
           .eq("level", "product")
           .in("evidence_status", REAL_LAB_STATUSES)
           .not("product_id", "is", null),
+        supabase.from("food_products").select("id", head).eq("evidence_status", "open_database"),
+        supabase.from("food_products").select("id", head).eq("evidence_status", "brand_claim"),
+        supabase.from("food_products").select("id", head).eq("evidence_status", "crowdsourced_unverified"),
       ]);
 
     const productsWithRealLab = new Set((realProductRows.data ?? []).map((r) => r.product_id)).size;
@@ -61,6 +68,9 @@ export const dataQualityService = {
       staleLabTests: labStale.count ?? 0,
       productsWithRealLab,
       productsWithNoLab: Math.max(0, totalProducts - productsWithRealLab),
+      openDatabaseProducts: openDb.count ?? 0,
+      brandClaimProducts: brandClaim.count ?? 0,
+      needsReviewProducts: needsReview.count ?? 0,
       pendingSubmissions: pending.count ?? 0,
       unmatchedRecalls: unmatched.count ?? 0,
     };
