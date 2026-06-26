@@ -11,6 +11,7 @@ import { adminReviewService, dataQualityService } from "@/services";
 import type { DataQualityMetrics } from "@/services/dataQualityService";
 
 type Submission = { id: string; raw_ocr_text: string | null; matched_product_id: string | null; created_at: string };
+type QueueItem = { id: string; entity_type: string; entity_id: string | null; priority: number; note: string | null };
 
 /**
  * Minimal internal admin console. RLS does the real enforcement (every mutation
@@ -22,6 +23,7 @@ export default function AdminScreen() {
   const [state, setState] = useState<"loading" | "no-backend" | "not-admin" | "ready">("loading");
   const [metrics, setMetrics] = useState<DataQualityMetrics | null>(null);
   const [pending, setPending] = useState<Submission[]>([]);
+  const [queue, setQueue] = useState<QueueItem[]>([]);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -29,13 +31,15 @@ export default function AdminScreen() {
     (async () => {
       if (!isSupabaseConfigured) return active && setState("no-backend");
       if (!(await isCurrentUserAdmin())) return active && setState("not-admin");
-      const [m, subs] = await Promise.all([
+      const [m, subs, q] = await Promise.all([
         dataQualityService.getMetrics(),
         adminReviewService.listPendingSubmissions(),
+        adminReviewService.listOpenQueue(),
       ]);
       if (!active) return;
       setMetrics(m);
       setPending(subs as Submission[]);
+      setQueue(q as QueueItem[]);
       setState("ready");
     })().catch(() => active && setState("not-admin"));
     return () => {
@@ -49,6 +53,36 @@ export default function AdminScreen() {
       try {
         await adminReviewService.reviewLabelSubmission(id, action);
         setPending((prev) => prev.filter((s) => s.id !== id));
+      } catch {
+        // RLS or network — leave it in the list
+      } finally {
+        setBusyId(null);
+      }
+    },
+    [],
+  );
+
+  // Resolve an imported-queue item by dispatching to the right reviewer per entity
+  // type. Approve marks the entity admin_reviewed (trusted); reject hides it. Both
+  // resolve the queue row so the queue shrinks. Lab tests stay brand/study-level —
+  // approving never fabricates product-level purity.
+  const queueAction = useCallback(
+    async (item: QueueItem, action: "approve" | "reject") => {
+      setBusyId(item.id);
+      try {
+        const eid = item.entity_id;
+        if (eid && item.entity_type === "product") {
+          await adminReviewService.reviewCatalogProduct(eid, action);
+        } else if (eid && item.entity_type === "lab_test") {
+          await adminReviewService.setLabStatus(eid, action === "approve" ? "admin_reviewed" : "rejected");
+        } else if (eid && item.entity_type === "ocr_label") {
+          await adminReviewService.reviewLabelSubmission(eid, action);
+        } else if (eid && item.entity_type === "product_submission") {
+          await adminReviewService.reviewProductSubmission(eid, action);
+        } else {
+          await adminReviewService.resolveQueueItem(item.id);
+        }
+        setQueue((prev) => prev.filter((q) => q.id !== item.id));
       } catch {
         // RLS or network — leave it in the list
       } finally {
@@ -98,7 +132,52 @@ export default function AdminScreen() {
               </Card>
             ) : null}
 
-            {/* Review queue */}
+            {/* Imported review queue (OPFF products + web-researched lab evidence) */}
+            <View style={[styles.head, { marginTop: Space.lg }]}>
+              <ShieldCheck size={18} color={Colors.teal700} />
+              <Text style={styles.headText}>Imported review queue ({queue.length})</Text>
+            </View>
+            <Text style={[styles.sub, { marginBottom: 8 }]}>
+              Approve = mark reviewed/trusted · Reject = hide. Lab evidence stays brand/study-level — approving never
+              creates product-level purity.
+            </Text>
+            {queue.length === 0 ? (
+              <Card>
+                <Text style={styles.sub}>Queue empty — nothing imported is awaiting review.</Text>
+              </Card>
+            ) : (
+              queue.slice(0, 100).map((q) => (
+                <Card key={q.id} style={styles.subCard}>
+                  <View style={styles.queueHead}>
+                    <Text style={styles.queueType}>{q.entity_type.replace(/_/g, " ")}</Text>
+                    <Text style={styles.queuePri}>priority {q.priority}</Text>
+                  </View>
+                  <Text style={styles.subText} numberOfLines={3}>
+                    {q.note?.trim() || "(no note)"}
+                  </Text>
+                  <View style={styles.actions}>
+                    <Pressable
+                      style={[styles.btn, styles.reject]}
+                      onPress={() => queueAction(q, "reject")}
+                      disabled={busyId === q.id}
+                    >
+                      <X size={15} color={Colors.red600} />
+                      <Text style={[styles.btnText, { color: Colors.red600 }]}>Reject</Text>
+                    </Pressable>
+                    <Pressable
+                      style={[styles.btn, styles.approve]}
+                      onPress={() => queueAction(q, "approve")}
+                      disabled={busyId === q.id}
+                    >
+                      <Check size={15} color="#fff" />
+                      <Text style={[styles.btnText, { color: "#fff" }]}>Approve</Text>
+                    </Pressable>
+                  </View>
+                </Card>
+              ))
+            )}
+
+            {/* OCR label review queue */}
             <View style={[styles.head, { marginTop: Space.lg }]}>
               <ShieldCheck size={18} color={Colors.teal700} />
               <Text style={styles.headText}>OCR label review queue ({pending.length})</Text>
@@ -164,6 +243,9 @@ const styles = StyleSheet.create({
   metricValue: { ...Fonts.h3, fontSize: 16, color: Colors.ink },
   subCard: { gap: 10, marginBottom: Space.sm },
   subText: { ...Fonts.small, color: Colors.ink, lineHeight: 18 },
+  queueHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  queueType: { ...Fonts.tiny, color: Colors.teal700, textTransform: "uppercase" },
+  queuePri: { ...Fonts.tiny, color: Colors.inkSoft },
   actions: { flexDirection: "row", gap: 8, justifyContent: "flex-end" },
   btn: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 14, paddingVertical: 8, borderRadius: Radius.md },
   reject: { backgroundColor: Colors.red100 },

@@ -40,6 +40,42 @@ export const adminReviewService = {
     return data ?? [];
   },
 
+  /** Mark a specific queue row resolved (used by the UI once an item is handled). */
+  async resolveQueueItem(queueId: string, note?: string) {
+    const { error } = await supabase
+      .from("admin_review_queue")
+      .update({ status: "resolved", ...(note ? { note } : {}) })
+      .eq("id", queueId);
+    if (error) throw error;
+    await logAction("queue_item", queueId, "resolve", note ? { note } : undefined);
+  },
+
+  /** Resolve any open queue rows tracking a given entity, so the queue shrinks as work is done. */
+  async resolveQueueForEntity(entityType: string, entityId: string) {
+    await supabase
+      .from("admin_review_queue")
+      .update({ status: "resolved" })
+      .eq("entity_type", entityType)
+      .eq("entity_id", entityId)
+      .eq("status", "open");
+  },
+
+  /**
+   * Review an imported catalog product (Open Pet Food Facts → food_products).
+   * approve → admin_reviewed (trusted), reject → rejected (hidden). Resolves its
+   * queue row. Open-database products stay unverified until this runs.
+   */
+  async reviewCatalogProduct(productId: string, action: "approve" | "reject") {
+    const evidence_status: EvidenceStatus = action === "approve" ? "admin_reviewed" : "rejected";
+    const { error } = await supabase
+      .from("food_products")
+      .update({ evidence_status, last_reviewed_at: new Date().toISOString() })
+      .eq("id", productId);
+    if (error) throw error;
+    await logAction("product", productId, action);
+    await adminReviewService.resolveQueueForEntity("product", productId);
+  },
+
   async listPendingSubmissions() {
     const { data } = await supabase
       .from("ocr_label_submissions")
@@ -58,6 +94,7 @@ export const adminReviewService = {
       .eq("id", id);
     if (error) throw error;
     await logAction("product_submission", id, action, { matchedProductId });
+    await adminReviewService.resolveQueueForEntity("product_submission", id);
   },
 
   async reviewLabelSubmission(id: string, action: "approve" | "reject" | "merge", matchedProductId?: string | null) {
@@ -69,6 +106,7 @@ export const adminReviewService = {
       .eq("id", id);
     if (error) throw error;
     await logAction("ocr_label", id, action, { matchedProductId });
+    await adminReviewService.resolveQueueForEntity("ocr_label", id);
   },
 
   /** Mark a lab test's evidence level/status (product-level, brand-level, stale, demo, rejected). */
@@ -79,6 +117,7 @@ export const adminReviewService = {
       .eq("id", labTestId);
     if (error) throw error;
     await logAction("lab_test", labTestId, "set_status", { evidenceStatus, status });
+    await adminReviewService.resolveQueueForEntity("lab_test", labTestId);
   },
 
   /** Attach an unmatched recall to a brand (brand-level match, not an exact product recall). */
