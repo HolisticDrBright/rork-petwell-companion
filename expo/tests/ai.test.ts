@@ -123,5 +123,11 @@ ck("8 vet-rewrite prompt forbids diagnosis", /diagnos/i.test(vetPrompt));
 ck("8 vet-rewrite prompt preserves red flags", /red flag/i.test(vetPrompt));
 ck("8 vet-rewrite prompt says do not invent", /invent|fabricate/i.test(vetPrompt));
 
+const recPrompt = has("../../prompts/record-summary-v1.md") ? read("../../prompts/record-summary-v1.md") : "";
+ck("8 record-summary prompt forbids inventing values", /do not invent|unknown = null|not invent/i.test(recPrompt));
+ck("8 record-summary prompt routes urgent findings to vet", /redFlags|red flag|veterinarian/i.test(recPrompt));
+ck("8 record-summary prompt is needs_review by default", /needsReview/i.test(recPrompt) && /always true/i.test(recPrompt));
+ck("8 record-summary runtime prompt present", /RECORD_SUMMARY_PROMPT/.test(sharedPrompts) && /needsReview is always true/i.test(sharedPrompts));
+
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);

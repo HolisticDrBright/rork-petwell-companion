@@ -30,6 +30,9 @@ import Colors, { Fonts, Radius, Space, cardShadow } from "@/constants/colors";
 import { RECORDS } from "@/constants/mockData";
 import { usePets } from "@/providers/PetProvider";
 import { recordsService } from "@/services";
+import { aiService } from "@/services/aiService";
+import { AiDisclaimer, AiDisabledNote, AiSafetyBanner, AiSparkleButton } from "@/components/ai/AiBits";
+import type { RecordSummary } from "@/lib/ai/types";
 import type { RecordItem } from "@/types/pet";
 
 const STATUS_STYLE = {
@@ -124,6 +127,11 @@ export default function RecordsScreen() {
   const [addTitle, setAddTitle] = useState<string>("");
   const [busy, setBusy] = useState<boolean>(false);
   const [status, setStatus] = useState<string | null>(null);
+  const [lastDoc, setLastDoc] = useState<{ path: string; title: string } | null>(null);
+  const [aiSummary, setAiSummary] = useState<RecordSummary | null>(null);
+  const [aiBanner, setAiBanner] = useState<string | null>(null);
+  const [aiBusy, setAiBusy] = useState<boolean>(false);
+  const [aiNote, setAiNote] = useState<string | null>(null);
 
   const remoteLoading = mode === "remote" && recordsQuery.isLoading;
   const remoteError = mode === "remote" && recordsQuery.isError;
@@ -178,6 +186,12 @@ export default function RecordsScreen() {
       if (mode === "remote") {
         const path = await recordsService.uploadDocument(selectedPet.id, uri, title);
         setStatus(path ? "Document uploaded to your records." : "Saved locally — sign in to store it in the cloud.");
+        if (path) {
+          setLastDoc({ path, title });
+          setAiSummary(null);
+          setAiBanner(null);
+          setAiNote(null);
+        }
       } else {
         setStatus("Added to records. Sign in to store documents in the cloud.");
       }
@@ -187,6 +201,42 @@ export default function RecordsScreen() {
       setBusy(false);
     }
   }, [mode, selectedPet.id]);
+
+  // Optional AI: summarize the just-uploaded document into structured fields.
+  // The result is needs_review and saved only after the user confirms.
+  const summarizeDoc = useCallback(async () => {
+    if (!lastDoc) return;
+    setAiBusy(true);
+    setAiNote(null);
+    setAiSummary(null);
+    setAiBanner(null);
+    const res = await aiService.summarizeRecord({ documentPath: lastDoc.path, petId: selectedPet.id });
+    setAiBusy(false);
+    if (res.disabled) return setAiNote(res.disabledReason ?? "AI features are off.");
+    if (!res.ok || !res.data) return setAiNote(res.error ?? "Couldn't summarize this document. Please try again.");
+    setAiSummary(res.data);
+    setAiBanner(res.safety?.banner ?? null);
+  }, [lastDoc, selectedPet.id]);
+
+  const saveSummary = useCallback(async () => {
+    if (!aiSummary || !lastDoc) return;
+    const subtitle = aiSummary.summaryForOwner.slice(0, 140);
+    setLocalAdds((prev) => ({
+      ...prev,
+      Documents: [
+        ...(prev.Documents ?? []),
+        { id: `ai-${Date.now()}`, title: `AI summary — ${lastDoc.title}`, subtitle: `${subtitle} (review)`, date: todayLabel() },
+      ],
+    }));
+    if (mode === "remote") {
+      await recordsService
+        .addRecord(selectedPet.id, { category: "Documents", title: `AI summary — ${lastDoc.title}`, subtitle, date: todayLabel() })
+        .catch(() => undefined);
+    }
+    setStatus("AI summary saved to records (marked for your review).");
+    setAiSummary(null);
+    setLastDoc(null);
+  }, [aiSummary, lastDoc, mode, selectedPet.id]);
 
   return (
     <ScrollView
@@ -236,6 +286,41 @@ export default function RecordsScreen() {
 
       {busy ? <ActivityIndicator color={Colors.teal700} style={{ marginTop: Space.md }} /> : null}
       {status ? <Text style={styles.statusText}>{status}</Text> : null}
+
+      {/* AI document summary (optional) */}
+      {lastDoc ? (
+        <Card style={styles.aiCard}>
+          <Text style={styles.aiTitle}>Summarize “{lastDoc.title}” with AI</Text>
+          <Text style={styles.aiSub}>
+            Pull out the key dates, meds, lab values, and follow-ups. The summary is for convenience only — your original
+            document stays the record, and you confirm before saving.
+          </Text>
+          <AiSparkleButton label="Summarize with AI" onPress={summarizeDoc} loading={aiBusy} />
+          {aiNote ? <AiDisabledNote reason={aiNote} /> : null}
+          <AiSafetyBanner banner={aiBanner} />
+          {aiSummary ? (
+            <View style={{ gap: 8, marginTop: 4 }}>
+              <Text style={styles.aiSummaryText}>{aiSummary.summaryForOwner}</Text>
+              {aiSummary.redFlags.length > 0 ? (
+                <Text style={styles.aiRedFlags}>Flagged to discuss with your vet: {aiSummary.redFlags.join("; ")}</Text>
+              ) : null}
+              {aiSummary.medications.length > 0 ? (
+                <Text style={styles.aiField}>
+                  Medications: {aiSummary.medications.map((m) => m.name + (m.dose ? ` (${m.dose})` : "")).join(", ")}
+                </Text>
+              ) : null}
+              {aiSummary.followUp.length > 0 ? (
+                <Text style={styles.aiField}>Follow-up: {aiSummary.followUp.join("; ")}</Text>
+              ) : null}
+              <Text style={styles.aiReviewNote}>Review carefully — AI can make mistakes. Confirm to save.</Text>
+              <Pressable style={styles.aiSaveBtn} onPress={saveSummary} accessibilityRole="button">
+                <Text style={styles.aiSaveText}>Save summary to records</Text>
+              </Pressable>
+              <AiDisclaimer />
+            </View>
+          ) : null}
+        </Card>
+      ) : null}
 
       {/* Sections */}
       <View style={{ paddingHorizontal: Space.md, marginTop: Space.sm }}>
@@ -337,6 +422,15 @@ const styles = StyleSheet.create({
   },
   quickText: { ...Fonts.small, color: Colors.ink },
   statusText: { ...Fonts.small, color: Colors.teal700, textAlign: "center", marginTop: Space.sm, paddingHorizontal: Space.md },
+  aiCard: { marginHorizontal: Space.md, marginTop: Space.md, gap: 10 },
+  aiTitle: { ...Fonts.h3, fontSize: 15 },
+  aiSub: { ...Fonts.small, color: Colors.inkSoft, lineHeight: 18 },
+  aiSummaryText: { ...Fonts.small, color: Colors.ink, lineHeight: 19 },
+  aiRedFlags: { ...Fonts.small, color: Colors.coral600, fontWeight: "700", lineHeight: 18 },
+  aiField: { ...Fonts.small, color: Colors.inkSoft, lineHeight: 18 },
+  aiReviewNote: { ...Fonts.tiny, color: Colors.amber600, fontWeight: "700" },
+  aiSaveBtn: { backgroundColor: Colors.teal700, borderRadius: Radius.md, paddingVertical: 11, alignItems: "center", marginTop: 2 },
+  aiSaveText: { ...Fonts.small, color: "#fff", fontWeight: "800" },
   loadingBox: { alignItems: "center", paddingVertical: Space.xl, gap: 10 },
   loadingText: { ...Fonts.small, color: Colors.inkSoft },
   sectionWrap: { marginBottom: 6 },
