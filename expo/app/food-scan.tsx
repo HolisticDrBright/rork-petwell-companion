@@ -14,10 +14,12 @@ import {
   View,
 } from "react-native";
 
+import { AiDisabledNote, AiSparkleButton } from "@/components/ai/AiBits";
 import { Card, PrimaryButton } from "@/components/ui";
 import Colors, { Fonts, Radius, Space, cardShadow } from "@/constants/colors";
 import { extractLabelText, runLabelPipeline } from "@/lib/food/labelPipeline";
 import { foodService, type BarcodeLookupResult, type FoodProductSummary } from "@/services";
+import { aiService } from "@/services/aiService";
 import { usePets } from "@/providers/PetProvider";
 
 type Mode = "barcode" | "photo" | "paste" | "search";
@@ -47,6 +49,9 @@ export default function FoodScanScreen() {
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [ocrNote, setOcrNote] = useState<string | null>(null);
   const [ocrBusy, setOcrBusy] = useState<boolean>(false);
+  const [ocrUnavailable, setOcrUnavailable] = useState<boolean>(false);
+  const [aiBusy, setAiBusy] = useState<boolean>(false);
+  const [aiNote, setAiNote] = useState<string | null>(null);
   const [busy, setBusy] = useState<boolean>(false);
   const [status, setStatus] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
@@ -144,12 +149,15 @@ export default function FoodScanScreen() {
       setOcrBusy(true);
       const { text, available } = await extractLabelText(uri);
       setOcrBusy(false);
+      setAiNote(null);
       if (available && text.trim()) {
         setLabelText(text);
+        setOcrUnavailable(false);
         setOcrNote("We read this text from your photo — review and fix any errors, then Analyze.");
       } else {
+        setOcrUnavailable(true);
         setOcrNote(
-          "On-device OCR isn't enabled in this build, so type the ingredients and guaranteed analysis from your photo below, then Analyze. (A photo reads the label only — it can't detect contaminants.)",
+          "On-device OCR isn't enabled in this build. Use AI to read the label, or type the ingredients and guaranteed analysis below, then Analyze. (A photo reads the label only — it can't detect contaminants.)",
         );
       }
     } catch {
@@ -157,6 +165,36 @@ export default function FoodScanScreen() {
       setStatus("Couldn't open the camera. Try “Choose from library”, or paste the label text.");
     }
   }, []);
+
+  // AI OCR fallback: upload the captured photo and have the vision model
+  // transcribe the label into editable text. Never auto-saved or verified — the
+  // user reviews the text and runs the normal deterministic Analyze step.
+  const useAiLabel = useCallback(async () => {
+    if (!photoUri) return;
+    setAiBusy(true);
+    setAiNote(null);
+    const avail = await aiService.availability({ needsDocs: true });
+    if (!avail.ok) {
+      setAiBusy(false);
+      return setAiNote(avail.reason ?? "AI features are off.");
+    }
+    const path = await aiService.uploadScanImage(photoUri);
+    if (!path) {
+      setAiBusy(false);
+      return setAiNote("Couldn't upload the photo. Make sure you're signed in.");
+    }
+    const res = await aiService.visionLabel({ imagePath: path, productHint: nameHint.trim() || undefined });
+    setAiBusy(false);
+    if (res.disabled) return setAiNote(res.disabledReason ?? "AI features are off.");
+    if (!res.ok || !res.data) return setAiNote(res.error ?? "Couldn't read the label. Type it in below instead.");
+    const d = res.data;
+    const ga = d.guaranteedAnalysis.map((g) => `${g.name}: ${g.value}`).join(", ");
+    const composed = [d.ingredientsText, ga].filter((s) => s && s.trim()).join("\n");
+    if (composed.trim()) setLabelText(composed);
+    const hint = [d.brand, d.productName].filter(Boolean).join(" ");
+    if (hint) setNameHint(hint);
+    setAiNote("AI transcribed the label below — review and fix any errors, then Analyze. A photo can't detect contaminants.");
+  }, [photoUri, nameHint]);
 
   /** Shared by Photo + Paste: normalize → parse → match against the catalog. */
   const onAnalyze = useCallback(async () => {
@@ -267,6 +305,12 @@ export default function FoodScanScreen() {
             </View>
           ) : null}
           {ocrNote ? <Text style={styles.ocrNote}>{ocrNote}</Text> : null}
+          {photoUri && ocrUnavailable ? (
+            <View style={{ gap: 6, marginTop: 4 }}>
+              <AiSparkleButton label="Use AI to read this label" onPress={useAiLabel} loading={aiBusy} />
+              {aiNote ? <AiDisabledNote reason={aiNote} /> : null}
+            </View>
+          ) : null}
 
           {photoUri || labelText ? (
             <>

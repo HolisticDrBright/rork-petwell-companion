@@ -140,5 +140,16 @@ const coaFnSrc = has("../../supabase/functions/ai-coa-extract/index.ts") ? read(
 ck("9 COA function never inserts into lab_tests", !/from\(["']lab_tests["']\)|\.into\(["']lab_tests["']\)/.test(coaFnSrc) && /needs_review/.test(coaFnSrc));
 ck("9 COA function is admin-gated", /isAdmin\(/.test(coaFnSrc));
 
+// ── 10. Food-label vision: label only, never contaminant confidence ──────────
+const visPrompt = has("../../prompts/food-label-vision-v1.md") ? read("../../prompts/food-label-vision-v1.md") : "";
+ck("10 vision prompt: reads label only", /label only|reads the label only|LABEL ONLY/i.test(visPrompt));
+ck("10 vision prompt: never contaminants from photo", /never (infer|state).*(contaminant|heavy metal|pfas)/i.test(visPrompt));
+ck("10 vision prompt: never score/judge food", /never score|never.*judge|rank/i.test(visPrompt));
+const visFnSrc = has("../../supabase/functions/ai-vision-label/index.ts") ? read("../../supabase/functions/ai-vision-label/index.ts") : "";
+ck("10 vision function forces needsReview", /needsReview = true/.test(visFnSrc));
+ck("10 vision function logs crowdsourced/unverified", /label_ocr_unverified|crowdsourced/.test(visFnSrc));
+// The label-extraction schema has no field that could express contaminant confidence.
+ck("10 label schema has no contaminant/purity field", !/contaminant|purity|heavy_?metal|pfas/i.test(/labelExtractionSchema[\s\S]*?\};/.exec(schemasSrc)?.[0] ?? ""));
+
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);

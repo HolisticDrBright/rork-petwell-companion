@@ -8,7 +8,7 @@
  * stricter allowDocumentProcessing opt-in. When anything is off we return a
  * friendly disabled envelope instead of calling out.
  */
-import { getMode } from "@/lib/backend";
+import { getMode, requireUserId } from "@/lib/backend";
 import { getAiPreferences } from "@/lib/ai/config";
 import { assessInput } from "@/lib/ai/safety";
 import type {
@@ -55,6 +55,29 @@ async function invokeAi<T>(fn: string, body: Record<string, unknown>): Promise<A
 export const aiService = {
   /** Local, instant emergency/toxin pre-check (server re-checks authoritatively). */
   assessInput,
+
+  /** Whether an AI feature is usable now (backend + opt-ins). Avoids wasted work. */
+  async availability(opts: { needsDocs?: boolean } = {}): Promise<{ ok: boolean; reason?: string }> {
+    const blocked = await gate(opts);
+    return blocked ? { ok: false, reason: blocked.disabledReason } : { ok: true };
+  },
+
+  /** Upload a transient scan image to the private documents bucket; returns its path. */
+  async uploadScanImage(localUri: string): Promise<string | null> {
+    if (!isSupabaseConfigured || getMode() !== "remote") return null;
+    try {
+      const ownerId = requireUserId();
+      const res = await fetch(localUri);
+      const bytes = await res.arrayBuffer();
+      const ext = (localUri.split(".").pop()?.split("?")[0] || "jpg").toLowerCase();
+      const mime = ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
+      const path = `${ownerId}/ai-scan-${Date.now()}.${ext}`;
+      const { error } = await supabase.storage.from("documents").upload(path, bytes, { contentType: mime, upsert: true });
+      return error ? null : path;
+    } catch {
+      return null;
+    }
+  },
 
   async rewriteVetReport(report: unknown): Promise<AiEnvelope<VetReportRewrite>> {
     return (await gate<VetReportRewrite>()) ?? invokeAi<VetReportRewrite>("ai-vet-report-rewrite", { report });
