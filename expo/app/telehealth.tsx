@@ -49,14 +49,14 @@ export default function TelehealthScreen() {
 
   const onNotify = useCallback(() => {
     setNotified(true);
-    storage.setJSON(NOTIFY_KEY, true);
+    storage.setJSON(NOTIFY_KEY, true).catch(() => {});
   }, []);
 
   const saveVet = useCallback(() => {
     const next: PreferredVet = { name: vetName.trim(), phone: vetPhone.trim() };
     if (!next.name && !next.phone) return;
     setVet(next);
-    storage.setJSON(VET_KEY, next);
+    storage.setJSON(VET_KEY, next).catch(() => {});
   }, [vetName, vetPhone]);
 
   const callVet = useCallback(() => {

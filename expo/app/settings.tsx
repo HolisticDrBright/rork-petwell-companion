@@ -55,7 +55,15 @@ export default function SettingsScreen() {
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
 
   useEffect(() => {
-    isCurrentUserAdmin().then(setIsAdmin).catch(() => {});
+    let active = true;
+    isCurrentUserAdmin()
+      .then((v) => {
+        if (active) setIsAdmin(v);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
   }, []);
 
   const onRestore = useCallback(async () => {
@@ -72,7 +80,16 @@ export default function SettingsScreen() {
   }, [restore]);
 
   useEffect(() => {
-    privacyService.getPrefs().then(setPrefs).catch(() => {});
+    let active = true;
+    privacyService
+      .getPrefs()
+      .then((p) => {
+        if (active) setPrefs(p);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
   }, []);
 
   const togglePref = useCallback(

@@ -24,21 +24,24 @@ export default function AdminScreen() {
   const [pending, setPending] = useState<Submission[]>([]);
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    if (!isSupabaseConfigured) return setState("no-backend");
-    if (!(await isCurrentUserAdmin())) return setState("not-admin");
-    const [m, subs] = await Promise.all([
-      dataQualityService.getMetrics(),
-      adminReviewService.listPendingSubmissions(),
-    ]);
-    setMetrics(m);
-    setPending(subs as Submission[]);
-    setState("ready");
-  }, []);
-
   useEffect(() => {
-    load().catch(() => setState("not-admin"));
-  }, [load]);
+    let active = true;
+    (async () => {
+      if (!isSupabaseConfigured) return active && setState("no-backend");
+      if (!(await isCurrentUserAdmin())) return active && setState("not-admin");
+      const [m, subs] = await Promise.all([
+        dataQualityService.getMetrics(),
+        adminReviewService.listPendingSubmissions(),
+      ]);
+      if (!active) return;
+      setMetrics(m);
+      setPending(subs as Submission[]);
+      setState("ready");
+    })().catch(() => active && setState("not-admin"));
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const review = useCallback(
     async (id: string, action: "approve" | "reject") => {

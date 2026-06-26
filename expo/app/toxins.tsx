@@ -149,7 +149,7 @@ export default function ToxinsScreen() {
             return (
               <Pressable
                 key={entry.slug}
-                onPress={() => router.push({ pathname: "/toxin-detail", params: { slug: entry.slug, species } })}
+                onPress={() => router.push({ pathname: "/toxin-detail", params: { slug: entry.slug } })}
                 style={({ pressed }) => [pressed && { opacity: 0.85 }]}
                 accessibilityRole="button"
                 accessibilityLabel={`${entry.name}, ${SEVERITY_LABEL[sev]}`}

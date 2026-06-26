@@ -80,6 +80,10 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   // sign-in so purchases follow the account across devices; log out on sign-out).
   useEffect(() => {
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      // The mount effect above does the first identify; only react to events that
+      // actually change WHO the user is. Skip the frequent token-refresh / initial
+      // events so we don't fire redundant RevenueCat network calls every refresh.
+      if (event === "TOKEN_REFRESHED" || event === "INITIAL_SESSION") return;
       const user = session?.user;
       if (event === "SIGNED_OUT" || !user) {
         subscriptionService.signOut().catch(() => {});

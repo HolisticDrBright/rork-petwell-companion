@@ -323,7 +323,11 @@ export const [PetProvider, usePets] = createContextHook(() => {
     setAuthInfo({ email: a.email, isAnonymous: a.isAnonymous });
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
       const u = session?.user;
-      setAuthInfo({ email: u?.email ?? null, isAnonymous: u?.is_anonymous ?? !u?.email });
+      const email = u?.email ?? null;
+      const isAnonymous = u?.is_anonymous ?? !u?.email;
+      // Keep the same object reference when nothing changed (e.g. hourly token
+      // refresh) so consumers don't re-render needlessly.
+      setAuthInfo((prev) => (prev.email === email && prev.isAnonymous === isAnonymous ? prev : { email, isAnonymous }));
     });
     return () => sub.subscription.unsubscribe();
   }, [backendQuery.data?.mode]);

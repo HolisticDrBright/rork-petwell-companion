@@ -38,7 +38,7 @@ function urgencyForSeverity(sev: ToxinSeverity): "green" | "amber" | "red" {
 
 export default function ToxinDetailScreen() {
   const router = useRouter();
-  const { slug } = useLocalSearchParams<{ slug: string; species?: string }>();
+  const { slug } = useLocalSearchParams<{ slug: string }>();
   const { selectedPet, addLog, todayIso } = usePets();
   const [saved, setSaved] = useState<boolean>(false);
 

@@ -18,7 +18,6 @@ export {
   type PrivacyKey,
 } from "./privacyService";
 export { integrativeService } from "./integrativeService";
-export { patternsService } from "./patternsService";
 export { storage } from "./storage";
 export {
   notificationsService,
@@ -31,12 +30,9 @@ export {
 export { subscriptionService } from "./subscriptionService";
 // Local toxin reference (offline-first; Supabase hydration is a Phase-2 hook).
 export { toxinService } from "./toxinService";
-// Real-data foundation: ingesters, evidence, and admin review.
+// Real-data foundation: ingesters, submissions, and admin review.
 export { recallImporter } from "./recallImporter";
 export { openPetFoodFactsImporter } from "./openPetFoodFactsImporter";
-export { productMatcher } from "./productMatcher";
 export { labelSubmissionService } from "./labelSubmissionService";
-export { labEvidenceService } from "./labEvidenceService";
-export { evidenceService } from "./evidenceService";
 export { adminReviewService } from "./adminReviewService";
 export { dataQualityService } from "./dataQualityService";

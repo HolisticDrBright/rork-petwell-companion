@@ -191,8 +191,10 @@ export default function FoodResultScreen() {
     return () => {
       active = false;
     };
+    // Re-run when the product changes (tapping an alternative) or the active pet
+    // changes, so the review + persisted scan always belong to the current pet.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [productId]);
+  }, [productId, selectedPet.id]);
 
   const recUrgency = useCallback((rec: FoodReview["recommendation"]) => {
     return rec === "good_fit" ? ("green" as const) : rec === "use_caution" ? ("amber" as const) : ("red" as const);
