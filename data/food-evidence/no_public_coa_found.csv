@@ -1,0 +1,13 @@
+brand,product,species,source_url,evidence_status,notes,accessed_date
+Purina Cat Chow,brand-level,cat,https://newscenter.purina.com/Purina-Response-to-Online-Rumors,no_public_coa_found,"Checked Purina QA pages + web search; only general QA marketing, no COA. (EWG flagged its Complete Chicken packaging for PFAS - see study row.)",2026-06-25
+Fancy Feast,brand-level,cat,https://newscenter.purina.com/Purina-Response-to-Online-Rumors,no_public_coa_found,"Checked Purina pages + web search; QA marketing only, no COA.",2026-06-25
+Beneful,brand-level,dog,https://newscenter.purina.com/Purina-Response-to-Online-Rumors,no_public_coa_found,Checked Purina pages + web search; no public COA.,2026-06-25
+Alpo,brand-level,dog,https://newscenter.purina.com/Purina-Response-to-Online-Rumors,no_public_coa_found,Checked Purina pages + web search; no public COA.,2026-06-25
+Whiskas,brand-level,cat,https://www.royalcanin.com/us/about-us/quality-and-food-safety,no_public_coa_found,Mars brand; web search + Mars QA language; no public COA.,2026-06-25
+Sheba,brand-level,cat,https://www.royalcanin.com/us/about-us/quality-and-food-safety,no_public_coa_found,Mars brand; no public COA found via web search.,2026-06-25
+Eukanuba,brand-level,dog,https://en.wikipedia.org/wiki/Eukanuba,no_public_coa_found,Mars brand; web search; no public COA; not in CLP study.,2026-06-25
+Hill's Prescription Diet,brand-level,both,https://www.avma.org/javma-news/2020-02-15/update-fda-says-hills-failed-follow-own-procedures,no_public_coa_found,Same maker as Science Diet; no public per-product COA.,2026-06-25
+Authority (PetSmart),brand-level,both,https://cleanlabelproject.org/dog-food-category-tested-products/,no_public_coa_found,PetSmart private label; web search + CLP list checked; no COA/lab doc.,2026-06-25
+American Journey (Chewy),brand-level,both,https://cleanlabelproject.org/dog-food-category-tested-products/,no_public_coa_found,Chewy private label (made by Diamond); web search + CLP list checked; no public COA.,2026-06-25
+Canidae,brand-level,both,https://www.canidae.com/,no_public_coa_found,Searched COA/heavy-metals/'Goodness verified'; only general in-house testing claims; no published reports/lot lookup.,2026-06-25
+NutriSource (KLN/Tuffy's),brand-level,both,https://nutrisourcepetfoods.com/,no_public_coa_found,Searched COA/heavy-metals/traceability; general quality claims only; no published reports/lot lookup.,2026-06-25

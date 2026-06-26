@@ -1,0 +1,6 @@
+# Editor/LibreOffice lock + temp + scratch exports — never commit these
+.~lock.*#
+*.tmp
+_petwell_report.html
+_r.html
+_*.html

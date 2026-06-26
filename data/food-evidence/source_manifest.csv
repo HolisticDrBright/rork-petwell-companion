@@ -1,0 +1,11 @@
+file,source,source_type,url,records,fetched_at,license_terms,notes
+recalls_openfda.csv,openFDA Food Enforcement API,openfda,https://api.fda.gov/food/enforcement.json,146,2026-06-25,openFDA terms - public domain data (https://open.fda.gov/terms/),Filtered to pet/animal food via repo recallNormalize logic; deduped.
+products.csv,Open Pet Food Facts API v2,open_pet_food_facts,https://world.openpetfoodfacts.org/api/v2/search,120,2026-06-25,Open Database License (ODbL) - attribution required,Top by unique_scans + completeness; marked open_database/needs_admin_review.
+lab_evidence.csv,"Web research (brand sites, CLP, EWG, FDA, journals)",mixed,see per-row source_url,81,2026-06-25,Public pages summarized + cited; no full-text copied,Conservatively graded; verified_lab only for independent published evidence.
+coa_sources.csv,Subset of lab_evidence with positive sources,mixed,see per-row source_url,29,2026-06-25,As above,COA/lab/study/lot-tool sources only.
+no_public_coa_found.csv,Web research (negative findings),n/a,see per-row source_url,12,2026-06-25,As above,Brands searched with no public COA.
+brands.csv,Curated top-volume brands + public ownership info,curated,see per-row website,77,2026-06-25,Public info,Parent/ownership public; re-verify low-confidence rows.
+marketplace_candidates.csv,Derived from lab_evidence + recalls,derived,see per-row source_url,9,2026-06-25,n/a,No fake links; research-preview retained; no 'cleanest' without product-level evidence.
+breed_food_fit_profiles.csv,Curated breed-aware considerations,curated,https://wsava.org/global-guidelines/global-nutrition-guidelines/,21,2026-06-25,Public guidance summarized,needs_vet_review; breed-aware not 'best'.
+source-snapshots/openfda_recalls_raw.json,openFDA raw normalized,openfda,https://api.fda.gov/food/enforcement.json,146,2026-06-25,openFDA terms,Raw snapshot for provenance.
+source-snapshots/opff_products_raw.json,Open Pet Food Facts raw,open_pet_food_facts,https://world.openpetfoodfacts.org,120,2026-06-25,ODbL,Raw snapshot for provenance.
