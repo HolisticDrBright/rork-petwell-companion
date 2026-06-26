@@ -107,5 +107,21 @@ ck("7 no OpenAI/Anthropic key or public key var in client files", keyLeak === 0)
 const aiServiceSrc = read("../services/aiService.ts");
 ck("7 aiService never reads OPENAI_API_KEY/ANTHROPIC_API_KEY", !/OPENAI_API_KEY|ANTHROPIC_API_KEY/.test(aiServiceSrc));
 
+// ── 8. Versioned prompts encode the non-negotiable rules ─────────────────────
+const sharedPrompts = has("../../supabase/functions/_shared/prompts.ts")
+  ? read("../../supabase/functions/_shared/prompts.ts")
+  : "";
+ck("8 safety preamble bans diagnosis + dosing", /never diagnose/i.test(sharedPrompts) && /prescribe, or dose/i.test(sharedPrompts));
+ck("8 safety preamble bans purity claims", /never claim a food is .*clean.*pure/i.test(sharedPrompts));
+ck("8 safety preamble: photo can't detect contaminants", /photo or scan can read a label only/i.test(sharedPrompts));
+ck("8 safety preamble routes poisoning to a hotline", /426-4435|764-7661/.test(sharedPrompts));
+ck("8 safety preamble: do not invent", /[Nn]ever invent facts/.test(sharedPrompts));
+
+const vetPrompt = has("../../prompts/vet-report-rewrite-v1.md") ? read("../../prompts/vet-report-rewrite-v1.md") : "";
+ck("8 vet-rewrite prompt forbids new facts", /do not add any new fact|adds nothing|no new fact/i.test(vetPrompt));
+ck("8 vet-rewrite prompt forbids diagnosis", /diagnos/i.test(vetPrompt));
+ck("8 vet-rewrite prompt preserves red flags", /red flag/i.test(vetPrompt));
+ck("8 vet-rewrite prompt says do not invent", /invent|fabricate/i.test(vetPrompt));
+
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);

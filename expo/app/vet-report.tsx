@@ -5,7 +5,10 @@ import React, { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { EmergencyContacts } from "@/components/EmergencyContacts";
+import { AiDisclaimer, AiDisabledNote, AiSparkleButton } from "@/components/ai/AiBits";
 import { Card, Disclaimer, PrimaryButton } from "@/components/ui";
+import type { VetReportRewrite } from "@/lib/ai/types";
+import { aiService } from "@/services/aiService";
 import Colors, { Fonts, Radius, Space, Urgency } from "@/constants/colors";
 import { RECORDS } from "@/constants/mockData";
 import { compileReport, type CompileInput } from "@/lib/report/compile";
@@ -52,6 +55,9 @@ export default function VetReportScreen() {
   const [saved, setSaved] = useState<boolean>(false);
   const [status, setStatus] = useState<string | null>(null);
   const [programs, setPrograms] = useState<ProgramRunView[]>([]);
+  const [aiRewrite, setAiRewrite] = useState<VetReportRewrite | null>(null);
+  const [aiBusy, setAiBusy] = useState<boolean>(false);
+  const [aiNote, setAiNote] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -195,6 +201,21 @@ export default function VetReportScreen() {
     );
     saveSnapshot();
   }, [data, saveSnapshot]);
+
+  // Optional AI polish: rewrite the compiled report into vet- + owner-friendly
+  // prose. The server adds no facts and preserves red flags; the user reviews
+  // before sharing. Off unless AI is enabled in Settings.
+  const onPolishWithAi = useCallback(async () => {
+    if (!data) return;
+    setAiBusy(true);
+    setAiNote(null);
+    setAiRewrite(null);
+    const res = await aiService.rewriteVetReport(data);
+    setAiBusy(false);
+    if (res.disabled) return setAiNote(res.disabledReason ?? "AI features are off.");
+    if (!res.ok || !res.data) return setAiNote(res.error ?? "Couldn't generate a summary. Please try again.");
+    setAiRewrite(res.data);
+  }, [data]);
 
   if (!data) {
     return (
@@ -532,6 +553,31 @@ export default function VetReportScreen() {
         {status ? <Text style={styles.statusText}>{status}</Text> : null}
         <Text style={styles.freeNote}>Export is always free — no subscription required.</Text>
 
+        {/* Optional AI polish */}
+        <SectionHeader>Polish for your vet (AI)</SectionHeader>
+        <Card style={{ gap: 10 }}>
+          <Text style={styles.bulletText}>
+            Turn this report into a concise vet-facing summary and a plain-language version for you. The AI only
+            rephrases the facts above — it adds nothing, keeps every red flag, and you review it before sharing.
+          </Text>
+          <AiSparkleButton label="Rewrite with AI" onPress={onPolishWithAi} loading={aiBusy} />
+          {aiNote ? <AiDisabledNote reason={aiNote} /> : null}
+          {aiRewrite ? (
+            <View style={{ gap: 12, marginTop: 4 }}>
+              <View style={styles.aiBlock}>
+                <Text style={styles.aiBlockLabel}>For your veterinarian</Text>
+                <Text style={styles.aiBlockText}>{aiRewrite.vetSummary}</Text>
+              </View>
+              <View style={styles.aiBlock}>
+                <Text style={styles.aiBlockLabel}>In plain language</Text>
+                <Text style={styles.aiBlockText}>{aiRewrite.ownerSummary}</Text>
+              </View>
+              <Text style={styles.aiReviewNote}>Review carefully before you share or export — AI can make mistakes.</Text>
+              <AiDisclaimer />
+            </View>
+          ) : null}
+        </Card>
+
         <View style={{ marginTop: Space.md }}>
           <Disclaimer />
         </View>
@@ -578,4 +624,8 @@ const styles = StyleSheet.create({
   actions: { flexDirection: "row", gap: 10, marginTop: Space.xl },
   statusText: { ...Fonts.small, color: Colors.teal700, textAlign: "center", marginTop: 10 },
   freeNote: { ...Fonts.small, color: Colors.teal700, textAlign: "center", marginTop: 6, fontWeight: "700" },
+  aiBlock: { backgroundColor: Colors.cream2, borderRadius: Radius.md, padding: Space.sm, gap: 4 },
+  aiBlockLabel: { ...Fonts.tiny, color: Colors.teal700, textTransform: "uppercase" },
+  aiBlockText: { ...Fonts.small, color: Colors.ink, lineHeight: 19 },
+  aiReviewNote: { ...Fonts.tiny, color: Colors.amber600, fontWeight: "700", lineHeight: 15 },
 });
