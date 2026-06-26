@@ -1,5 +1,5 @@
 import { Stack } from "expo-router";
-import { AlertTriangle, Award, Camera, FileSearch, FlaskConical, Microscope, ShieldCheck } from "lucide-react-native";
+import { AlertTriangle, Award, Ban, Camera, FileSearch, FlaskConical, Microscope, ShieldCheck } from "lucide-react-native";
 import React from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 
@@ -7,12 +7,14 @@ import { Card, Disclaimer } from "@/components/ui";
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
 
 /**
- * "How Petwell Scores Food" — a plain-language, conservative explanation of the
- * food-trust model. Mirrors data/food-evidence/food_trust_scoring_model.md.
+ * "How Petwell Scores Food" — plain-language, conservative explanation of the
+ * food-trust model. Mirrors data/food-evidence/food_trust_scoring_model.md and
+ * the rules in lib/food/provenance.ts.
  *
  * Trust posture (non-negotiable): we never call a food "cleanest", "purest", or
- * "verified clean" without product-level independent lab evidence — which, as of
- * this research, no mainstream dog/cat brand publishes. We say so plainly.
+ * "verified clean" without independent, current, product-level lab evidence —
+ * which, per our research, no mainstream dog/cat brand publishes. We say so.
+ * We do NOT surface the model's draft numeric weights to users (still in review).
  */
 
 type Tier = { rank: string; title: string; body: string; tone: "good" | "info" | "warn" | "muted" };
@@ -20,26 +22,32 @@ type Tier = { rank: string; title: string; body: string; tone: "good" | "info" |
 const EVIDENCE_TIERS: Tier[] = [
   {
     rank: "Strongest",
-    title: "Product-level lab evidence",
-    body: "An independent lab tested this exact product (or lot) for contaminants. This is the only evidence that can support a strong purity statement. It is rare — most brands don't publish it.",
+    title: "Independent product-level COA",
+    body: "An independent lab tested THIS product (or your bag's lot) for contaminants. It's the only evidence that can support a strong purity statement — and none of the mainstream brands we researched publish it.",
     tone: "good",
   },
   {
+    rank: "Strong*",
+    title: "Per-lot COA lookup tool",
+    body: "Some brands let you enter your bag's lot code to pull a per-batch lab report (e.g. pathogens, mycotoxins). Real and useful — but you must check your specific lot, so we mark it 'needs review' until a document is confirmed.",
+    tone: "info",
+  },
+  {
     rank: "Supporting",
-    title: "Public study evidence",
-    body: "A published study tested some foods in a category. Useful context, but not specific to this product or lot.",
+    title: "Independent study or certification",
+    body: "A published study or certification tested foods in a category (e.g. the Clean Label Project study). Real evidence — but usually about a category or brand, not your exact product.",
     tone: "info",
   },
   {
     rank: "Weak",
-    title: "Brand-level evidence",
-    body: "Evidence about the brand or its facility, not this specific product. Weaker than product-level evidence.",
-    tone: "info",
+    title: "Brand-published values",
+    body: "The brand publishes its own contaminant numbers, but the lab is unnamed and there's no independent COA. Stronger than marketing, but still a brand claim.",
+    tone: "warn",
   },
   {
     rank: "Weakest",
-    title: "Brand claim only",
-    body: "The brand says it tests or that its food is high quality. A claim is not independent lab verification.",
+    title: "Brand claim / marketing",
+    body: "The brand says it tests, or that its food is high quality, with no values. A claim is not independent lab verification.",
     tone: "warn",
   },
   {
@@ -60,7 +68,7 @@ const FACTORS: { icon: React.ComponentType<{ size?: number; color?: string }>; t
   {
     icon: ShieldCheck,
     title: "Recalls",
-    body: "We check the FDA's official recall feed. An official product recall is weighted heavily; a brand-level recall match (same brand, different product) is flagged as a watch, not an exact-product recall.",
+    body: "We check the FDA's official recall feed. Recent and serious recalls (Class I, within ~2 years) weigh most. A brand-level match (same brand, different product) is a watch flag — never an exact-product recall.",
   },
   {
     icon: FileSearch,
@@ -74,9 +82,22 @@ const FACTORS: { icon: React.ComponentType<{ size?: number; color?: string }>; t
   },
   {
     icon: Microscope,
-    title: "Pet-specific fit",
-    body: "We adjust for your pet: known allergies, conditions (e.g. pancreatitis, kidney), and weight goals. A food can be fine in general but a poor fit for your specific pet.",
+    title: "Brand transparency",
+    body: "Whether the brand owns its facilities, names a nutritionist, publishes testing, and responds to recalls (a WSAVA-style view). Transparency builds trust but isn't a purity measurement.",
   },
+  {
+    icon: FlaskConical,
+    title: "Pet-specific fit",
+    body: "Your pet's actual profile — species, life stage, body condition, diagnoses, allergies — comes first. Breed is only a secondary, breed-aware consideration, never a 'best food for your breed' claim.",
+  },
+];
+
+const CAPS: string[] = [
+  "No lab evidence → purity confidence stays low (“no public lab test found”), no matter the marketing.",
+  "Only an independent, CURRENT, product-level COA can unlock high purity confidence.",
+  "Stale lab data (past its freshness window) is treated as out of date.",
+  "We never use “cleanest”, “purest”, “safest”, or “verified clean” without that product-level evidence.",
+  "A photo or label scan never raises purity confidence.",
 ];
 
 function tierColor(t: Tier["tone"]): { color: string; bg: string } {
@@ -99,7 +120,7 @@ export default function FoodTrustScreen() {
           <Text style={styles.heroTitle}>How Petwell scores food</Text>
         </View>
         <Text style={styles.intro}>
-          Petwell rates food on the strength of the evidence behind it — and it tells you exactly how strong that
+          Petwell rates food on the strength of the evidence behind it — and tells you exactly how strong that
           evidence is. We&apos;d rather say &quot;not enough public evidence&quot; than overstate a claim.
         </Text>
 
@@ -128,14 +149,14 @@ export default function FoodTrustScreen() {
           </View>
           <Text style={styles.tierBody}>
             A Certificate of Analysis (COA) is an independent lab report for a specific product. In our research, no
-            mainstream dog or cat brand published downloadable, product-level independent COAs. Without one, we cannot
-            confirm purity — so we keep contaminant confidence low and never call a food &quot;cleanest&quot;,
-            &quot;purest&quot;, or &quot;verified clean&quot;.
+            mainstream dog or cat brand published downloadable, product-level independent COAs. Because of that, the
+            highest any food reaches in Petwell today is &quot;candidate&quot; or &quot;needs review&quot; — never
+            &quot;cleanest&quot;.
           </Text>
         </View>
 
-        {/* Other factors */}
-        <Text style={styles.section}>What else we look at</Text>
+        {/* What else we look at */}
+        <Text style={styles.section}>What else we weigh</Text>
         {FACTORS.map((f) => (
           <Card key={f.title} style={styles.factorCard}>
             <View style={styles.tierHead}>
@@ -147,6 +168,17 @@ export default function FoodTrustScreen() {
             <Text style={styles.tierBody}>{f.body}</Text>
           </Card>
         ))}
+
+        {/* Hard rules / caps */}
+        <Text style={styles.section}>Hard rules we never break</Text>
+        <Card style={{ gap: 10 }}>
+          {CAPS.map((c) => (
+            <View key={c} style={styles.capRow}>
+              <Ban size={15} color={Colors.coral600} style={{ marginTop: 2 }} />
+              <Text style={styles.capText}>{c}</Text>
+            </View>
+          ))}
+        </Card>
 
         {/* Photo limitation */}
         <View style={styles.gapCard}>
@@ -184,4 +216,6 @@ const styles = StyleSheet.create({
   gapCard: { backgroundColor: Colors.amber100, borderRadius: Radius.lg, padding: Space.md, marginTop: Space.md, gap: 8 },
   factorCard: { gap: 6, marginBottom: Space.sm },
   factorIcon: { width: 30, height: 30, borderRadius: 15, backgroundColor: Colors.teal50, alignItems: "center", justifyContent: "center" },
+  capRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
+  capText: { ...Fonts.small, color: Colors.ink, flex: 1, lineHeight: 19 },
 });
