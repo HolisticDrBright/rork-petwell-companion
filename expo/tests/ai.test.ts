@@ -129,5 +129,16 @@ ck("8 record-summary prompt routes urgent findings to vet", /redFlags|red flag|v
 ck("8 record-summary prompt is needs_review by default", /needsReview/i.test(recPrompt) && /always true/i.test(recPrompt));
 ck("8 record-summary runtime prompt present", /RECORD_SUMMARY_PROMPT/.test(sharedPrompts) && /needsReview is always true/i.test(sharedPrompts));
 
+// ── 9. COA extraction never auto-verifies + never writes lab_tests ───────────
+const coaPrompt = has("../../prompts/coa-extraction-v1.md") ? read("../../prompts/coa-extraction-v1.md") : "";
+ck("9 COA prompt forbids verified_lab", /NEVER set evidenceStatus to .?verified_lab|never.*verified_lab/i.test(coaPrompt));
+ck("9 COA prompt: marketing => claim_only/brand_claim", /claim_only/i.test(coaPrompt) && /brand_claim/i.test(coaPrompt));
+const schemasSrc = has("../../supabase/functions/_shared/schemas.ts") ? read("../../supabase/functions/_shared/schemas.ts") : "";
+// The COA schema must only allow needs_review | brand_claim for evidenceStatus.
+ck("9 COA schema evidenceStatus excludes verified_lab", /evidenceStatus:\s*\{\s*type:\s*"string",\s*enum:\s*\["needs_review",\s*"brand_claim"\]/.test(schemasSrc));
+const coaFnSrc = has("../../supabase/functions/ai-coa-extract/index.ts") ? read("../../supabase/functions/ai-coa-extract/index.ts") : "";
+ck("9 COA function never inserts into lab_tests", !/from\(["']lab_tests["']\)|\.into\(["']lab_tests["']\)/.test(coaFnSrc) && /needs_review/.test(coaFnSrc));
+ck("9 COA function is admin-gated", /isAdmin\(/.test(coaFnSrc));
+
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);

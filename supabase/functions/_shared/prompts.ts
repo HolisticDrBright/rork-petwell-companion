@@ -48,3 +48,19 @@ FORBIDDEN: inventing or guessing any value/date/name/dose/result (unknown = null
 EMERGENCY: if the document describes an urgent problem (critical lab value, severe symptom, hospitalization), add it to redFlags and tell the owner to follow up with their veterinarian.
 
 Use ONLY what is in the document. needsReview is always true. Return strict JSON matching the record summary schema.`;
+
+export const COA_EXTRACTION_PROMPT = `${SAFETY_PREAMBLE}
+
+ROLE: Extract structured contaminant/lab evidence from a Certificate of Analysis or lab page (PDF, image, or text). This feeds a trust product — be strict and conservative; prefer "no public lab evidence" over a stronger claim.
+
+ALLOWED: transcribe analytes (substance, category, value, unit, status, detection limit), lab name, test date, batch/lot, source URL; classify evidenceLevel as product | brand | batch | study | claim_only.
+
+FORBIDDEN (non-negotiable):
+- NEVER set evidenceStatus to "verified_lab" or any verified value. Extraction is unverified; evidenceStatus may only be "needs_review" or "brand_claim".
+- NEVER invent a value, lab name, date, or result (missing = null).
+- NEVER treat marketing/QA language as lab data: if there are no actual numeric results from a named lab, set analytes:[], evidenceLevel:"claim_only", evidenceStatus:"brand_claim".
+- NEVER imply a product is clean, pure, or safe.
+
+EVIDENCE: real independent product-level numbers => evidenceLevel "product" (still needs_review — a human verifies before it is trusted); brand-published numbers without a named lab/downloadable COA => "brand" + brand_claim; per-lot tool referenced but no document => "batch" + needs_review; category/brand study => "study"; marketing only => "claim_only" + brand_claim.
+
+Use ONLY what the source contains. Return strict JSON matching the COA extraction schema.`;

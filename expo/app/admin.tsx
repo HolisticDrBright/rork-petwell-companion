@@ -1,13 +1,16 @@
 import { Stack } from "expo-router";
-import { Check, Database, ShieldCheck, X } from "lucide-react-native";
+import { Check, Database, FlaskConical, ShieldCheck, X } from "lucide-react-native";
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
+import { AiDisclaimer, AiDisabledNote, AiSparkleButton } from "@/components/ai/AiBits";
 import { Card } from "@/components/ui";
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
 import { isCurrentUserAdmin } from "@/lib/backend";
+import type { CoaExtraction } from "@/lib/ai/types";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { adminReviewService, dataQualityService } from "@/services";
+import { aiService } from "@/services/aiService";
 import type { DataQualityMetrics } from "@/services/dataQualityService";
 
 type Submission = { id: string; raw_ocr_text: string | null; matched_product_id: string | null; created_at: string };
@@ -25,6 +28,10 @@ export default function AdminScreen() {
   const [pending, setPending] = useState<Submission[]>([]);
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [coaUrl, setCoaUrl] = useState<string>("");
+  const [coaResult, setCoaResult] = useState<CoaExtraction | null>(null);
+  const [coaBusy, setCoaBusy] = useState<boolean>(false);
+  const [coaNote, setCoaNote] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -61,6 +68,22 @@ export default function AdminScreen() {
     },
     [],
   );
+
+  // Admin COA extraction: pull structured lab evidence from a PDF/image COA URL.
+  // Always queued needs_review; never auto-trusted, never written to lab_tests.
+  const runCoa = useCallback(async () => {
+    const url = coaUrl.trim();
+    if (!url) return;
+    setCoaBusy(true);
+    setCoaNote(null);
+    setCoaResult(null);
+    const res = await aiService.extractCoa({ sourceUrl: url });
+    setCoaBusy(false);
+    if (res.disabled) return setCoaNote(res.disabledReason ?? "AI features are off.");
+    if (!res.ok || !res.data) return setCoaNote(res.error ?? "Couldn't extract from that source.");
+    setCoaResult(res.data);
+    setCoaNote("Queued for review — verify before creating any lab evidence row.");
+  }, [coaUrl]);
 
   // Resolve an imported-queue item by dispatching to the right reviewer per entity
   // type. Approve marks the entity admin_reviewed (trusted); reject hides it. Both
@@ -131,6 +154,42 @@ export default function AdminScreen() {
                 <Metric label="Submissions pending review" value={metrics.pendingSubmissions} warn last />
               </Card>
             ) : null}
+
+            {/* COA extraction (AI) — admin tool */}
+            <View style={[styles.head, { marginTop: Space.lg }]}>
+              <FlaskConical size={18} color={Colors.teal700} />
+              <Text style={styles.headText}>COA extraction (AI)</Text>
+            </View>
+            <Card style={{ gap: 10 }}>
+              <Text style={styles.sub}>
+                Paste a link to a PDF or image Certificate of Analysis. The AI extracts the analytes for review — it never
+                marks anything verified and never writes lab evidence. Results are queued for you to verify.
+              </Text>
+              <TextInput
+                value={coaUrl}
+                onChangeText={setCoaUrl}
+                placeholder="https://…/coa.pdf"
+                placeholderTextColor={Colors.inkFaint}
+                autoCapitalize="none"
+                autoCorrect={false}
+                style={styles.coaInput}
+              />
+              <AiSparkleButton label="Extract COA" onPress={runCoa} loading={coaBusy} disabled={!coaUrl.trim()} />
+              {coaNote ? <AiDisabledNote reason={coaNote} /> : null}
+              {coaResult ? (
+                <View style={styles.coaResult}>
+                  <Text style={styles.coaLine}>
+                    {coaResult.brand ?? "?"} · {coaResult.product ?? "?"} — level {coaResult.evidenceLevel}, status{" "}
+                    {coaResult.evidenceStatus}
+                  </Text>
+                  <Text style={styles.coaLine}>
+                    {coaResult.analytes.length} analyte(s); lab {coaResult.labName ?? "—"}; lot {coaResult.batchLot ?? "—"}
+                  </Text>
+                  <Text style={styles.coaWarn}>Needs review — verify before creating any lab evidence row.</Text>
+                  <AiDisclaimer />
+                </View>
+              ) : null}
+            </Card>
 
             {/* Imported review queue (OPFF products + web-researched lab evidence) */}
             <View style={[styles.head, { marginTop: Space.lg }]}>
@@ -246,6 +305,19 @@ const styles = StyleSheet.create({
   queueHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   queueType: { ...Fonts.tiny, color: Colors.teal700, textTransform: "uppercase" },
   queuePri: { ...Fonts.tiny, color: Colors.inkSoft },
+  coaInput: {
+    ...Fonts.small,
+    color: Colors.ink,
+    borderWidth: 1,
+    borderColor: Colors.hairline,
+    borderRadius: Radius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: Colors.cream,
+  },
+  coaResult: { gap: 6, backgroundColor: Colors.cream2, borderRadius: Radius.md, padding: Space.sm },
+  coaLine: { ...Fonts.small, color: Colors.ink, lineHeight: 18 },
+  coaWarn: { ...Fonts.tiny, color: Colors.amber600, fontWeight: "700" },
   actions: { flexDirection: "row", gap: 8, justifyContent: "flex-end" },
   btn: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 14, paddingVertical: 8, borderRadius: Radius.md },
   reject: { backgroundColor: Colors.red100 },

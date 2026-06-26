@@ -36,3 +36,9 @@ export async function getCaller(req: Request): Promise<Caller | null> {
   if (error || !data.user) return null;
   return { userId: data.user.id, authHeader };
 }
+
+/** Whether a user has the admin flag (profiles.is_admin). Best-effort. */
+export async function isAdmin(svc: SupabaseClient, userId: string): Promise<boolean> {
+  const { data } = await svc.from("profiles").select("is_admin").eq("id", userId).maybeSingle();
+  return !!(data as { is_admin?: boolean } | null)?.is_admin;
+}
