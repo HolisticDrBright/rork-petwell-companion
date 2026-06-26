@@ -115,6 +115,7 @@ export interface ChatReply {
   reply: string;
   contextUsed: string[];
   suggestedVetReport: boolean;
+  threadId?: string | null;
 }
 
 export interface ExplainReply {

@@ -36,3 +36,6 @@ jobs:
 
       - name: Toxin database tests
         run: bun tests/toxins.test.ts
+
+      - name: AI safety tests
+        run: bun tests/ai.test.ts

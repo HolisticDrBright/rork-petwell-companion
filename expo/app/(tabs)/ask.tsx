@@ -90,6 +90,18 @@ export default function AskScreen() {
         </Text>
       </View>
 
+      <Pressable
+        onPress={() => router.push("/ai-assistant")}
+        style={({ pressed }) => [styles.assistantBanner, pressed && { opacity: 0.92 }]}
+        accessibilityRole="button"
+      >
+        <Sparkles size={20} color={Colors.teal700} />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.assistantTitle}>Chat with the pet assistant</Text>
+          <Text style={styles.assistantSub}>Talk it through — informational, never a diagnosis</Text>
+        </View>
+      </Pressable>
+
       <View style={styles.list}>
         {CONCERNS.map((c) => (
           <ConcernRow
@@ -127,6 +139,20 @@ const styles = StyleSheet.create({
   nurseText: { ...Fonts.small, color: Colors.teal700 },
   title: { ...Fonts.title, marginBottom: 6 },
   subtitle: { ...Fonts.bodySoft, lineHeight: 22 },
+  assistantBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginHorizontal: Space.md,
+    marginBottom: Space.md,
+    padding: Space.md,
+    borderRadius: Radius.lg,
+    backgroundColor: Colors.teal50,
+    borderWidth: 1,
+    borderColor: Colors.hairline,
+  },
+  assistantTitle: { ...Fonts.h3, fontSize: 15, color: Colors.teal800 },
+  assistantSub: { ...Fonts.small, color: Colors.inkSoft },
   list: { paddingHorizontal: Space.md, gap: 10 },
   row: {
     flexDirection: "row",

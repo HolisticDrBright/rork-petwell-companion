@@ -5,7 +5,7 @@ import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
 
-const LAST_UPDATED = "June 25, 2026";
+const LAST_UPDATED = "June 26, 2026";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -53,6 +53,16 @@ export default function TermsScreen() {
           Do not use Petwell to manage an emergency. If your pet shows severe signs (trouble breathing, collapse,
           seizures, pale gums, repeated vomiting, inability to urinate, suspected toxin exposure, or trauma), seek
           emergency veterinary care immediately.
+        </P>
+      </Section>
+
+      <Section title="AI features">
+        <P>
+          Optional AI features (assistant chat, explanations, label reading, record and COA summaries) are informational
+          only and are not veterinary advice. AI can be wrong or incomplete; review its output and confirm anything
+          important with your veterinarian before relying on it. AI does not diagnose or prescribe and never overrides
+          the emergency guidance above — urgent symptoms or suspected poisoning require a veterinarian or emergency
+          clinic. AI-extracted data (labels, records, lab results) is unverified until reviewed.
         </P>
       </Section>
 

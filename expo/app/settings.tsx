@@ -26,10 +26,12 @@ import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Switch, 
 import { Card } from "@/components/ui";
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
 import { isCurrentUserAdmin } from "@/lib/backend";
+import { AI_DATA_NOTICE, DEFAULT_AI_PREFS, getAiPreferences, setAiPreferences, type AiPreferences } from "@/lib/ai/config";
 import { exportJson } from "@/lib/report/export";
 import { usePets } from "@/providers/PetProvider";
 import { useSubscription } from "@/providers/SubscriptionProvider";
 import { DEFAULT_PRIVACY, privacyService, type PrivacyKey, type PrivacyPrefs } from "@/services";
+import { aiService } from "@/services/aiService";
 
 interface Toggle {
   key: PrivacyKey;
@@ -52,8 +54,9 @@ export default function SettingsScreen() {
   const [prefs, setPrefs] = useState<PrivacyPrefs>(DEFAULT_PRIVACY);
   const [status, setStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState<boolean>(false);
-  const [confirm, setConfirm] = useState<"images" | "account" | null>(null);
+  const [confirm, setConfirm] = useState<"images" | "account" | "aiHistory" | null>(null);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  const [aiPrefs, setAiPrefs] = useState<AiPreferences>(DEFAULT_AI_PREFS);
 
   useEffect(() => {
     let active = true;
@@ -88,9 +91,37 @@ export default function SettingsScreen() {
         if (active) setPrefs(p);
       })
       .catch(() => {});
+    getAiPreferences()
+      .then((p) => {
+        if (active) setAiPrefs(p);
+      })
+      .catch(() => {});
     return () => {
       active = false;
     };
+  }, []);
+
+  const toggleAi = useCallback(
+    (key: keyof AiPreferences) => {
+      setAiPrefs((prev) => {
+        // Turning the master switch off also disables document processing.
+        const next: AiPreferences =
+          key === "enabled" && prev.enabled
+            ? { enabled: false, allowDocumentProcessing: false }
+            : { ...prev, [key]: !prev[key] };
+        setAiPreferences(next).catch(() => {});
+        return next;
+      });
+    },
+    [],
+  );
+
+  const onDeleteAiHistory = useCallback(async () => {
+    setBusy(true);
+    const r = await aiService.deleteAllAiHistory();
+    setBusy(false);
+    setConfirm(null);
+    setStatus(r.ok ? "AI history deleted." : "Couldn't delete AI history — try again.");
   }, []);
 
   const togglePref = useCallback(
@@ -241,6 +272,46 @@ export default function SettingsScreen() {
               </View>
             </View>
           ))}
+        </Card>
+      </View>
+
+      {/* AI features */}
+      <View style={styles.group}>
+        <Text style={styles.groupTitle}>AI</Text>
+        <Card style={{ gap: 0 }}>
+          <View style={styles.toggleRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.rowLabel}>Enable AI features</Text>
+              <Text style={styles.rowDetail}>Assistant chat, explanations, label reading, and record summaries. Off by default.</Text>
+            </View>
+            <Switch
+              value={aiPrefs.enabled}
+              onValueChange={() => toggleAi("enabled")}
+              trackColor={{ true: Colors.teal600, false: Colors.cream2 }}
+              thumbColor="#fff"
+            />
+          </View>
+          <View style={styles.divider} />
+          <View style={styles.toggleRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.rowLabel}>Allow AI to process my documents</Text>
+              <Text style={styles.rowDetail}>Needed to summarize uploaded records and read food labels with AI.</Text>
+            </View>
+            <Switch
+              value={aiPrefs.allowDocumentProcessing}
+              onValueChange={() => toggleAi("allowDocumentProcessing")}
+              disabled={!aiPrefs.enabled}
+              trackColor={{ true: Colors.teal600, false: Colors.cream2 }}
+              thumbColor="#fff"
+            />
+          </View>
+          <View style={styles.divider} />
+          {confirm === "aiHistory" ? (
+            <ConfirmRow text="Delete all AI chats & history?" onConfirm={onDeleteAiHistory} onCancel={() => setConfirm(null)} />
+          ) : (
+            <ActionRow icon={Trash2} label="Delete AI history" onPress={() => setConfirm("aiHistory")} danger />
+          )}
+          <Text style={styles.aiNotice}>{AI_DATA_NOTICE}</Text>
         </Card>
       </View>
 
@@ -413,6 +484,7 @@ const styles = StyleSheet.create({
   toggleRow: { flexDirection: "row", alignItems: "center", gap: Space.sm, paddingVertical: 12 },
   rowLabel: { ...Fonts.h3, flex: 1, fontSize: 15 },
   rowDetail: { ...Fonts.small, color: Colors.inkFaint, marginTop: 2, lineHeight: 17 },
+  aiNotice: { ...Fonts.tiny, color: Colors.inkFaint, lineHeight: 15, paddingHorizontal: Space.md, paddingBottom: Space.sm, paddingTop: 4 },
   policyBox: { backgroundColor: Colors.surface, borderRadius: Radius.md, padding: Space.md, marginTop: 8 },
   policyText: { ...Fonts.small, color: Colors.inkSoft, lineHeight: 19 },
   inlineConfirm: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 14, gap: 10 },

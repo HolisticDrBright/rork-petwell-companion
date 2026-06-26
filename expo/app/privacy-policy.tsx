@@ -4,7 +4,7 @@ import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 import Colors, { Fonts, Space } from "@/constants/colors";
 
-const LAST_UPDATED = "June 25, 2026";
+const LAST_UPDATED = "June 26, 2026";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -58,6 +58,21 @@ export default function PrivacyPolicyScreen() {
           With an account, your data is stored in our backend (Supabase) and isolated to you by row-level security, so
           your records are not accessible to other users. Without an account, the app can run in local mode where your
           data stays on your device. Scan photos are stored only if you allow it in Settings.
+        </P>
+      </Section>
+
+      <Section title="AI features">
+        <P>
+          AI features are OFF by default. If you turn them on in Settings &rarr; AI, the text or files you submit for a
+          given feature (for example a chat message, a vet report, or an uploaded record or food-label photo) are sent
+          to our AI provider (OpenAI) through Petwell&apos;s secure backend to generate a response. We never put a model
+          API key in the app, and document processing is a separate opt-in you control.
+        </P>
+        <P>
+          AI output can be wrong and is informational only — not veterinary advice — and should be reviewed before you
+          rely on or share it. AI never diagnoses, prescribes, or overrides our emergency and safety guidance. We log AI
+          requests to operate and protect the service; you can delete your AI conversations and history anytime in
+          Settings &rarr; AI. We do not use your content to train AI models.
         </P>
       </Section>
 

@@ -159,5 +159,27 @@ ck("11 explain prompt: preserve evidence status", /no public lab test found|evid
 const explainFnSrc = has("../../supabase/functions/ai-explain/index.ts") ? read("../../supabase/functions/ai-explain/index.ts") : "";
 ck("11 explain function reviews output + flags urgent", /reviewOutput\(/.test(explainFnSrc) && /emergency_vet/.test(explainFnSrc));
 
+// ── 12. Chat: deterministic emergency priority, never diagnoses ──────────────
+const chatPrompt = has("../../prompts/ai-chat-v1.md") ? read("../../prompts/ai-chat-v1.md") : "";
+ck("12 chat prompt forbids diagnosis + dosing", /do not diagnose/i.test(chatPrompt) && /prescribe, or dose/i.test(chatPrompt));
+ck("12 chat prompt: emergency leads, poison hotline", /426-4435|764-7661/.test(chatPrompt) && /emergency/i.test(chatPrompt));
+const chatFnSrc = has("../../supabase/functions/ai-chat/index.ts") ? read("../../supabase/functions/ai-chat/index.ts") : "";
+ck("12 chat runs deterministic safety BEFORE the model", /assessInput\(message\)/.test(chatFnSrc) && chatFnSrc.indexOf("assessInput(message)") < chatFnSrc.indexOf("provider.generate"));
+ck("12 chat prepends deterministic banner to reply", /safety\.banner.*\n?.*reply =/s.test(chatFnSrc) || /\$\{safety\.banner\}/.test(chatFnSrc));
+ck("12 chat reviews + refuses forbidden output", /reviewOutput\(reply\)/.test(chatFnSrc) && /refusalFor/.test(chatFnSrc));
+
+// ── 13. Care plan: gated, suppresses gentle options on red flags ─────────────
+const planPrompt = has("../../prompts/care-plan-v1.md") ? read("../../prompts/care-plan-v1.md") : "";
+ck("13 care-plan prompt: no added treatments/dose", /do not add any supplement|never dose/i.test(planPrompt));
+ck("13 care-plan prompt: red flags => no gentle options", /gentleOptions:\s*\[\]|no gentle options/i.test(planPrompt));
+const planFnSrc = has("../../supabase/functions/ai-care-plan/index.ts") ? read("../../supabase/functions/ai-care-plan/index.ts") : "";
+ck("13 care-plan function enforces suppression server-side", /redFlagged/.test(planFnSrc) && /gentleOptions = \[\]/.test(planFnSrc) && /redFlagsSuppressed = true/.test(planFnSrc));
+
+// ── 14. Sentry never logs AI prompts / PII ───────────────────────────────────
+const sentrySrc = read("../lib/sentry.ts");
+ck("14 sentry sendDefaultPii is false", /sendDefaultPii:\s*false/.test(sentrySrc));
+ck("14 sentry beforeSend scrubs prompt/record/pet fields", /beforeSend/.test(sentrySrc) && /prompt\|message\|content\|record/.test(sentrySrc));
+ck("14 sentry drops request + user", /delete event\.request/.test(sentrySrc) && /delete event\.user/.test(sentrySrc));
+
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);

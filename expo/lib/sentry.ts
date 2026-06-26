@@ -25,6 +25,27 @@ export function initSentry(): void {
       tracesSampleRate: 0.1,
       // Keep crash reports free of pet/owner data.
       sendDefaultPii: false,
+      // Scrub anything that could carry AI prompts, user records, pet medical
+      // details, or PII before an event leaves the device. We never attach AI
+      // content to Sentry, but this is a hard backstop.
+      beforeSend(event) {
+        try {
+          delete event.request; // bodies/headers/cookies
+          delete event.user; // ids/emails
+          if (event.extra) {
+            for (const k of Object.keys(event.extra)) {
+              if (/prompt|message|content|record|ocr|label|pet|email|input|reply|summary/i.test(k)) {
+                delete event.extra[k];
+              }
+            }
+          }
+          // Don't ship local breadcrumb data that may contain entered text.
+          event.breadcrumbs = undefined;
+        } catch {
+          // never let scrubbing throw
+        }
+        return event;
+      },
     });
   } catch {
     // Never let telemetry setup break app startup.
