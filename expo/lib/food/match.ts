@@ -24,12 +24,6 @@ export interface MatchResult {
   suggestions: CatalogItem[];
 }
 
-export function matchByBarcode(barcode: string, catalog: CatalogItem[]): CatalogItem | null {
-  const b = barcode.replace(/\s/g, "");
-  if (!b) return null;
-  return catalog.find((c) => c.barcode && c.barcode.replace(/\s/g, "") === b) ?? null;
-}
-
 function jaccard(a: Set<string>, b: Set<string>): number {
   if (a.size === 0 || b.size === 0) return 0;
   let inter = 0;

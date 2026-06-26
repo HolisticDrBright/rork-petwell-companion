@@ -45,13 +45,16 @@ export interface NewTimelineEntry {
 }
 
 export const timelineService = {
-  async listEvents(petId: string): Promise<TimelineEntry[]> {
+  async listEvents(petId: string, limit = 500): Promise<TimelineEntry[]> {
+    // Cap at the most recent N events: the timeline, health score, and pattern
+    // detectors all walk this list, so it must stay bounded as history grows.
     const { data, error } = await supabase
       .from("timeline_events")
       .select("*")
       .eq("pet_id", petId)
       .order("event_date", { ascending: false })
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .limit(limit);
     if (error) throw error;
     return (data as EventRow[]).map(mapEvent);
   },

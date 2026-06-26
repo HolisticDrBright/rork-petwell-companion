@@ -49,6 +49,7 @@ interface BundleFilter {
   ids?: string[];
   species?: "dog" | "cat";
   productType?: string;
+  limit?: number;
 }
 
 export const foodService = {
@@ -57,7 +58,8 @@ export const foodService = {
     let q = supabase
       .from("food_products")
       .select("id, name, product_type, species, calorie_density, life_stage, food_brands(name)")
-      .order("name", { ascending: true });
+      .order("name", { ascending: true })
+      .limit(50);
     if (query && query.trim()) q = q.ilike("name", `%${query.trim()}%`);
     const { data, error } = await q;
     if (error) throw error;
@@ -90,11 +92,13 @@ export const foodService = {
     return { canonicalNames, aliasMap };
   },
 
-  /** Lightweight catalog (id, name, barcode, ingredient names) for matching. */
+  /** Lightweight catalog (id, name, barcode, ingredient names) for matching.
+   * Capped defensively — if the catalog ever approaches this, move barcode/name
+   * matching server-side (RPC) instead of fetching the catalog to match in JS. */
   async getCatalogItems(): Promise<CatalogItem[]> {
     const [{ data: products }, { data: links }] = await Promise.all([
-      supabase.from("food_products").select("id, name, species, product_type, barcode, food_brands(name)"),
-      supabase.from("food_product_ingredients").select("product_id, food_ingredients(name)"),
+      supabase.from("food_products").select("id, name, species, product_type, barcode, food_brands(name)").limit(2000),
+      supabase.from("food_product_ingredients").select("product_id, food_ingredients(name)").limit(20000),
     ]);
     const byProduct = new Map<string, string[]>();
     for (const l of links ?? []) {
@@ -127,6 +131,7 @@ export const foodService = {
     if (filter.ids) pq = pq.in("id", filter.ids);
     if (filter.species) pq = pq.in("species", [filter.species, "both"]);
     if (filter.productType) pq = pq.eq("product_type", filter.productType);
+    if (filter.limit) pq = pq.limit(filter.limit);
     const { data: products, error } = await pq;
     if (error) throw error;
     if (!products || products.length === 0) return [];
@@ -419,7 +424,9 @@ export const foodService = {
     pet: PetContext,
     opts: { currentId: string; species: "dog" | "cat"; productType: string; nowIso: string }
   ): Promise<AlternativeItem[]> {
-    const bundles = await foodService.getBundles({ species: opts.species, productType: opts.productType });
+    // Only 3 alternatives are ever shown; cap the candidate pool so we don't
+    // download + score the entire species catalog on every food-result load.
+    const bundles = await foodService.getBundles({ species: opts.species, productType: opts.productType, limit: 60 });
     const candidates = bundles.map((b) => ({ bundle: b, review: buildReview({ bundle: b, pet, nowIso: opts.nowIso }) }));
     return pickAlternatives(opts.currentId, candidates, pet);
   },

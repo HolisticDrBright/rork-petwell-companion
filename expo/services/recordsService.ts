@@ -50,7 +50,8 @@ export const recordsService = {
       .from("vet_records")
       .select("*")
       .eq("pet_id", petId)
-      .order("sort", { ascending: true });
+      .order("sort", { ascending: true })
+      .limit(1000);
     if (error) throw error;
 
     const grouped: Record<string, RecordItem[]> = {};

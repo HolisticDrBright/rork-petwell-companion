@@ -14,10 +14,6 @@ import type { ToxinCategory, ToxinEntry } from "./types";
 
 const norm = (s: string) => s.toLowerCase().trim();
 
-export function allToxins(): ToxinEntry[] {
-  return TOXINS;
-}
-
 export function toxinsForSpecies(species: "dog" | "cat"): ToxinEntry[] {
   return TOXINS.filter((e) => e.speciesScope === "both" || e.speciesScope === species);
 }
@@ -36,7 +32,9 @@ export function searchToxins(query: string, species?: "dog" | "cat", category?: 
     (e) =>
       norm(e.name).includes(q) ||
       e.category.includes(q) ||
-      e.aliases.some((a) => a.includes(q) || q.includes(a)),
+      // a.includes(q) lets a short query prefix-match an alias; the reverse
+      // (q.includes(a)) needs a length guard so a 2-char alias can't match anything.
+      e.aliases.some((a) => a.includes(q) || (a.length >= 3 && q.includes(a))),
   );
 }
 

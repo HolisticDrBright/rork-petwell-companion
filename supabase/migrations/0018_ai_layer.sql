@@ -11,7 +11,7 @@
 create table if not exists public.ai_generations (
   id uuid primary key default gen_random_uuid(),
   owner_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
-  pet_id uuid references public.pets(id) on delete set null,
+  pet_id uuid references public.pet_profiles(id) on delete set null,
   feature text not null check (feature in (
     'chat','explanation','food_label_vision','record_summary',
     'coa_extraction','care_plan','vet_report_rewrite'
@@ -37,7 +37,7 @@ create index if not exists idx_ai_generations_feature on public.ai_generations(f
 create table if not exists public.ai_chat_threads (
   id uuid primary key default gen_random_uuid(),
   owner_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
-  pet_id uuid references public.pets(id) on delete set null,
+  pet_id uuid references public.pet_profiles(id) on delete set null,
   title text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -63,7 +63,7 @@ create index if not exists idx_ai_chat_messages_thread on public.ai_chat_message
 create table if not exists public.ai_extracted_records (
   id uuid primary key default gen_random_uuid(),
   owner_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
-  pet_id uuid references public.pets(id) on delete set null,
+  pet_id uuid references public.pet_profiles(id) on delete set null,
   source_document_id uuid,
   generation_id uuid references public.ai_generations(id) on delete set null,
   record_type text not null check (record_type in (

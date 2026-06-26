@@ -1,4 +1,3 @@
-import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import React, { memo, useCallback } from "react";
 import {
@@ -134,25 +133,6 @@ export const PrimaryButton = memo(function PrimaryButton({
   );
 });
 
-export const GradientHeader = memo(function GradientHeader({
-  children,
-  style,
-}: {
-  children: React.ReactNode;
-  style?: StyleProp<ViewStyle>;
-}) {
-  return (
-    <LinearGradient
-      colors={[Colors.teal800, Colors.teal700]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={[styles.gradient, style]}
-    >
-      {children}
-    </LinearGradient>
-  );
-});
-
 export const Disclaimer = memo(function Disclaimer() {
   return (
     <View style={styles.disclaimer}>
@@ -227,7 +207,6 @@ const styles = StyleSheet.create({
   buttonOutline: { borderWidth: 1.5, borderColor: Colors.teal800 },
   buttonDisabled: { opacity: 0.45 },
   buttonText: { fontSize: 15, fontWeight: "700" },
-  gradient: { borderRadius: Radius.lg },
   disclaimer: {
     backgroundColor: Colors.teal50,
     borderRadius: Radius.md,

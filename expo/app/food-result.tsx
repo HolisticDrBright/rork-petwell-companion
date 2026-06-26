@@ -171,20 +171,25 @@ export default function FoodResultScreen() {
           })
           .catch(() => [] as AlternativeItem[]);
 
-        // A scan/search creates a food_scan record; the review is persisted too
-        // (both best-effort — no-ops in local mode).
-        let scanId: string | null = null;
-        try {
-          scanId = await foodService.createScan(selectedPet.id, {
-            productId: bundle.id,
-            rawLabelText: raw || null,
-            imagePath: image || null,
-          });
-          await foodService.saveReview(selectedPet.id, { productId: bundle.id, scanId, review });
-        } catch (e) {
-          console.warn("[petwell] food review save failed:", e);
-        }
-        if (active) setData({ review, bundle, alternatives, scanId });
+        // Paint the review immediately — don't block first render on the
+        // best-effort persistence (which is a no-op in local mode anyway).
+        if (active) setData({ review, bundle, alternatives, scanId: null });
+
+        // Persist the scan + review in the background; attach the scanId when done
+        // (used by "save to log"). Never blocks the review from showing.
+        void (async () => {
+          try {
+            const scanId = await foodService.createScan(selectedPet.id, {
+              productId: bundle.id,
+              rawLabelText: raw || null,
+              imagePath: image || null,
+            });
+            await foodService.saveReview(selectedPet.id, { productId: bundle.id, scanId, review });
+            if (active && scanId) setData((d) => (d ? { ...d, scanId } : d));
+          } catch (e) {
+            console.warn("[petwell] food review save failed:", e);
+          }
+        })();
       } catch (e) {
         console.warn("[petwell] food result load failed:", e);
         if (active) setError("Something went wrong loading this review.");

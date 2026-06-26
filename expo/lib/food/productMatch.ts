@@ -40,16 +40,3 @@ export function classifyMatch(s: MatchSignals): MatchConfidence {
   if ((s.nameScore ?? 0) >= 0.6 && (s.ingredientOverlap ?? 0) >= 0.5) return "strong";
   return "weak";
 }
-
-export const MATCH_CONFIDENCE_LABEL: Record<MatchConfidence, string> = {
-  admin_confirmed: "Admin-confirmed match",
-  exact_barcode: "Exact barcode match",
-  user_confirmed: "You confirmed this match",
-  strong: "Strong name + ingredient match",
-  weak: "Weak match — please confirm",
-};
-
-/** Whether the UI should prompt the user to confirm/correct the match. */
-export function shouldPromptConfirmation(c: MatchConfidence): boolean {
-  return c === "weak" || c === "strong";
-}

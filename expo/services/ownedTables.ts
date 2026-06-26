@@ -39,5 +39,3 @@ export const OWNED_TABLES = [
   "program_logs",
   "product_recommendations",
 ] as const;
-
-export type OwnedTable = (typeof OWNED_TABLES)[number];

@@ -18,8 +18,3 @@ export function clampAge(years: number | string | undefined): number {
 export function clampWeight(lb: number | string | undefined): number {
   return Math.max(0, Math.min(MAX_WEIGHT_LB, toNumber(lb)));
 }
-
-/** A pet needs at least a non-empty name to be valid. */
-export function isValidPetName(name: string | undefined): boolean {
-  return !!name && name.trim().length > 0;
-}

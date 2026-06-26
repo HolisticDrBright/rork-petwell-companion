@@ -22,7 +22,7 @@ async function buildContext(
   if (petId) {
     try {
       const { data: pet } = await svc
-        .from("pets")
+        .from("pet_profiles")
         .select("*, pet_conditions(label), pet_allergies(label)")
         .eq("id", petId)
         .eq("owner_id", userId)
@@ -52,7 +52,7 @@ async function buildContext(
         const lines = events
           .map((e) => {
             const ev = e as Record<string, unknown>;
-            return `- ${(ev.title ?? ev.event_type ?? ev.note ?? "event") as string}`;
+            return `- ${(ev.title ?? ev.detail ?? ev.category ?? "event") as string}`;
           })
           .join("\n");
         parts.push(`Recent timeline:\n${lines}`);
@@ -126,9 +126,15 @@ Deno.serve((req) =>
     let reply = (parsed.reply ?? "").trim();
     const review = reviewOutput(reply);
     if (!review.ok) reply = refusalFor(review.flags);
-    // Deterministic banner always wins — prepend it so it can't be buried.
-    if (safety.banner && !reply.toLowerCase().includes("emergency") && !reply.includes("426-4435")) {
-      reply = `${safety.banner}\n\n${reply}`;
+    // Deterministic banner always wins — prepend it unless the reply already
+    // carries the SUBSTANTIVE safety info. For poison, that means the hotline
+    // numbers (the generic word "emergency" is not enough); for an emergency,
+    // explicit emergency/vet phrasing. Prevents the hotline from being dropped.
+    if (safety.banner && !reply.includes(safety.banner)) {
+      const hasPoisonInfo = reply.includes("426-4435") || reply.includes("764-7661");
+      const hasEmergencyInfo = /emergency (vet|clinic|care)|nearest .* (vet|hospital)/i.test(reply);
+      const covered = safety.routing === "poison_control" ? hasPoisonInfo : hasEmergencyInfo;
+      if (!covered) reply = `${safety.banner}\n\n${reply}`;
     }
     reply = withDisclaimer(reply);
 

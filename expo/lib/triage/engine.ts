@@ -110,7 +110,10 @@ export function computeUrgency(
   if (isYoung(ctx.pet) && GI_MODULES.has(module.id)) {
     urgency = maxUrgency(urgency, RED_FLAGS.youngWithGI.urgency);
     const label = `Puppy/kitten with ${module.label.toLowerCase()} — escalate sooner`;
-    if (!seen.has(label)) flags.push(label);
+    if (!seen.has(label)) {
+      seen.add(label);
+      flags.push(label);
+    }
   }
 
   urgency = maxUrgency(urgency, bandFromPoints(points));
@@ -143,12 +146,6 @@ function scoreCauses(module: ConcernModule, ctx: TriageContext): ScoredCause[] {
   return module.causes
     .map((c) => ({ id: c.id, name: c.name, note: c.note, score: scores[c.id] ?? 0 }))
     .sort((a, b) => b.score - a.score);
-}
-
-export function rankCauses(module: ConcernModule, ctx: TriageContext): RankedCause[] {
-  return scoreCauses(module, ctx)
-    .slice(0, 5)
-    .map((x, i) => ({ rank: i + 1, name: x.name, note: x.note }));
 }
 
 function computeConfidence(ctx: TriageContext, scored: ScoredCause[]): Confidence {

@@ -45,9 +45,10 @@ export default function AiAssistantScreen() {
     const message = input.trim();
     if (!message || busy) return;
     setInput("");
-    // Instant local safety pre-check so the banner shows immediately.
+    // Instant local safety pre-check so the emergency/poison banner shows
+    // immediately (during the network round-trip), before the server reply.
     const pre = aiService.assessInput(message);
-    setMessages((m) => [...m, { role: "user", text: message }]);
+    setMessages((m) => [...m, { role: "user", text: message, banner: pre.banner }]);
     setBusy(true);
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 50);
 

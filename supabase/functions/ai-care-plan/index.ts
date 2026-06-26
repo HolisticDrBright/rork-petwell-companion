@@ -17,8 +17,12 @@ Deno.serve((req) =>
     if (!plan || typeof plan !== "object") return { ok: false, error: "Missing plan." };
     const planJson = JSON.stringify(plan).slice(0, 8000);
 
-    // Did the deterministic engine flag an emergency / suppress at-home options?
-    const redFlagged = /"emergencyOverride"\s*:\s*true|"redFlags"\s*:\s*\[\s*"[^"]/i.test(planJson);
+    // Did the deterministic engine flag an emergency or a vet-first plan? The
+    // IntegrativePlan sets emergencyOverride only for the emergency tier; the
+    // vet_first tier (urgency orange/red, fired by a red flag) sets it false, so
+    // we must ALSO treat orange/red urgency as red-flagged to suppress at-home
+    // options server-side regardless of what the model returns.
+    const redFlagged = /"emergencyOverride"\s*:\s*true|"urgency(Key)?"\s*:\s*"(orange|red)"/i.test(planJson);
 
     const result = await ctx.provider.generate({
       model: MODELS.chat(),

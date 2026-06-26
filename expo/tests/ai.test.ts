@@ -181,5 +181,19 @@ ck("14 sentry sendDefaultPii is false", /sendDefaultPii:\s*false/.test(sentrySrc
 ck("14 sentry beforeSend scrubs prompt/record/pet fields", /beforeSend/.test(sentrySrc) && /prompt\|message\|content\|record/.test(sentrySrc));
 ck("14 sentry drops request + user", /delete event\.request/.test(sentrySrc) && /delete event\.user/.test(sentrySrc));
 
+// ── 15. Post-audit regression guards (real bugs found + fixed) ───────────────
+// The canonical pet table is pet_profiles, not pets. A `pets` reference breaks
+// `supabase db reset` at migration 0018 and silently drops chat pet-context.
+const mig0018 = has("../../supabase/migrations/0018_ai_layer.sql") ? read("../../supabase/migrations/0018_ai_layer.sql") : "";
+ck("15 migration 0018 references pet_profiles, not pets", /references public\.pet_profiles\(id\)/.test(mig0018) && !/references public\.pets\(/.test(mig0018));
+ck("15 ai-chat queries pet_profiles, not pets", /from\("pet_profiles"\)/.test(chatFnSrc) && !/from\("pets"\)/.test(chatFnSrc));
+// Care-plan red-flag gate must catch vet-first (orange/red), not just emergencyOverride.
+ck("15 care-plan gate catches orange/red urgency", /urgency.{0,12}(orange|red)/i.test(planFnSrc));
+// Chat poison banner must key on hotline numbers, not the generic word "emergency".
+ck("15 chat banner gate keys on hotline numbers", /426-4435/.test(chatFnSrc) && /764-7661/.test(chatFnSrc));
+// searchToxins must guard short aliases against substring-matching any query.
+const searchSrc = read("../lib/toxins/search.ts");
+ck("15 searchToxins guards short-alias substring match", /a\.length >= 3 && q\.includes\(a\)/.test(searchSrc));
+
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);

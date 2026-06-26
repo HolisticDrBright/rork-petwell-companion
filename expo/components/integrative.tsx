@@ -1,7 +1,7 @@
 import { useRouter } from "expo-router";
 import { AlertTriangle, ChevronLeft, Info, ShieldAlert, Stethoscope } from "lucide-react-native";
 import React, { memo } from "react";
-import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
@@ -84,14 +84,6 @@ export const Bullet = memo(function Bullet({ children, tone }: { children: React
   );
 });
 
-export const SectionLabel = memo(function SectionLabel({ children, style }: { children: string; style?: StyleProp<ViewStyle> }) {
-  return (
-    <View style={style}>
-      <Text style={badge.sectionLabel}>{children}</Text>
-    </View>
-  );
-});
-
 export const ScreenHeader = memo(function ScreenHeader({
   title,
   subtitle,
@@ -170,7 +162,6 @@ const badge = StyleSheet.create({
   bulletRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
   dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: Colors.teal600, marginTop: 7 },
   bulletText: { ...Fonts.body, flex: 1, lineHeight: 20, color: Colors.inkSoft },
-  sectionLabel: { ...Fonts.h3, marginTop: Space.lg, marginBottom: 6 },
   topbar: {
     flexDirection: "row",
     alignItems: "center",

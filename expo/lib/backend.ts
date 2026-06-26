@@ -228,14 +228,3 @@ export async function signOutToAnonymous(): Promise<void> {
     // ignore — UI will reflect signed-out/local state
   }
 }
-
-/** Sign out + reset (used by destructive settings actions). */
-export async function resetBackend(): Promise<void> {
-  try {
-    await supabase.auth.signOut();
-  } catch {
-    // ignore
-  }
-  applyUser(null);
-  initPromise = null;
-}
