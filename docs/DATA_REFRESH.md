@@ -47,6 +47,15 @@ row. **Requires a service-role key** (RLS blocks the anon key from writing refer
 tables). The GitHub jobs no-op if `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY`
 secrets are absent.
 
+## Demo / seed data in production
+
+`demo_seed` rows (illustrative lab/contaminant/recall seeds) are **hidden from
+production user-facing views** by the data-mode filter in `foodService.getBundles`
+(see `expo/lib/dataMode.ts`). They never raise purity and never read as verified.
+They remain visible in **dev/demo mode and the Admin → Data Source Status** panel
+(which shows demo/seed counts) so the team can clean them up. Production builds
+also never auto-seed demo pets — see `docs/PRODUCTION_SETUP.md` §1i.
+
 ## After every refresh
 
 1. Open the in-app **Admin review** screen (or query `admin_review_queue`).

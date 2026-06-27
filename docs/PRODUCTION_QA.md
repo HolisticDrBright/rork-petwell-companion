@@ -93,10 +93,22 @@ RLS under real auth, or how evidence renders with imported rows.
 - [ ] **Camera scan:** food-scan camera + library permission prompts handled; a captured label flows to Analyze.
 - [ ] **Uploads:** a document/photo uploads to the private `documents` bucket (records tab); it is not world-readable.
 
+## 11. Data mode — no mock/demo data in production
+
+- [ ] A fresh production install starts with **no pets** (the add-pet flow), NOT Buddy/Luna/Milo.
+- [ ] No pet anywhere shows the **DEMO** badge (unless you explicitly used "Try a demo profile").
+- [ ] Admin → **Data Source Status**: data mode = **Production (live data)**; Supabase **connected ✓**; Demo/seed product + lab counts are **0** (or not shown to users).
+- [ ] A food with no real lab evidence shows **"No public product-level COA found"** — never demo/illustrative lab values, and never "verified/clean/pure/safest".
+- [ ] Timeline "Today/Yesterday" headers match the **real** current date (not 2026-06-25).
+- [ ] Build a production binary with the Supabase env vars **removed** → it shows the **"Setup required"** screen, not demo/local data.
+- [ ] `EXPO_PUBLIC_USE_DEMO_SUPABASE=1` in a production build is **ignored** (still requires real config).
+- [ ] Devices screen shows the **PREVIEW** badge and "syncing isn't live" copy; marketplace shows research-preview.
+
 ## Sign-off
 
 | Area | iOS | Android | Notes |
 |---|---|---|---|
+| Data mode = production (no demo data) | ☐ | ☐ | |
 | Food search | ☐ | ☐ | |
 | Evidence badges | ☐ | ☐ | |
 | No-lab state | ☐ | ☐ | |

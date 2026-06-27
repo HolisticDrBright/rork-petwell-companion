@@ -67,6 +67,34 @@ The app handles both states. Recommendation:
 > I can run 1b directly **if you connect your production project** to this session (the MCP is currently
 > pointed at the demo project). 1a/1c–1e are dashboard-only.
 
+### 1i. Data mode & demo data — **how production avoids mock/demo data**
+
+The app resolves a single **data mode** (`expo/lib/dataMode.ts`) that governs whether any
+demo/mock/placeholder data may appear:
+
+| Mode | When | Demo pets auto-seed? | Demo rows shown? | Local fallback? | Shared demo Supabase? |
+|---|---|---|---|---|---|
+| **production** | release build, or `EXPO_PUBLIC_APP_ENV=production` | No | No | No (backend required) | No |
+| **development** | `expo start` (`__DEV__`), or `EXPO_PUBLIC_APP_ENV=development` | Yes | Yes | Yes | Only with opt-in |
+| **demo** | `EXPO_PUBLIC_APP_ENV=demo` | Yes | Yes | Yes | Only with opt-in |
+
+- **`EXPO_PUBLIC_APP_ENV`** — leave **unset** for production (a release build defaults to production).
+  Set `development` or `demo` only for internal/QA builds.
+- A **production build missing** `EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_ANON_KEY` shows a
+  **"Setup required" blocking screen** — it never silently drops to demo/local data.
+- The **shared demo Supabase** project is used only when `EXPO_PUBLIC_USE_DEMO_SUPABASE=1` **and** the build
+  is not production. In production the flag is ignored.
+- Production never auto-seeds Buddy/Luna/Milo. Users start with the add-pet flow; an explicit, clearly-labeled
+  **"Try a demo profile"** action (Settings) can seed sample pets on demand — they show a **DEMO** badge.
+
+**Verify a production build isn't using mock/demo data:**
+1. In **Admin → Data Source Status**: "App data mode" reads **Production (live data)**, "Supabase: connected ✓",
+   and **Demo / seed** product + lab counts are **0** (or hidden from user views).
+2. No pet shows a **DEMO** badge; food results with no real lab evidence say **"No public product-level COA found"**
+   (not demo/illustrative). Timeline "Today" matches the real date.
+3. Build-time guard: `bun tests/dataMode.test.ts` proves production requires a backend, never shows demo data, and
+   refuses the demo Supabase even if the opt-in flag is set.
+
 ---
 
 ## 2. Payments / In-app purchases
