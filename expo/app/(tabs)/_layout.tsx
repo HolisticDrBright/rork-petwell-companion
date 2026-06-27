@@ -1,11 +1,31 @@
 import { Tabs } from "expo-router";
 import { Activity, FileText, Home, MessageCircleQuestion, ScanLine } from "lucide-react-native";
 import React from "react";
-import { Platform } from "react-native";
+import { ActivityIndicator, Platform, View } from "react-native";
 
+import { FirstPetGate } from "@/components/FirstPetGate";
 import Colors from "@/constants/colors";
+import { usePets } from "@/providers/PetProvider";
 
 export default function TabLayout() {
+  const { isLoading, backendReady, onboarded, hasPets } = usePets();
+
+  // Hold the tab screens until the pet source has settled — they assume a
+  // selected pet, and mounting them with a null pet would crash. Once settled,
+  // a brand-new (zero-pet) onboarded user gets the first-pet flow instead of
+  // fake demo pets. Pre-onboarding renders the tabs so index can redirect to
+  // /onboarding as before.
+  if (isLoading || !backendReady) {
+    return (
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: Colors.cream }}>
+        <ActivityIndicator color={Colors.teal700} />
+      </View>
+    );
+  }
+  if (onboarded && !hasPets) {
+    return <FirstPetGate />;
+  }
+
   return (
     <Tabs
       screenOptions={{

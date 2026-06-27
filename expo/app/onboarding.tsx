@@ -35,6 +35,8 @@ const TRUST_POINTS = [
   "Built for vet collaboration",
 ];
 
+const LAST_STEP = 2;
+
 export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -42,13 +44,17 @@ export default function OnboardingScreen() {
   const [step, setStep] = useState<number>(0);
   const [goals, setGoals] = useState<string[]>(["itch", "digest"]);
 
+  // Finish onboarding and enter the app. We do NOT fabricate a pet here — a
+  // brand-new account has zero pets and lands on the first-pet gate (which routes
+  // to /add-pet). Demo pets are only ever created by the explicit "Try a demo
+  // profile" action, never automatically.
   const finish = useCallback(async () => {
     await completeOnboarding();
     router.replace("/(tabs)");
   }, [completeOnboarding, router]);
 
   const next = useCallback(() => {
-    if (step >= 3) {
+    if (step >= LAST_STEP) {
       finish();
     } else {
       setStep((s) => s + 1);
@@ -63,7 +69,7 @@ export default function OnboardingScreen() {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* Progress dots */}
       <View style={styles.dots}>
-        {[0, 1, 2, 3].map((i) => (
+        {[0, 1, 2].map((i) => (
           <View key={i} style={[styles.dot, i <= step && styles.dotActive, i === step && styles.dotCurrent]} />
         ))}
       </View>
@@ -82,25 +88,6 @@ export default function OnboardingScreen() {
       ) : null}
 
       {step === 1 ? (
-        <ScrollView contentContainerStyle={styles.stepBody} showsVerticalScrollIndicator={false}>
-          <Text style={styles.stepTitle}>Tell us about your pet</Text>
-          <Text style={styles.stepSub}>You can add more pets anytime.</Text>
-          <Field label="Name" value="Buddy" />
-          <Field label="Species" value="Dog" />
-          <Field label="Breed / mix" value="Golden Retriever" />
-          <View style={styles.fieldRow}>
-            <Field label="Age" value="5 yr" flex />
-            <Field label="Sex" value="Male" flex />
-            <Field label="Weight" value="71 lb" flex />
-          </View>
-          <View style={styles.photoPick}>
-            <PawPrint size={22} color={Colors.teal700} />
-            <Text style={styles.photoPickText}>Add a photo</Text>
-          </View>
-        </ScrollView>
-      ) : null}
-
-      {step === 2 ? (
         <ScrollView contentContainerStyle={styles.stepBody} showsVerticalScrollIndicator={false}>
           <Text style={styles.stepTitle}>What matters most right now?</Text>
           <Text style={styles.stepSub}>Pick any that apply — we&apos;ll tailor your dashboard.</Text>
@@ -127,7 +114,7 @@ export default function OnboardingScreen() {
         </ScrollView>
       ) : null}
 
-      {step === 3 ? (
+      {step === 2 ? (
         <ScrollView contentContainerStyle={styles.stepBody} showsVerticalScrollIndicator={false}>
           <View style={styles.trustIcon}>
             <ShieldCheck size={40} color={Colors.teal700} />
@@ -150,12 +137,13 @@ export default function OnboardingScreen() {
               You can export everything as a vet-ready PDF — free, forever.
             </Text>
           </View>
+          <Text style={styles.nextUp}>Next: add your first pet to personalize Petwell.</Text>
         </ScrollView>
       ) : null}
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
         <PrimaryButton
-          label={step === 0 ? "Get started" : step === 3 ? "Enter Petwell" : "Continue"}
+          label={step === 0 ? "Get started" : step === LAST_STEP ? "Add my first pet" : "Continue"}
           variant="coral"
           icon={<ArrowRight size={18} color="#fff" />}
           onPress={next}
@@ -166,15 +154,6 @@ export default function OnboardingScreen() {
           </Pressable>
         ) : null}
       </View>
-    </View>
-  );
-}
-
-function Field({ label, value, flex }: { label: string; value: string; flex?: boolean }) {
-  return (
-    <View style={[styles.field, flex && { flex: 1 }]}>
-      <Text style={styles.fieldLabel}>{label}</Text>
-      <Text style={styles.fieldValue}>{value}</Text>
     </View>
   );
 }
@@ -204,29 +183,6 @@ const styles = StyleSheet.create({
   stepBody: { paddingHorizontal: Space.md, paddingTop: Space.md, paddingBottom: 40 },
   stepTitle: { ...Fonts.title, lineHeight: 32 },
   stepSub: { ...Fonts.bodySoft, marginTop: 4 },
-  field: {
-    backgroundColor: Colors.surface,
-    borderRadius: Radius.md,
-    padding: Space.md,
-    marginTop: Space.sm,
-    ...cardShadow,
-  },
-  fieldLabel: { ...Fonts.tiny, marginBottom: 4 },
-  fieldValue: { ...Fonts.h3 },
-  fieldRow: { flexDirection: "row", gap: Space.sm },
-  photoPick: {
-    marginTop: Space.md,
-    height: 90,
-    borderRadius: Radius.md,
-    borderWidth: 2,
-    borderStyle: "dashed",
-    borderColor: Colors.teal100,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    flexDirection: "row",
-  },
-  photoPickText: { ...Fonts.h3, color: Colors.teal700 },
   goalRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -288,6 +244,7 @@ const styles = StyleSheet.create({
     marginTop: Space.xl,
   },
   exportText: { ...Fonts.small, color: Colors.teal900, flex: 1, lineHeight: 19 },
+  nextUp: { ...Fonts.small, color: Colors.inkFaint, textAlign: "center", marginTop: Space.lg, lineHeight: 18 },
   footer: { paddingHorizontal: Space.md, paddingTop: Space.sm, gap: 6 },
   skip: { alignItems: "center", paddingVertical: 12 },
   skipText: { ...Fonts.small, color: Colors.inkFaint },

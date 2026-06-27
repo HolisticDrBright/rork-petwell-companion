@@ -3,6 +3,7 @@ import { FileText, Link2, Pencil, Save } from "lucide-react-native";
 import React, { useCallback, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
+import { NoPetSelected } from "@/components/NoPetSelected";
 import { Card, Disclaimer, PrimaryButton, UrgencyBand } from "@/components/ui";
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
 import { getScanResult } from "@/constants/scans";
@@ -56,6 +57,7 @@ export default function ScanResultScreen() {
   }, [correctText, mode, type]);
 
   const saveToTimeline = useCallback(() => {
+    if (!selectedPet) return;
     addLog(selectedPet.id, {
       id: `scan-${Date.now()}`,
       petId: selectedPet.id,
@@ -74,7 +76,9 @@ export default function ScanResultScreen() {
         .catch((e) => console.warn("[petwell] scan save failed:", e));
     }
     router.replace("/(tabs)/timeline");
-  }, [addLog, selectedPet.id, todayIso, result, mode, type, notes, router]);
+  }, [addLog, selectedPet, todayIso, result, mode, type, notes, router]);
+
+  if (!selectedPet) return <NoPetSelected />;
 
   return (
     <ScrollView

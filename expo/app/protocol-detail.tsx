@@ -16,6 +16,7 @@ import React, { useMemo } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { Card, PrimaryButton } from "@/components/ui";
+import { NoPetSelected } from "@/components/NoPetSelected";
 import { AskVetFlag, Bullet, EvidenceBadge, InfoNote, SafetyCaution, ScreenHeader, VetNote } from "@/components/integrative";
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
 import { catalogById, getSystem } from "@/lib/integrative/catalog";
@@ -38,6 +39,7 @@ export default function ProtocolDetailScreen() {
   const template = id ? conditionById(id) : undefined;
 
   const { supps, foods } = useMemo(() => {
+    if (!selectedPet) return { supps: [], foods: [] };
     const items = (template?.considerItems ?? [])
       .map((cid) => catalogById(cid))
       .filter((c): c is CatalogItem => !!c);
@@ -54,6 +56,8 @@ export default function ProtocolDetailScreen() {
     () => (template ? PROGRAM_TEMPLATES.find((p) => p.conditionId === template.id) : undefined),
     [template],
   );
+
+  if (!selectedPet) return <NoPetSelected />;
 
   if (!template) {
     return (

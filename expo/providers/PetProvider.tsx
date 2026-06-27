@@ -24,6 +24,7 @@ import {
   type AuthResult,
 } from "@/lib/backend";
 import { shouldShowDemoData } from "@/lib/dataMode";
+import { resolveSelectedPet } from "@/lib/pets/select";
 import { clampAge, clampWeight } from "@/lib/petValidation";
 import { supabase } from "@/lib/supabase";
 import {
@@ -121,7 +122,13 @@ export const [PetProvider, usePets] = createContextHook(() => {
     enabled: remoteMode,
     queryFn: () => petsService.listPets(),
   });
-  const remoteReady = remoteMode && petsQuery.isSuccess && (petsQuery.data?.length ?? 0) > 0;
+
+  // Backend readiness is SEPARATE from "has at least one pet". A real remote user
+  // can legitimately have zero pets (production no longer auto-seeds demo pets),
+  // so we must not conflate the two — doing so used to flip a real account into
+  // "local" mode and crash on the missing pet. `backendReady` means "the pet
+  // source has settled" (remote list loaded, or local state loaded).
+  const backendReady = remoteMode ? petsQuery.isSuccess : stateQuery.isSuccess;
 
   const loaded = stateQuery.isSuccess;
   const persisted: PersistedState = local ?? stateQuery.data ?? DEFAULT_STATE;
@@ -140,70 +147,77 @@ export const [PetProvider, usePets] = createContextHook(() => {
     [stateQuery.data]
   );
 
-  // Remote pets when ready; otherwise the local set. Demo pets (PETS) are only
-  // included in dev/demo mode — production never shows mock pets, only the user's
-  // own (extraPets), so a misconfigured/offline production app stays empty, not fake.
+  // Remote pets in remote mode; otherwise the local set. Demo pets (PETS) are
+  // only included in dev/demo mode — production never shows mock pets, only the
+  // user's own (extraPets), so a brand-new or offline production app is genuinely
+  // empty (→ first-pet flow), not fake.
   const pets: Pet[] = useMemo(
     () =>
-      remoteReady
-        ? (petsQuery.data as Pet[])
+      remoteMode
+        ? (petsQuery.data ?? [])
         : shouldShowDemoData
           ? [...PETS, ...persisted.extraPets]
           : persisted.extraPets,
-    [remoteReady, petsQuery.data, persisted.extraPets]
+    [remoteMode, petsQuery.data, persisted.extraPets]
   );
 
-  const selectedPet: Pet = useMemo(() => {
-    const id = persisted.selectedPetId;
-    return (
-      pets.find((p) => p.id === id) ??
-      pets.find((p) => p.demoKey === id) ??
-      pets[0]
-    );
-  }, [pets, persisted.selectedPetId]);
+  const hasPets = pets.length > 0;
 
-  const petId = selectedPet.id;
-  const trendKey = selectedPet.demoKey ?? selectedPet.id;
+  // `null` when there are no pets yet — every consumer must handle that. The
+  // first-pet gate (app/(tabs)/_layout) keeps pet screens from mounting until
+  // a pet exists, but the type stays honest.
+  const selectedPet: Pet | null = useMemo(
+    () => resolveSelectedPet(pets, persisted.selectedPetId),
+    [pets, persisted.selectedPetId]
+  );
 
-  // Remote per-pet data (disabled in local mode).
+  const petId = selectedPet?.id ?? null;
+  const trendKey = selectedPet?.demoKey ?? selectedPet?.id ?? null;
+
+  // Remote per-pet data — only when remote AND a pet is selected. No pet ⇒ the
+  // queries stay disabled, so nothing fetches with a null id.
+  const petQueriesEnabled = remoteMode && !!petId;
   const careQuery = useQuery({
     queryKey: ["care", petId],
-    enabled: remoteReady && !!petId,
-    queryFn: () => petsService.getCareItems(petId),
+    enabled: petQueriesEnabled,
+    queryFn: () => petsService.getCareItems(petId as string),
   });
   const remindersQuery = useQuery({
     queryKey: ["reminders", petId],
-    enabled: remoteReady && !!petId,
-    queryFn: () => remindersService.listReminders(petId),
+    enabled: petQueriesEnabled,
+    queryFn: () => remindersService.listReminders(petId as string),
   });
   const timelineQuery = useQuery({
     queryKey: ["timeline", petId],
-    enabled: remoteReady && !!petId,
-    queryFn: () => timelineService.listEvents(petId),
+    enabled: petQueriesEnabled,
+    queryFn: () => timelineService.listEvents(petId as string),
   });
 
   const careItems: CareItem[] = useMemo(() => {
-    if (remoteReady) return careQuery.data ?? [];
+    if (remoteMode) return careQuery.data ?? [];
+    if (!selectedPet) return [];
     const base = CARE_ITEMS[selectedPet.id] ?? [];
     const override = persisted.careDone[selectedPet.id];
     return override ? base.map((c) => ({ ...c, done: override.includes(c.id) })) : base;
-  }, [remoteReady, careQuery.data, selectedPet.id, persisted.careDone]);
+  }, [remoteMode, careQuery.data, selectedPet, persisted.careDone]);
 
   const reminders: Reminder[] = useMemo(() => {
-    if (remoteReady) return remindersQuery.data ?? [];
+    if (remoteMode) return remindersQuery.data ?? [];
+    if (!selectedPet) return [];
     const base = REMINDERS[selectedPet.id] ?? [];
     return base.map((r) => {
       const override = persisted.reminderState[`${selectedPet.id}:${r.id}`];
       return override === undefined ? r : { ...r, enabled: override };
     });
-  }, [remoteReady, remindersQuery.data, selectedPet.id, persisted.reminderState]);
+  }, [remoteMode, remindersQuery.data, selectedPet, persisted.reminderState]);
 
   const timeline: TimelineEntry[] = useMemo(() => {
-    if (remoteReady) return timelineQuery.data ?? [];
+    if (remoteMode) return timelineQuery.data ?? [];
+    if (!selectedPet) return [];
     const base = TIMELINE[selectedPet.id] ?? [];
     const extra = persisted.logs[selectedPet.id] ?? [];
     return [...extra, ...base];
-  }, [remoteReady, timelineQuery.data, selectedPet.id, persisted.logs]);
+  }, [remoteMode, timelineQuery.data, selectedPet, persisted.logs]);
 
   const selectPet = useCallback(
     (id: string) => {
@@ -214,7 +228,7 @@ export const [PetProvider, usePets] = createContextHook(() => {
 
   const toggleCareItem = useCallback(
     (pid: string, itemId: string) => {
-      if (remoteReady) {
+      if (remoteMode) {
         const list = (queryClient.getQueryData(["care", pid]) as CareItem[] | undefined) ?? careItems;
         const item = list.find((c) => c.id === itemId);
         const next = !(item?.done ?? false);
@@ -237,12 +251,12 @@ export const [PetProvider, usePets] = createContextHook(() => {
         return { ...prev, careDone: { ...prev.careDone, [pid]: nextList } };
       });
     },
-    [remoteReady, queryClient, careItems, persist]
+    [remoteMode, queryClient, careItems, persist]
   );
 
   const toggleReminder = useCallback(
     (key: string, value: boolean) => {
-      if (remoteReady) {
+      if (remoteMode) {
         // key is `${petId}:${reminderId}` — target the cache by the pet in the
         // key, not the currently-selected pet.
         const [keyPid, keyReminderId] = key.includes(":") ? key.split(":") : [petId, key];
@@ -257,12 +271,12 @@ export const [PetProvider, usePets] = createContextHook(() => {
       }
       persist((prev) => ({ ...prev, reminderState: { ...prev.reminderState, [key]: value } }));
     },
-    [remoteReady, queryClient, petId, persist]
+    [remoteMode, queryClient, petId, persist]
   );
 
   const addLog = useCallback(
     (pid: string, entry: TimelineEntry) => {
-      if (remoteReady) {
+      if (remoteMode) {
         queryClient.setQueryData(["timeline", pid], (old: TimelineEntry[] = []) => [entry, ...old]);
         timelineService
           .addEvent(pid, {
@@ -281,7 +295,7 @@ export const [PetProvider, usePets] = createContextHook(() => {
       }
       persist((prev) => ({ ...prev, logs: { ...prev.logs, [pid]: [entry, ...(prev.logs[pid] ?? [])] } }));
     },
-    [remoteReady, queryClient, persist]
+    [remoteMode, queryClient, persist]
   );
 
   const addPet = useCallback(
@@ -442,20 +456,25 @@ export const [PetProvider, usePets] = createContextHook(() => {
 
   const derived = useMemo(
     () => ({
-      trends: TRENDS[trendKey] ?? defaultTrends(selectedPet.weightLb),
+      trends: (trendKey ? TRENDS[trendKey] : undefined) ?? defaultTrends(selectedPet?.weightLb ?? 0),
       smartInsight:
-        SMART_INSIGHT[trendKey] ??
+        (trendKey ? SMART_INSIGHT[trendKey] : undefined) ??
         "Keep logging meals, symptoms, and activity — Petwell will surface patterns here as data builds.",
-      insightCards: INSIGHT_CARDS[trendKey] ?? EMPTY_INSIGHTS,
-      upcoming: UPCOMING[trendKey] ?? [],
+      insightCards: (trendKey ? INSIGHT_CARDS[trendKey] : undefined) ?? EMPTY_INSIGHTS,
+      upcoming: (trendKey ? UPCOMING[trendKey] : undefined) ?? [],
     }),
-    [trendKey, selectedPet.weightLb]
+    [trendKey, selectedPet?.weightLb]
   );
 
   return useMemo(
     () => ({
       isLoading: !loaded || onboardQuery.isLoading,
-      mode: remoteReady ? ("remote" as const) : ("local" as const),
+      // `backendReady` = the pet source has settled (remote list loaded / local
+      // state loaded). Distinct from `hasPets` so the first-pet gate can tell
+      // "still loading" apart from "genuinely no pets".
+      backendReady,
+      hasPets,
+      mode: remoteMode ? ("remote" as const) : ("local" as const),
       onboarded: onboardQuery.data ?? false,
       pets,
       selectedPet,
@@ -488,7 +507,8 @@ export const [PetProvider, usePets] = createContextHook(() => {
     }),
     [
       loaded,
-      remoteReady,
+      backendReady,
+      hasPets,
       onboardQuery.isLoading,
       onboardQuery.data,
       pets,

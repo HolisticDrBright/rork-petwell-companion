@@ -4,6 +4,7 @@ import React, { useMemo } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { Card } from "@/components/ui";
+import { NoPetSelected } from "@/components/NoPetSelected";
 import { EvidenceBadge, InfoNote, ScreenHeader } from "@/components/integrative";
 import Colors, { Fonts, Space } from "@/constants/colors";
 import { programsForSpecies } from "@/lib/integrative/programs";
@@ -13,13 +14,15 @@ import { usePets } from "@/providers/PetProvider";
 export default function ProgramsScreen() {
   const router = useRouter();
   const { selectedPet } = usePets();
-  const programs = useMemo(() => programsForSpecies(selectedPet.species), [selectedPet.species]);
-  const { runs } = useProgramRuns(selectedPet.id);
+  const programs = useMemo(() => (selectedPet ? programsForSpecies(selectedPet.species) : []), [selectedPet]);
+  const { runs } = useProgramRuns(selectedPet?.id ?? "");
   const activeByTemplate = useMemo(() => {
     const m: Record<string, (typeof runs)[number]> = {};
     for (const r of runs) if (r.status !== "stopped") m[r.templateId] = r;
     return m;
   }, [runs]);
+
+  if (!selectedPet) return <NoPetSelected />;
 
   return (
     <View style={styles.container}>

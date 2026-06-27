@@ -4,6 +4,7 @@ import React, { useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { Card } from "@/components/ui";
+import { NoPetSelected } from "@/components/NoPetSelected";
 import { EvidenceBadge, InfoNote, ScreenHeader, VetNote } from "@/components/integrative";
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
 import { MEAL_PLANS, mealPlanById, selectMealPlan, type MealPlan } from "@/lib/integrative/meals";
@@ -36,20 +37,29 @@ export default function MealPlannerScreen() {
   const { selectedPet } = usePets();
   const params = useLocalSearchParams<{ condition?: string; system?: string }>();
   const initial = useMemo(
-    () => selectMealPlan(selectedPet, { conditionId: params.condition, system: params.system }).plan.id,
+    () =>
+      selectedPet
+        ? selectMealPlan(selectedPet, { conditionId: params.condition, system: params.system }).plan.id
+        : MEAL_PLANS[0].id,
     [selectedPet, params.condition, params.system],
   );
   const [planId, setPlanId] = useState<string>(initial);
   const plan: MealPlan = mealPlanById(planId) ?? MEAL_PLANS[0];
   const t = THERMAL[plan.thermalNature];
-  const catCaution = selectedPet.species === "cat" ? plan.catCaution : undefined;
 
   // Defensive safety net: never let a plan's ideas silently include a food that's
   // toxic to this species. Scans plan text against the local toxin database.
   const planToxins = useMemo(
-    () => matchToxinsInText([...plan.homemade, ...plan.commercial, plan.prep].join(" "), selectedPet.species),
-    [plan, selectedPet.species],
+    () =>
+      selectedPet
+        ? matchToxinsInText([...plan.homemade, ...plan.commercial, plan.prep].join(" "), selectedPet.species)
+        : [],
+    [plan, selectedPet],
   );
+
+  if (!selectedPet) return <NoPetSelected />;
+
+  const catCaution = selectedPet.species === "cat" ? plan.catCaution : undefined;
 
   return (
     <View style={styles.container}>

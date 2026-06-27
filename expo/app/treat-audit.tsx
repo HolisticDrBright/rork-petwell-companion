@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { Card } from "@/components/ui";
+import { NoPetSelected } from "@/components/NoPetSelected";
 import { InfoNote, ScreenHeader } from "@/components/integrative";
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
 import { auditTreat, TREAT_CATALOG, type TreatAuditResult, type Verdict } from "@/lib/integrative/treats";
@@ -115,19 +116,21 @@ export default function TreatAuditScreen() {
   const [submitted, setSubmitted] = useState<{ name: string; ingredients?: string[] } | null>(null);
 
   const result = useMemo(() => {
-    if (!submitted || !submitted.name.trim()) return null;
+    if (!selectedPet || !submitted || !submitted.name.trim()) return null;
     return auditTreat({ name: submitted.name, ingredients: submitted.ingredients }, selectedPet);
   }, [submitted, selectedPet]);
 
   // Best-effort: save each audit in remote mode (no-op locally).
   const lastSaved = useRef<string>("");
   useEffect(() => {
-    if (mode !== "remote" || !result) return;
+    if (!selectedPet || mode !== "remote" || !result) return;
     const key = `${selectedPet.id}:${result.name}:${result.verdict}`;
     if (lastSaved.current === key) return;
     lastSaved.current = key;
     integrativeService.saveTreatAudit(selectedPet.id, result).catch(() => {});
-  }, [mode, result, selectedPet.id]);
+  }, [mode, result, selectedPet]);
+
+  if (!selectedPet) return <NoPetSelected />;
 
   const runCustom = () => {
     if (!name.trim()) return;

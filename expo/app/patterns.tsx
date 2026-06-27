@@ -4,6 +4,7 @@ import React, { memo, useEffect, useMemo, useRef } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { Card, EmptyState } from "@/components/ui";
+import { NoPetSelected } from "@/components/NoPetSelected";
 import { Bullet, InfoNote, ScreenHeader } from "@/components/integrative";
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
 import {
@@ -110,16 +111,21 @@ const PatternCard = memo(function PatternCard({
 export default function PatternsScreen() {
   const router = useRouter();
   const { selectedPet, timeline, mode } = usePets();
-  const patterns = useMemo(() => detectPatterns(selectedPet, timeline), [selectedPet, timeline]);
+  const patterns = useMemo(
+    () => (selectedPet ? detectPatterns(selectedPet, timeline) : []),
+    [selectedPet, timeline],
+  );
 
   // Best-effort: snapshot detected patterns once per pet in remote mode.
   const savedRef = useRef<string | null>(null);
   useEffect(() => {
-    if (mode !== "remote" || patterns.length === 0) return;
+    if (!selectedPet || mode !== "remote" || patterns.length === 0) return;
     if (savedRef.current === selectedPet.id) return;
     savedRef.current = selectedPet.id;
     integrativeService.savePatterns(selectedPet.id, patterns).catch(() => {});
-  }, [mode, selectedPet.id, patterns]);
+  }, [mode, selectedPet, patterns]);
+
+  if (!selectedPet) return <NoPetSelected />;
 
   return (
     <View style={styles.container}>

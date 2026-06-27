@@ -4,6 +4,7 @@ import React, { useMemo } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { Card } from "@/components/ui";
+import { NoPetSelected } from "@/components/NoPetSelected";
 import { InfoNote, ScreenHeader } from "@/components/integrative";
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
 import { buildEnvironmentChecklist, environmentFirstSteps, type EnvSeverity } from "@/lib/integrative/environment";
@@ -18,8 +19,11 @@ const SEV: Record<EnvSeverity, { color: string; bg: string; label: string }> = {
 export default function EnvironmentScreen() {
   const router = useRouter();
   const { selectedPet } = usePets();
-  const plan = useMemo(() => environmentFirstSteps(selectedPet), [selectedPet]);
-  const checklist = useMemo(() => buildEnvironmentChecklist(selectedPet), [selectedPet]);
+  const checklist = useMemo(() => (selectedPet ? buildEnvironmentChecklist(selectedPet) : []), [selectedPet]);
+
+  if (!selectedPet) return <NoPetSelected />;
+
+  const plan = environmentFirstSteps(selectedPet);
 
   return (
     <View style={styles.container}>

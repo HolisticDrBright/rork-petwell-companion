@@ -5,6 +5,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { NoPetSelected } from "@/components/NoPetSelected";
 import Colors, { Fonts, Radius, Space, cardShadow } from "@/constants/colors";
 import { estimateTotal, nextQuestion, personalize } from "@/lib/triage/engine";
 import { getModule } from "@/lib/triage/modules";
@@ -37,19 +38,21 @@ export default function AskFlowScreen() {
   // on the pet id (not the object) so a background refetch can't reset it.
   useEffect(() => {
     navigatedRef.current = false;
+    if (!petRef.current) return;
     start(petRef.current, concern ?? "other");
-  }, [concern, selectedPet.id, start]);
+  }, [concern, selectedPet, start]);
 
-  const ready = storeModuleId === module.id && ctx?.pet.id === selectedPet.id;
+  const ready = storeModuleId === module.id && ctx?.pet.id === selectedPet?.id;
   const q = ready && ctx ? nextQuestion(module, ctx) : null;
 
   // When no question remains, compute + persist the result and show it.
   useEffect(() => {
+    if (!selectedPet) return;
     if (!ready || !ctx || q || navigatedRef.current) return;
     if (ctx.order.length === 0) return; // nothing answered yet
     navigatedRef.current = true;
     finish(selectedPet.id).finally(() => router.replace("/triage-result"));
-  }, [ready, ctx, q, finish, selectedPet.id, router]);
+  }, [ready, ctx, q, finish, selectedPet, router]);
 
   const onAnswer = useCallback(
     (option: AnswerOption | null) => {
@@ -65,6 +68,8 @@ export default function AskFlowScreen() {
     setWhyOpen(false);
     if (!back()) router.back();
   }, [back, router]);
+
+  if (!selectedPet) return <NoPetSelected />;
 
   const total = ready && ctx ? estimateTotal(module, ctx) : module.questions.length;
   // While a question is showing we're on order.length + 1; once it's null the

@@ -1,9 +1,10 @@
 import { Stack, useRouter } from "expo-router";
 import { Activity, Bone, Brain, Droplets, HeartPulse, Scale, Smile, Sparkles, Stethoscope } from "lucide-react-native";
-import React, { memo, useEffect, useMemo, useRef } from "react";
+import React, { memo, useEffect, useRef } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { Card } from "@/components/ui";
+import { NoPetSelected } from "@/components/NoPetSelected";
 import { InfoNote, ScreenHeader } from "@/components/integrative";
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
 import { computeHealthScore, SCORE_BAND_LABEL, type ScoreBand, type SystemSubScore } from "@/lib/health/score";
@@ -74,20 +75,22 @@ const SubScoreCard = memo(function SubScoreCard({ s }: { s: SystemSubScore }) {
 export default function HealthScoreScreen() {
   const router = useRouter();
   const { selectedPet, timeline, trends, mode } = usePets();
-  const score = useMemo(
-    () => computeHealthScore(selectedPet, timeline, trends),
-    [selectedPet, timeline, trends],
-  );
-  const color = BAND_COLOR[score.band];
 
   // Best-effort: snapshot the score once per pet in remote mode (no-op locally).
   const savedRef = useRef<string | null>(null);
   useEffect(() => {
+    if (!selectedPet) return;
     if (mode !== "remote") return;
     if (savedRef.current === selectedPet.id) return;
     savedRef.current = selectedPet.id;
-    integrativeService.saveHealthScore(selectedPet.id, score).catch(() => {});
-  }, [mode, selectedPet.id, score]);
+    const s = computeHealthScore(selectedPet, timeline, trends);
+    integrativeService.saveHealthScore(selectedPet.id, s).catch(() => {});
+  }, [mode, selectedPet, timeline, trends]);
+
+  if (!selectedPet) return <NoPetSelected />;
+
+  const score = computeHealthScore(selectedPet, timeline, trends);
+  const color = BAND_COLOR[score.band];
 
   return (
     <View style={styles.container}>

@@ -5,6 +5,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View
 
 import { useQueryClient } from "@tanstack/react-query";
 
+import { NoPetSelected } from "@/components/NoPetSelected";
 import { PetSwitcher } from "@/components/PetSwitcher";
 import { Card, PrimaryButton } from "@/components/ui";
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
@@ -25,6 +26,7 @@ export default function RemindersScreen() {
   const [extraEnabled, setExtraEnabled] = useState<Record<string, boolean>>({});
 
   const save = useCallback(async () => {
+    if (!selectedPet) return;
     const lbl = label.trim();
     if (!lbl) {
       setAddOpen(false);
@@ -59,7 +61,9 @@ export default function RemindersScreen() {
     setLabel("");
     setTime("");
     setAddOpen(false);
-  }, [label, time, mode, selectedPet.id, queryClient]);
+  }, [label, time, mode, selectedPet, queryClient]);
+
+  if (!selectedPet) return <NoPetSelected />;
 
   const extra = extraByPet[selectedPet.id] ?? [];
   const all: { reminder: Reminder; local: boolean }[] = [

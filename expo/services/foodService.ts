@@ -5,6 +5,7 @@ import { buildAliasMap } from "@/lib/food/normalize";
 import { parseLabelText } from "@/lib/food/ocr";
 import { shouldShowDemoData } from "@/lib/dataMode";
 import { isStale } from "@/lib/food/provenance";
+import { excludeDemoProducts } from "@/lib/food/productVisibility";
 import type {
   EvidenceSource,
   FoodReview,
@@ -53,14 +54,22 @@ interface BundleFilter {
   limit?: number;
 }
 
+/** Client-side matching caps. The catalog is small today; these are defensive
+ *  ceilings, not page sizes. See {@link foodService.getCatalogItems} for the
+ *  scaling path once the catalog outgrows them. Override per call via opts. */
+const CATALOG_PRODUCT_CAP = 2000;
+const CATALOG_INGREDIENT_CAP = 20000;
+
 export const foodService = {
   /** Manual fallback product search by name (used when no barcode/label match). */
   async searchProducts(query?: string): Promise<FoodProductSummary[]> {
-    let q = supabase
-      .from("food_products")
-      .select("id, name, product_type, species, calorie_density, life_stage, food_brands(name)")
-      .order("name", { ascending: true })
-      .limit(50);
+    let q = excludeDemoProducts(
+      supabase
+        .from("food_products")
+        .select("id, name, product_type, species, calorie_density, life_stage, food_brands(name)")
+        .order("name", { ascending: true })
+        .limit(50),
+    );
     if (query && query.trim()) q = q.ilike("name", `%${query.trim()}%`);
     const { data, error } = await q;
     if (error) throw error;
@@ -93,14 +102,43 @@ export const foodService = {
     return { canonicalNames, aliasMap };
   },
 
-  /** Lightweight catalog (id, name, barcode, ingredient names) for matching.
-   * Capped defensively — if the catalog ever approaches this, move barcode/name
-   * matching server-side (RPC) instead of fetching the catalog to match in JS. */
-  async getCatalogItems(): Promise<CatalogItem[]> {
-    const [{ data: products }, { data: links }] = await Promise.all([
-      supabase.from("food_products").select("id, name, species, product_type, barcode, food_brands(name)").limit(2000),
-      supabase.from("food_product_ingredients").select("product_id, food_ingredients(name)").limit(20000),
-    ]);
+  /**
+   * Lightweight catalog (id, name, barcode, ingredient names) for label/name
+   * matching. Demo/seed products are excluded in production.
+   *
+   * Scaling: candidates are narrowed *before* fetching ingredient links — by
+   * species when known, then capped — and links are fetched only for the
+   * candidate ids (`.in(...)`) rather than blindly pulling the whole join table.
+   * That keeps the JS-side match cheap as the catalog grows.
+   *
+   * TODO(scale): when the catalog outgrows {@link CATALOG_PRODUCT_CAP}, replace
+   * the in-JS match with a Postgres RPC: `match_food_products(name_hint, tokens,
+   * species, barcode)` doing barcode exact-match + trigram/ILIKE name match +
+   * token overlap server-side (indexes: `food_products(barcode)`,
+   * `gin (name gin_trgm_ops)`, `food_product_ingredients(product_id)`), returning
+   * only the top-N candidates with their ingredient names. Callers already pass a
+   * `species`/`nameHint`, so the signature is forward-compatible.
+   */
+  async getCatalogItems(
+    opts: { species?: "dog" | "cat"; limit?: number } = {},
+  ): Promise<CatalogItem[]> {
+    let pq = excludeDemoProducts(
+      supabase.from("food_products").select("id, name, species, product_type, barcode, food_brands(name)"),
+    );
+    if (opts.species) pq = pq.in("species", [opts.species, "both"]);
+    pq = pq.limit(opts.limit ?? CATALOG_PRODUCT_CAP);
+    const { data: products } = await pq;
+
+    const ids = (products ?? []).map((p) => p.id);
+    // Fetch ingredient links only for the candidate products — not the whole table.
+    const { data: links } = ids.length
+      ? await supabase
+          .from("food_product_ingredients")
+          .select("product_id, food_ingredients(name)")
+          .in("product_id", ids)
+          .limit(CATALOG_INGREDIENT_CAP)
+      : { data: [] as { product_id: string; food_ingredients: unknown }[] };
+
     const byProduct = new Map<string, string[]>();
     for (const l of links ?? []) {
       const name = one(l.food_ingredients as { name: string } | { name: string }[] | null)?.name;
@@ -120,15 +158,18 @@ export const foodService = {
     }));
   },
 
-  /** Assemble full ProductBundle(s) in a constant number of batched queries. */
+  /** Assemble full ProductBundle(s) in a constant number of batched queries.
+   *  Demo/seed products are excluded in production (admin/dev see them). */
   async getBundles(filter: BundleFilter): Promise<ProductBundle[]> {
-    let pq = supabase
-      .from("food_products")
-      .select(
-        `id, name, product_type, species, form, calorie_density, barcode, life_stage, aafco_statement, brand_id,
+    let pq = excludeDemoProducts(
+      supabase
+        .from("food_products")
+        .select(
+          `id, name, product_type, species, form, calorie_density, barcode, life_stage, aafco_statement, brand_id,
          food_brands ( id, name, manufacturer_quality_profiles ( owns_facilities, recall_count, transparency_score, notes ) ),
          nutrition_profiles ( protein_pct, fat_pct, fiber_pct, moisture_pct, kcal_per_100g )`
-      );
+        ),
+    );
     if (filter.ids) pq = pq.in("id", filter.ids);
     if (filter.species) pq = pq.in("species", [filter.species, "both"]);
     if (filter.productType) pq = pq.eq("product_type", filter.productType);
@@ -375,11 +416,9 @@ export const foodService = {
     };
     if (!code) return empty;
 
-    const { data: hit } = await supabase
-      .from("food_products")
-      .select("id, name, food_brands(name)")
-      .eq("barcode", code)
-      .maybeSingle();
+    const { data: hit } = await excludeDemoProducts(
+      supabase.from("food_products").select("id, name, food_brands(name)").eq("barcode", code),
+    ).maybeSingle();
     if (hit) {
       return {
         productId: hit.id,

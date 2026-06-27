@@ -84,16 +84,24 @@ demo/mock/placeholder data may appear:
   **"Setup required" blocking screen** — it never silently drops to demo/local data.
 - The **shared demo Supabase** project is used only when `EXPO_PUBLIC_USE_DEMO_SUPABASE=1` **and** the build
   is not production. In production the flag is ignored.
-- Production never auto-seeds Buddy/Luna/Milo. Users start with the add-pet flow; an explicit, clearly-labeled
-  **"Try a demo profile"** action (Settings) can seed sample pets on demand — they show a **DEMO** badge.
+- Production never auto-seeds Buddy/Luna/Milo. A brand-new user has **zero pets** and lands on the first-pet
+  empty state (`components/FirstPetGate`) → `/add-pet`. Onboarding creates **no** pets (no fake "Buddy"); it
+  only collects goals and hands off to add-pet. The provider keeps backend-readiness separate from "has ≥1 pet"
+  and treats `selectedPet` as nullable, so a zero-pet account never crashes or falls back to demo data.
+- An explicit, clearly-labeled **"Try a demo profile"** action (Settings, and the first-pet gate) can seed sample
+  pets on demand — they carry a `demo_key` and show a **DEMO** badge wherever they're listed or selected.
+- **Demo/seed food products** (the fictional 0006/0010 "(sample)" catalog) are marked `evidence_status =
+  'demo_seed'` by migration `0019` and hidden from production search / label match / bundles / barcode /
+  alternatives via `excludeDemoProducts()` (`expo/lib/food/productVisibility.ts`). Dev/admin still see them.
 
 **Verify a production build isn't using mock/demo data:**
 1. In **Admin → Data Source Status**: "App data mode" reads **Production (live data)**, "Supabase: connected ✓",
    and **Demo / seed** product + lab counts are **0** (or hidden from user views).
 2. No pet shows a **DEMO** badge; food results with no real lab evidence say **"No public product-level COA found"**
    (not demo/illustrative). Timeline "Today" matches the real date.
-3. Build-time guard: `bun tests/dataMode.test.ts` proves production requires a backend, never shows demo data, and
-   refuses the demo Supabase even if the opt-in flag is set.
+3. Build-time guards: `bun tests/dataMode.test.ts` proves production requires a backend, never shows demo data, and
+   refuses the demo Supabase even if the opt-in flag is set. `bun tests/petEmptyState.test.ts` proves a zero-pet
+   account doesn't crash, production never auto-seeds demo pets, and production food queries exclude `demo_seed`.
 
 ---
 

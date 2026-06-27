@@ -5,6 +5,7 @@ import { Camera, ImagePlus, Lightbulb, Target, Upload } from "lucide-react-nativ
 import React, { useCallback, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
+import { NoPetSelected } from "@/components/NoPetSelected";
 import { PrimaryButton } from "@/components/ui";
 import Colors, { Fonts, Radius, Space, cardShadow } from "@/constants/colors";
 import { SCAN_CATEGORIES } from "@/constants/scans";
@@ -43,6 +44,8 @@ export default function ScanFlowScreen() {
   const analyze = useCallback(() => {
     router.replace({ pathname: "/scan-result", params: { type: type ?? "poop", notes } });
   }, [router, type, notes]);
+
+  if (!selectedPet) return <NoPetSelected />;
 
   return (
     <ScrollView

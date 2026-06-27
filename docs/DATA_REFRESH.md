@@ -49,12 +49,26 @@ secrets are absent.
 
 ## Demo / seed data in production
 
-`demo_seed` rows (illustrative lab/contaminant/recall seeds) are **hidden from
-production user-facing views** by the data-mode filter in `foodService.getBundles`
-(see `expo/lib/dataMode.ts`). They never raise purity and never read as verified.
-They remain visible in **dev/demo mode and the Admin → Data Source Status** panel
-(which shows demo/seed counts) so the team can clean them up. Production builds
-also never auto-seed demo pets — see `docs/PRODUCTION_SETUP.md` §1i.
+The early seed migrations (`0006`, `0010`) inserted **fictional "(sample)"
+brands, products, lab rows and recalls** to demo the food UI. Migration `0019`
+backfills `evidence_status = 'demo_seed'` onto all of them (idempotent; guarded by
+`evidence_status IS NULL` so it never touches real imports or graded rows).
+
+In **production user-facing surfaces** these are hidden two ways:
+
+- **Demo/seed products** are excluded from search, catalog/label matching,
+  bundles, barcode lookup, and alternatives by `excludeDemoProducts()`
+  (`expo/lib/food/productVisibility.ts`). The filter is null-safe — it drops only
+  `demo_seed`, keeping real `null`/`open_database`/etc. rows.
+- **Demo lab / contaminant / recall / source rows** are filtered in
+  `foodService.getBundles` (keyed on `is_demo` / `demo_seed`). They never raise
+  purity and never read as verified.
+
+Both stay visible in **dev/demo mode and the Admin → Data Source Status** panel
+(which shows demo/seed vs. real counts) so the team can audit and clean them up.
+Production builds also never auto-seed demo pets, and a brand-new production user
+starts with the add-a-pet flow — see `docs/PRODUCTION_SETUP.md` §1i and
+`supabase/README.md`.
 
 ## After every refresh
 

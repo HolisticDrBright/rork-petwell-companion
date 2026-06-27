@@ -18,6 +18,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { BarChart, LineChart } from "@/components/Charts";
+import { NoPetSelected } from "@/components/NoPetSelected";
 import { PetSwitcher } from "@/components/PetSwitcher";
 import { HealthScoreChip, PatternsPreview } from "@/components/longevitySurfaces";
 import { Card, EmptyState } from "@/components/ui";
@@ -117,11 +118,10 @@ export default function TimelineScreen() {
   const { selectedPet, timeline, insightCards, trends } = usePets();
   const [filter, setFilter] = useState<LogCategory | "all">("all");
 
-  const healthScore = useMemo(
-    () => computeHealthScore(selectedPet, timeline, trends),
-    [selectedPet, timeline, trends],
+  const patterns = useMemo(
+    () => (selectedPet ? detectPatterns(selectedPet, timeline) : []),
+    [selectedPet, timeline],
   );
-  const patterns = useMemo(() => detectPatterns(selectedPet, timeline), [selectedPet, timeline]);
 
   const filtered = useMemo(
     () => (filter === "all" ? timeline : timeline.filter((e) => e.category === filter)),
@@ -152,6 +152,9 @@ export default function TimelineScreen() {
     () => Math.round((trends.itching[trends.itching.length - 1] - trends.itching[0]) * 10) / 10,
     [trends.itching]
   );
+
+  if (!selectedPet) return <NoPetSelected />;
+  const healthScore = computeHealthScore(selectedPet, timeline, trends);
 
   return (
     <ScrollView

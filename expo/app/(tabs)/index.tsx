@@ -32,6 +32,7 @@ import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-n
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { MiniTrend } from "@/components/Charts";
+import { NoPetSelected } from "@/components/NoPetSelected";
 import { PetSwitcher } from "@/components/PetSwitcher";
 import { HealthScoreBadge, PatternsPreview } from "@/components/longevitySurfaces";
 import { Card, EmptyState, SectionTitle } from "@/components/ui";
@@ -128,11 +129,10 @@ export default function TodayScreen() {
     usePets();
   const [fabOpen, setFabOpen] = useState<boolean>(false);
 
-  const healthScore = useMemo(
-    () => computeHealthScore(selectedPet, timeline, trends),
-    [selectedPet, timeline, trends],
+  const patterns = useMemo(
+    () => (selectedPet ? detectPatterns(selectedPet, timeline) : []),
+    [selectedPet, timeline],
   );
-  const patterns = useMemo(() => detectPatterns(selectedPet, timeline), [selectedPet, timeline]);
 
   useEffect(() => {
     if (!isLoading && !onboarded) {
@@ -144,10 +144,11 @@ export default function TodayScreen() {
 
   const onToggle = useCallback(
     (id: string) => {
+      if (!selectedPet) return;
       if (Platform.OS !== "web") Haptics.selectionAsync();
       toggleCareItem(selectedPet.id, id);
     },
-    [selectedPet.id, toggleCareItem]
+    [selectedPet, toggleCareItem]
   );
 
   const fabAction = useCallback(
@@ -157,6 +158,9 @@ export default function TodayScreen() {
     },
     [router]
   );
+
+  if (!selectedPet) return <NoPetSelected />;
+  const healthScore = computeHealthScore(selectedPet, timeline, trends);
 
   return (
     <View style={styles.container}>

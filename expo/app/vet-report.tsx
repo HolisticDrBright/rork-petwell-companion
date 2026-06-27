@@ -5,6 +5,7 @@ import React, { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { EmergencyContacts } from "@/components/EmergencyContacts";
+import { NoPetSelected } from "@/components/NoPetSelected";
 import { AiDisclaimer, AiDisabledNote, AiSparkleButton } from "@/components/ai/AiBits";
 import { Card, Disclaimer, PrimaryButton } from "@/components/ui";
 import type { VetReportRewrite } from "@/lib/ai/types";
@@ -61,6 +62,7 @@ export default function VetReportScreen() {
   const [aiNote, setAiNote] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!selectedPet) return;
     let active = true;
     getActiveProgramRuns(selectedPet.id)
       .then((runs) => {
@@ -70,10 +72,10 @@ export default function VetReportScreen() {
     return () => {
       active = false;
     };
-  }, [selectedPet.id]);
+  }, [selectedPet]);
 
   const suppsUsed = useMemo(() => supplementsInUse(timeline), [timeline]);
-  const patterns = useMemo(() => detectPatterns(selectedPet, timeline), [selectedPet, timeline]);
+  const patterns = useMemo(() => (selectedPet ? detectPatterns(selectedPet, timeline) : []), [selectedPet, timeline]);
 
   // In-session triage (local mode / freshly run) from the store.
   const tOutcome = useTriage((s) => s.outcome);
@@ -83,7 +85,7 @@ export default function VetReportScreen() {
   const tCtx = useTriage((s) => s.ctx);
 
   const storeTriage = useMemo<CompileInput["triage"]>(() => {
-    if (!tOutcome || tPetId !== selectedPet.id || !tModule || !tCtx) return null;
+    if (!selectedPet || !tOutcome || tPetId !== selectedPet.id || !tModule || !tCtx) return null;
     const answers = tCtx.order
       .map((qid) => {
         const q = getQuestion(tModule, qid);
@@ -100,9 +102,10 @@ export default function VetReportScreen() {
       summary: tOutcome.summary,
       answers,
     };
-  }, [tOutcome, tPetId, selectedPet.id, tModule, tCtx, tLabel]);
+  }, [tOutcome, tPetId, selectedPet, tModule, tCtx, tLabel]);
 
   useEffect(() => {
+    if (!selectedPet) return;
     let active = true;
     (async () => {
       const base: Omit<CompileInput, "triage" | "scans" | "medications"> = {
@@ -160,7 +163,7 @@ export default function VetReportScreen() {
   }, [selectedPet, timeline, mode, storeTriage]);
 
   const saveSnapshot = useCallback(() => {
-    if (!data) return;
+    if (!data || !selectedPet) return;
     setSaved(true);
     if (mode === "remote") {
       reportService
@@ -171,7 +174,7 @@ export default function VetReportScreen() {
         })
         .catch((e) => console.warn("[petwell] report save failed:", e));
     }
-  }, [data, mode, selectedPet.id]);
+  }, [data, mode, selectedPet]);
 
   const onExportPdf = useCallback(async () => {
     if (!data) return;
@@ -217,6 +220,8 @@ export default function VetReportScreen() {
     if (!res.ok || !res.data) return setAiNote(res.error ?? "Couldn't generate a summary. Please try again.");
     setAiRewrite(res.data);
   }, [data]);
+
+  if (!selectedPet) return <NoPetSelected />;
 
   if (!data) {
     return (

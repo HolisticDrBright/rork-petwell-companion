@@ -42,3 +42,6 @@ jobs:
 
       - name: Data-mode gating tests
         run: bun tests/dataMode.test.ts
+
+      - name: Empty-pet + demo-provenance tests
+        run: bun tests/petEmptyState.test.ts

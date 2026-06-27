@@ -4,6 +4,7 @@ import React, { useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { Card } from "@/components/ui";
+import { NoPetSelected } from "@/components/NoPetSelected";
 import { EvidenceBadge, InfoNote, ScreenHeader } from "@/components/integrative";
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
 import {
@@ -18,7 +19,9 @@ import { usePets } from "@/providers/PetProvider";
 export default function MarketplaceScreen() {
   const { selectedPet } = usePets();
   const [category, setCategory] = useState<ProductCategory>("food");
-  const ranked = useMemo(() => rankProducts(category, selectedPet), [category, selectedPet]);
+  const ranked = useMemo(() => (selectedPet ? rankProducts(category, selectedPet) : []), [category, selectedPet]);
+
+  if (!selectedPet) return <NoPetSelected />;
 
   return (
     <View style={styles.container}>

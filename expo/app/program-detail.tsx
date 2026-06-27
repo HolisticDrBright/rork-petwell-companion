@@ -4,6 +4,7 @@ import React, { useMemo } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { Card, PrimaryButton } from "@/components/ui";
+import { NoPetSelected } from "@/components/NoPetSelected";
 import { Bullet, EvidenceBadge, InfoNote, SafetyCaution, ScreenHeader } from "@/components/integrative";
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
 import { programById } from "@/lib/integrative/programs";
@@ -15,12 +16,14 @@ export default function ProgramDetailScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const { selectedPet } = usePets();
   const template = id ? programById(id) : undefined;
-  const { runs, start, logDay, stop } = useProgramRuns(selectedPet.id);
+  const { runs, start, logDay, stop } = useProgramRuns(selectedPet?.id ?? "");
 
   const run = useMemo(
     () => runs.find((r) => r.templateId === id && r.status !== "stopped") ?? null,
     [runs, id],
   );
+
+  if (!selectedPet) return <NoPetSelected />;
 
   if (!template) {
     return (

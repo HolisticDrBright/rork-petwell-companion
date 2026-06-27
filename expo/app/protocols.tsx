@@ -4,6 +4,7 @@ import React, { useMemo } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { Card } from "@/components/ui";
+import { NoPetSelected } from "@/components/NoPetSelected";
 import { EvidenceBadge, InfoNote, ScreenHeader } from "@/components/integrative";
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
 import { CONDITION_TEMPLATES, PROTOCOL_ORDER } from "@/lib/integrative/conditions";
@@ -20,6 +21,8 @@ export default function ProtocolsScreen() {
       ),
     [],
   );
+
+  if (!selectedPet) return <NoPetSelected />;
 
   return (
     <View style={styles.container}>

@@ -15,6 +15,7 @@ import React, { memo, useCallback } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { NoPetSelected } from "@/components/NoPetSelected";
 import { PetSwitcher } from "@/components/PetSwitcher";
 import Colors, { Fonts, Radius, Space, cardShadow } from "@/constants/colors";
 import { SCAN_CATEGORIES } from "@/constants/scans";
@@ -71,6 +72,8 @@ export default function ScanScreen() {
     },
     [router]
   );
+
+  if (!selectedPet) return <NoPetSelected />;
 
   return (
     <ScrollView

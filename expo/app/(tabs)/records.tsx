@@ -24,6 +24,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { NoPetSelected } from "@/components/NoPetSelected";
 import { PetSwitcher } from "@/components/PetSwitcher";
 import { Card, PrimaryButton } from "@/components/ui";
 import Colors, { Fonts, Radius, Space, cardShadow } from "@/constants/colors";
@@ -117,9 +118,9 @@ export default function RecordsScreen() {
   const { selectedPet, mode } = usePets();
 
   const recordsQuery = useQuery({
-    queryKey: ["records", selectedPet.id],
-    enabled: mode === "remote",
-    queryFn: () => recordsService.listRecords(selectedPet.id),
+    queryKey: ["records", selectedPet?.id],
+    enabled: mode === "remote" && !!selectedPet,
+    queryFn: () => recordsService.listRecords(selectedPet!.id),
   });
 
   // Local additions (instant feedback; also persisted in remote mode).
@@ -141,8 +142,9 @@ export default function RecordsScreen() {
     // In remote mode show the user's real records only (never the demo set).
     if (mode === "remote") return recordsQuery.data ?? {};
     // Local mode: demo records only in dev/demo mode, never in production.
+    if (!selectedPet) return {};
     return shouldShowDemoData ? RECORDS[selectedPet.demoKey ?? selectedPet.id] ?? {} : {};
-  }, [mode, recordsQuery.data, selectedPet.demoKey, selectedPet.id]);
+  }, [mode, recordsQuery.data, selectedPet]);
 
   const sections = useMemo(() => {
     const merged: Record<string, RecordItem[]> = {};
@@ -152,6 +154,7 @@ export default function RecordsScreen() {
   }, [baseSections, localAdds]);
 
   const saveRecord = useCallback(async () => {
+    if (!selectedPet) return;
     const title = addTitle.trim();
     const category = addCategory;
     if (!title || !category) {
@@ -173,9 +176,10 @@ export default function RecordsScreen() {
     } else {
       setLocalAdds((prev) => ({ ...prev, [category]: [...(prev[category] ?? []), item] }));
     }
-  }, [addTitle, addCategory, mode, selectedPet.id, queryClient]);
+  }, [addTitle, addCategory, mode, selectedPet, queryClient]);
 
   const uploadDoc = useCallback(async () => {
+    if (!selectedPet) return;
     try {
       const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 0.7 });
       if (res.canceled || !res.assets[0]) return;
@@ -202,12 +206,12 @@ export default function RecordsScreen() {
     } finally {
       setBusy(false);
     }
-  }, [mode, selectedPet.id]);
+  }, [mode, selectedPet]);
 
   // Optional AI: summarize the just-uploaded document into structured fields.
   // The result is needs_review and saved only after the user confirms.
   const summarizeDoc = useCallback(async () => {
-    if (!lastDoc) return;
+    if (!lastDoc || !selectedPet) return;
     setAiBusy(true);
     setAiNote(null);
     setAiSummary(null);
@@ -218,10 +222,10 @@ export default function RecordsScreen() {
     if (!res.ok || !res.data) return setAiNote(res.error ?? "Couldn't summarize this document. Please try again.");
     setAiSummary(res.data);
     setAiBanner(res.safety?.banner ?? null);
-  }, [lastDoc, selectedPet.id]);
+  }, [lastDoc, selectedPet]);
 
   const saveSummary = useCallback(async () => {
-    if (!aiSummary || !lastDoc) return;
+    if (!aiSummary || !lastDoc || !selectedPet) return;
     const subtitle = aiSummary.summaryForOwner.slice(0, 140);
     setLocalAdds((prev) => ({
       ...prev,
@@ -238,7 +242,9 @@ export default function RecordsScreen() {
     setStatus("AI summary saved to records (marked for your review).");
     setAiSummary(null);
     setLastDoc(null);
-  }, [aiSummary, lastDoc, mode, selectedPet.id]);
+  }, [aiSummary, lastDoc, mode, selectedPet]);
+
+  if (!selectedPet) return <NoPetSelected />;
 
   return (
     <ScrollView

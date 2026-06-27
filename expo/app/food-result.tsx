@@ -15,7 +15,7 @@ import {
   Upload,
   X,
 } from "lucide-react-native";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -23,6 +23,7 @@ import { Card, Disclaimer, PrimaryButton } from "@/components/ui";
 import Colors, { Fonts, Radius, Space, softShadow } from "@/constants/colors";
 import { PHOTO_LIMITATION } from "@/lib/food/evidence";
 import { AiExplainCard } from "@/components/ai/AiExplainCard";
+import { NoPetSelected } from "@/components/NoPetSelected";
 import { EVIDENCE_COPY, evidenceBasis } from "@/lib/food/provenance";
 import { buildReview, type AlternativeItem } from "@/lib/food/engine";
 import type { FoodReview, PetContext, ProductBundle, Severity } from "@/lib/food/types";
@@ -135,19 +136,16 @@ export default function FoodResultScreen() {
     }
   }, [raw, productId, source, reviewSubmitted]);
 
-  const petContext: PetContext = useMemo(
-    () => ({
+  useEffect(() => {
+    if (!selectedPet) return;
+    const petContext: PetContext = {
       name: selectedPet.name,
       species: selectedPet.species,
       ageYears: selectedPet.ageYears,
       allergies: selectedPet.allergies,
       conditions: selectedPet.conditions,
       calorieConcern: /weight|obes|over/i.test(selectedPet.conditions.join(" ")),
-    }),
-    [selectedPet]
-  );
-
-  useEffect(() => {
+    };
     let active = true;
     // Clear the previous product's review while the new one loads (tapping an
     // alternative re-runs this effect with a new productId).
@@ -201,14 +199,14 @@ export default function FoodResultScreen() {
     // Re-run when the product changes (tapping an alternative) or the active pet
     // changes, so the review + persisted scan always belong to the current pet.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [productId, selectedPet.id]);
+  }, [productId, selectedPet]);
 
   const recUrgency = useCallback((rec: FoodReview["recommendation"]) => {
     return rec === "good_fit" ? ("green" as const) : rec === "use_caution" ? ("amber" as const) : ("red" as const);
   }, []);
 
   const saveToLog = useCallback(() => {
-    if (!data) return;
+    if (!data || !selectedPet) return;
     const { review, bundle, scanId } = data;
     addLog(selectedPet.id, {
       id: `food-${Date.now()}`,
@@ -230,7 +228,7 @@ export default function FoodResultScreen() {
         .catch((e) => console.warn("[petwell] food log failed:", e));
     }
     setSaved(true);
-  }, [data, addLog, selectedPet.id, todayIso, mode, recUrgency]);
+  }, [data, addLog, selectedPet, todayIso, mode, recUrgency]);
 
   const correctMatch = useCallback(() => {
     if (data && mode === "remote") {
@@ -246,6 +244,17 @@ export default function FoodResultScreen() {
     }
     router.replace({ pathname: "/food-scan", params: { mode: "search" } });
   }, [data, mode, router]);
+
+  if (!selectedPet) return <NoPetSelected />;
+
+  const petContext: PetContext = {
+    name: selectedPet.name,
+    species: selectedPet.species,
+    ageYears: selectedPet.ageYears,
+    allergies: selectedPet.allergies,
+    conditions: selectedPet.conditions,
+    calorieConcern: /weight|obes|over/i.test(selectedPet.conditions.join(" ")),
+  };
 
   if (error) {
     return (

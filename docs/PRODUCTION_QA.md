@@ -8,7 +8,7 @@ RLS under real auth, or how evidence renders with imported rows.
 
 ## Prerequisites
 
-- [ ] Supabase project created; all migrations in `supabase/migrations/` applied (through `0018` — the AI layer).
+- [ ] Supabase project created; all migrations in `supabase/migrations/` applied (through `0019` — demo-seed provenance backfill).
 - [ ] `expo/.env` (or EAS secrets) has `EXPO_PUBLIC_SUPABASE_URL` + `EXPO_PUBLIC_SUPABASE_ANON_KEY`.
 - [ ] Evidence imported: `data/food-evidence/import_food_evidence.sql` run (or the importers with a service-role key).
 - [ ] One account promoted to admin: `update public.profiles set is_admin = true where id = '<uid>';`
@@ -18,6 +18,11 @@ RLS under real auth, or how evidence renders with imported rows.
 ## 1. Food search
 
 - [ ] Search a known brand by name → results return from Supabase (not only demo seeds).
+- [ ] **Demo/seed products are NOT in results.** The fictional "(sample)" brands
+      (Meadow & Main, Harvest Hound, Prairie Provisions, Budget Bites, …) and their
+      products/barcodes never appear in production search, label match, bundles,
+      barcode lookup, or alternatives. (They are `evidence_status = 'demo_seed'`
+      after migration `0019`; visible only in dev/admin.)
 - [ ] Scan a real barcode present in the catalog → resolves to the right product.
 - [ ] Scan a barcode **not** in the catalog → Open Pet Food Facts fallback runs; the result is labeled open-database / pending review (never "verified").
 - [ ] No-result search shows a clear empty state, not a spinner or crash.

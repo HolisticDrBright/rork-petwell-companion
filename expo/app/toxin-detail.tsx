@@ -4,6 +4,7 @@ import React, { useCallback, useMemo, useState } from "react";
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { EmergencyContacts } from "@/components/EmergencyContacts";
+import { NoPetSelected } from "@/components/NoPetSelected";
 import { Card, Disclaimer, PrimaryButton } from "@/components/ui";
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
 import { NOT_FOUND_NOT_SAFE } from "@/lib/toxins/contacts";
@@ -43,9 +44,13 @@ export default function ToxinDetailScreen() {
   const [saved, setSaved] = useState<boolean>(false);
 
   const toxin = useMemo(() => (slug ? getToxinBySlug(slug) : undefined), [slug]);
-  const action = useMemo(() => (toxin ? buildEmergencyAction(toxin, selectedPet.species) : null), [toxin, selectedPet.species]);
+  const action = useMemo(
+    () => (toxin && selectedPet ? buildEmergencyAction(toxin, selectedPet.species) : null),
+    [toxin, selectedPet],
+  );
 
   const onSaveToTimeline = useCallback(() => {
+    if (!selectedPet) return;
     if (!toxin || !action) return;
     addLog(selectedPet.id, {
       id: `toxin-${Date.now()}`,
@@ -58,7 +63,9 @@ export default function ToxinDetailScreen() {
       urgency: urgencyForSeverity(action.severity),
     });
     setSaved(true);
-  }, [toxin, action, addLog, selectedPet.id, todayIso]);
+  }, [toxin, action, addLog, selectedPet, todayIso]);
+
+  if (!selectedPet) return <NoPetSelected />;
 
   // Spec error handling: never a blank/broken screen — keep the hotline card.
   if (!toxin || !action) {

@@ -23,6 +23,7 @@ import {
   type TextStyle,
 } from "react-native";
 
+import { NoPetSelected } from "@/components/NoPetSelected";
 import { PrimaryButton } from "@/components/ui";
 import Colors, { Fonts, Radius, Space, cardShadow } from "@/constants/colors";
 import { RECORDS } from "@/constants/mockData";
@@ -81,7 +82,7 @@ export default function LogScreen() {
   const [portion, setPortion] = useState<string>("");
   const [stool, setStool] = useState<number>(4);
   const [itch, setItch] = useState<number>(4);
-  const [weight, setWeight] = useState<string>(String(selectedPet.weightLb));
+  const [weight, setWeight] = useState<string>(selectedPet ? String(selectedPet.weightLb) : "");
   const [minutes, setMinutes] = useState<string>("");
   const [actType, setActType] = useState<string>("Walk");
   const [med, setMed] = useState<string>("");
@@ -92,10 +93,10 @@ export default function LogScreen() {
   // dev/demo mode so production never surfaces sample medications.
   const medSuggestions = useMemo(
     () =>
-      shouldShowDemoData
+      shouldShowDemoData && selectedPet
         ? (RECORDS[selectedPet.demoKey ?? selectedPet.id]?.Medications ?? []).map((m) => m.title)
         : [],
-    [selectedPet.id, selectedPet.demoKey]
+    [selectedPet]
   );
 
   const active = KINDS.find((k) => k.id === kind)!;
@@ -117,7 +118,8 @@ export default function LogScreen() {
     }
   }, [kind, food, weight, minutes, med, symptom]);
 
-  const buildEntry = useCallback((): TimelineEntry => {
+  const buildEntry = useCallback((): TimelineEntry | undefined => {
+    if (!selectedPet) return undefined;
     const base = {
       id: `log-${Date.now()}`,
       petId: selectedPet.id,
@@ -183,7 +185,7 @@ export default function LogScreen() {
     }
   }, [
     kind,
-    selectedPet.id,
+    selectedPet,
     todayIso,
     notes,
     meal,
@@ -199,11 +201,15 @@ export default function LogScreen() {
   ]);
 
   const save = useCallback(() => {
-    if (!valid) return;
+    if (!valid || !selectedPet) return;
+    const entry = buildEntry();
+    if (!entry) return;
     if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    addLog(selectedPet.id, buildEntry());
+    addLog(selectedPet.id, entry);
     router.replace("/(tabs)/timeline");
-  }, [valid, addLog, selectedPet.id, buildEntry, router]);
+  }, [valid, addLog, selectedPet, buildEntry, router]);
+
+  if (!selectedPet) return <NoPetSelected />;
 
   return (
     <ScrollView

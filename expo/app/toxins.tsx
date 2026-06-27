@@ -5,6 +5,7 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-
 
 import { Card, Disclaimer } from "@/components/ui";
 import { EmergencyContacts } from "@/components/EmergencyContacts";
+import { NoPetSelected } from "@/components/NoPetSelected";
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
 import { NO_TREATMENT_NOTE, NOT_FOUND_NOT_SAFE } from "@/lib/toxins/contacts";
 import { SEVERITY_LABEL, severityRank } from "@/lib/toxins/safety";
@@ -43,7 +44,7 @@ export default function ToxinsScreen() {
   const router = useRouter();
   const { selectedPet } = usePets();
   const [query, setQuery] = useState<string>("");
-  const [species, setSpecies] = useState<SpeciesFilter>(selectedPet.species);
+  const [species, setSpecies] = useState<SpeciesFilter>(selectedPet?.species ?? "all");
   const [category, setCategory] = useState<ToxinCategory | null>(null);
 
   const results = useMemo(() => {
@@ -53,6 +54,8 @@ export default function ToxinsScreen() {
         severityRank(cardSeverity(b, species)) - severityRank(cardSeverity(a, species)) || a.name.localeCompare(b.name),
     );
   }, [query, species, category]);
+
+  if (!selectedPet) return <NoPetSelected />;
 
   const trimmed = query.trim();
 

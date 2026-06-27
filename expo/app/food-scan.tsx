@@ -15,6 +15,7 @@ import {
 } from "react-native";
 
 import { AiDisabledNote, AiSparkleButton } from "@/components/ai/AiBits";
+import { NoPetSelected } from "@/components/NoPetSelected";
 import { Card, PrimaryButton } from "@/components/ui";
 import Colors, { Fonts, Radius, Space, cardShadow } from "@/constants/colors";
 import { extractLabelText, runLabelPipeline } from "@/lib/food/labelPipeline";
@@ -223,6 +224,8 @@ export default function FoodScanScreen() {
       setBusy(false);
     }
   }, [labelText, nameHint, mode, openResult]);
+
+  if (!selectedPet) return <NoPetSelected />;
 
   return (
     <ScrollView

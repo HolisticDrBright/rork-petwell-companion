@@ -26,6 +26,9 @@ export const PetSwitcher = memo(function PetSwitcher({
 }) {
   const { selectedPet, pets, selectPet } = usePets();
   const [open, setOpen] = useState<boolean>(false);
+  // Inline header control — render nothing when there is no pet (the first-pet
+  // gate handles that case at the screen level).
+  if (!selectedPet) return null;
   const status = STATUS_STYLE[selectedPet.status];
 
   return (
@@ -81,7 +84,14 @@ export const PetSwitcher = memo(function PetSwitcher({
                 >
                   <Image source={{ uri: p.photo }} style={styles.rowAvatar} contentFit="cover" />
                   <View style={{ flex: 1 }}>
-                    <Text style={Fonts.h3}>{p.name}</Text>
+                    <View style={styles.nameRow}>
+                      <Text style={Fonts.h3}>{p.name}</Text>
+                      {p.demoKey ? (
+                        <View style={styles.demoPill}>
+                          <Text style={styles.demoText}>DEMO</Text>
+                        </View>
+                      ) : null}
+                    </View>
                     <Text style={Fonts.small}>{speciesAge(p)}</Text>
                   </View>
                   <View style={[styles.statusPill, { backgroundColor: ps.bg }]}>

@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { EmergencyContacts } from "@/components/EmergencyContacts";
 import { AiExplainCard } from "@/components/ai/AiExplainCard";
 import { IntegrativePlanView } from "@/components/IntegrativePlan";
+import { NoPetSelected } from "@/components/NoPetSelected";
 import { Card, Disclaimer, PrimaryButton } from "@/components/ui";
 import Colors, { Fonts, Radius, Space, Urgency, softShadow } from "@/constants/colors";
 import { TRIAGE_TO_SYSTEM } from "@/lib/integrative/catalog";
@@ -53,7 +54,7 @@ export default function TriageResultScreen() {
   // Generate the integrative support plan from the triage outcome. Red flags /
   // emergency urgency cause the engine to suppress all natural recommendations.
   const plan = useMemo(() => {
-    if (!outcome) return null;
+    if (!outcome || !selectedPet) return null;
     const system = (tModule && TRIAGE_TO_SYSTEM[tModule.id]) || "immune";
     return buildPlan({
       system,
@@ -77,13 +78,13 @@ export default function TriageResultScreen() {
 
   // Persist the generated plan (best-effort; no-op in local mode).
   useEffect(() => {
-    if (!plan || mode !== "remote" || savedPlanRef.current) return;
+    if (!plan || mode !== "remote" || savedPlanRef.current || !selectedPet) return;
     savedPlanRef.current = true;
     integrativeService.savePlan(selectedPet.id, { plan }).catch((e) => console.warn("[petwell] plan save failed:", e));
-  }, [plan, mode, selectedPet.id]);
+  }, [plan, mode, selectedPet]);
 
   const addToTimeline = useCallback(() => {
-    if (!outcome) return;
+    if (!outcome || !selectedPet) return;
     addLog(selectedPet.id, {
       id: `triage-${Date.now()}`,
       petId: selectedPet.id,
@@ -95,8 +96,9 @@ export default function TriageResultScreen() {
       urgency: outcome.urgency,
     });
     setAddedTimeline(true);
-  }, [outcome, addLog, selectedPet.id, todayIso, concernLabel]);
+  }, [outcome, addLog, selectedPet, todayIso, concernLabel]);
 
+  if (!selectedPet) return <NoPetSelected />;
   if (!outcome) return null;
 
   const u = Urgency[outcome.urgency];
