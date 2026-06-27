@@ -26,6 +26,7 @@ import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Switch, 
 import { Card } from "@/components/ui";
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
 import { isCurrentUserAdmin } from "@/lib/backend";
+import { config } from "@/lib/config";
 import { AI_DATA_NOTICE, DEFAULT_AI_PREFS, getAiPreferences, setAiPreferences, type AiPreferences } from "@/lib/ai/config";
 import { exportJson } from "@/lib/report/export";
 import { usePets } from "@/providers/PetProvider";
@@ -354,7 +355,7 @@ export default function SettingsScreen() {
         <Text style={styles.groupTitle}>Pets & care</Text>
         <Card style={{ gap: 0 }}>
           <ActionRow icon={PawPrint} label="Manage pets" onPress={() => router.push("/add-pet")} />
-          {canUseAuth ? (
+          {canUseAuth && config.demoModeEnabled ? (
             <>
               <View style={styles.divider} />
               <ActionRow icon={Sparkles} label="Try a demo profile (sample pets)" onPress={onTryDemo} />
@@ -374,7 +375,7 @@ export default function SettingsScreen() {
           <ActionRow
             icon={Mail}
             label="Contact us"
-            onPress={() => Linking.openURL("mailto:support@petwell.app?subject=Petwell%20support").catch(() => {})}
+            onPress={() => Linking.openURL(`mailto:${config.supportEmail}?subject=Petwell%20support`).catch(() => {})}
           />
           <View style={styles.divider} />
           <ActionRow icon={Sparkles} label="Talk to a vet" onPress={() => router.push("/telehealth")} />

@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { PrimaryButton } from "@/components/ui";
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
+import { config } from "@/lib/config";
 import { usePets } from "@/providers/PetProvider";
 
 /**
@@ -50,7 +51,7 @@ export function FirstPetGate() {
           icon={<Plus size={18} color="#fff" />}
           onPress={() => router.push("/add-pet")}
         />
-        {canUseAuth ? (
+        {canUseAuth && config.demoModeEnabled ? (
           <Pressable
             onPress={onTryDemo}
             disabled={busy}

@@ -1,3 +1,4 @@
+import { config } from "./config";
 import { supabase, isSupabaseConfigured } from "./supabase";
 
 /**
@@ -87,7 +88,9 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
 }
 
 async function doInit(): Promise<{ mode: BackendMode; userId: string | null }> {
-  if (!isSupabaseConfigured) return { mode: "local", userId: null };
+  // `useApi` is always true in production; only non-production may opt out
+  // (offline dev/testing) via EXPO_PUBLIC_USE_API=false.
+  if (!isSupabaseConfigured || !config.useApi) return { mode: "local", userId: null };
   ensureAuthListener();
 
   const { data: sessionData } = await supabase.auth.getSession();

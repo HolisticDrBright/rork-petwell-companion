@@ -7,6 +7,7 @@ import { NoPetSelected } from "@/components/NoPetSelected";
 import { Card, Disclaimer, PrimaryButton, UrgencyBand } from "@/components/ui";
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
 import { getScanResult } from "@/constants/scans";
+import { config } from "@/lib/config";
 import { usePets } from "@/providers/PetProvider";
 import { scanService } from "@/services";
 
@@ -38,6 +39,10 @@ export default function ScanResultScreen() {
   const { selectedPet, addLog, todayIso, mode } = usePets();
   const result = useMemo(() => getScanResult(type ?? "poop"), [type]);
   const isLabel = type === "food" || type === "treat";
+  // Photo "scoring" of symptom pictures is illustrative only. In production
+  // (mockScanEnabled = false) we never present fabricated scores/findings — we
+  // save the photo and route to the real adaptive triage instead.
+  const mockScan = config.mockScanEnabled;
 
   const [correctOpen, setCorrectOpen] = useState<boolean>(false);
   const [correctText, setCorrectText] = useState<string>("");
@@ -64,10 +69,10 @@ export default function ScanResultScreen() {
       date: todayIso,
       time: nowLabel(),
       category: "scan",
-      title: `${result.title} saved`,
-      detail: result.score ? `${result.scoreLabel}: ${result.score}` : undefined,
+      title: mockScan ? `${result.title} saved` : "Photo saved to timeline",
+      detail: mockScan && result.score ? `${result.scoreLabel}: ${result.score}` : undefined,
       value: undefined,
-      urgency: result.urgency,
+      urgency: mockScan ? result.urgency : undefined,
     });
     // Persist the full scan record (best-effort; ignored in local mode).
     if (mode === "remote") {
@@ -76,7 +81,7 @@ export default function ScanResultScreen() {
         .catch((e) => console.warn("[petwell] scan save failed:", e));
     }
     router.replace("/(tabs)/timeline");
-  }, [addLog, selectedPet, todayIso, result, mode, type, notes, router]);
+  }, [addLog, selectedPet, todayIso, result, mode, type, notes, router, mockScan]);
 
   if (!selectedPet) return <NoPetSelected />;
 
@@ -90,11 +95,11 @@ export default function ScanResultScreen() {
 
       <View style={styles.headerRow}>
         <View style={{ flex: 1 }}>
-          <Text style={Fonts.tiny}>ANALYSIS COMPLETE</Text>
+          <Text style={Fonts.tiny}>{mockScan ? "ANALYSIS COMPLETE" : "PHOTO SAVED · PREVIEW"}</Text>
           <Text style={styles.title}>{result.title}</Text>
           <Text style={Fonts.bodySoft}>For {selectedPet.name}</Text>
         </View>
-        {result.score ? (
+        {mockScan && result.score ? (
           <View style={styles.scoreBadge}>
             <Text style={styles.scoreValue}>{result.score}</Text>
             <Text style={styles.scoreLabel}>{result.scoreLabel}</Text>
@@ -102,43 +107,64 @@ export default function ScanResultScreen() {
         ) : null}
       </View>
 
-      <View style={{ marginVertical: Space.md }}>
-        <UrgencyBand level={result.urgency} />
-      </View>
+      {mockScan ? (
+        <>
+          <View style={{ marginVertical: Space.md }}>
+            <UrgencyBand level={result.urgency} />
+          </View>
 
-      {/* Observed fields */}
-      <Card style={{ gap: 0 }}>
-        {result.fields.map((f, i) => (
-          <View key={f.label}>
-            {i > 0 ? <View style={styles.divider} /> : null}
-            <View style={styles.fieldRow}>
-              <Text style={styles.fieldLabel}>{f.label}</Text>
-              <View style={[styles.fieldPill, { backgroundColor: TONE_BG[f.tone] }]}>
-                <Text style={[styles.fieldValue, { color: TONE_COLOR[f.tone] }]}>{f.value}</Text>
+          {/* Observed fields */}
+          <Card style={{ gap: 0 }}>
+            {result.fields.map((f, i) => (
+              <View key={f.label}>
+                {i > 0 ? <View style={styles.divider} /> : null}
+                <View style={styles.fieldRow}>
+                  <Text style={styles.fieldLabel}>{f.label}</Text>
+                  <View style={[styles.fieldPill, { backgroundColor: TONE_BG[f.tone] }]}>
+                    <Text style={[styles.fieldValue, { color: TONE_COLOR[f.tone] }]}>{f.value}</Text>
+                  </View>
+                </View>
               </View>
+            ))}
+          </Card>
+
+          {/* Observed patterns */}
+          <Text style={styles.sectionTitle}>{isLabel ? "Ingredient flags" : "Observed patterns"}</Text>
+          <Card style={{ gap: 12, marginTop: 8 }}>
+            {result.patterns.map((p, i) => (
+              <View key={i} style={styles.bulletRow}>
+                <View style={styles.dot} />
+                <Text style={styles.bulletText}>{p}</Text>
+              </View>
+            ))}
+          </Card>
+
+          {/* Correlation / recommendation */}
+          {result.correlation ? (
+            <View style={styles.correlation}>
+              <Link2 size={17} color={Colors.teal700} />
+              <Text style={styles.correlationText}>{result.correlation}</Text>
             </View>
-          </View>
-        ))}
-      </Card>
-
-      {/* Observed patterns */}
-      <Text style={styles.sectionTitle}>{isLabel ? "Ingredient flags" : "Observed patterns"}</Text>
-      <Card style={{ gap: 12, marginTop: 8 }}>
-        {result.patterns.map((p, i) => (
-          <View key={i} style={styles.bulletRow}>
-            <View style={styles.dot} />
-            <Text style={styles.bulletText}>{p}</Text>
-          </View>
-        ))}
-      </Card>
-
-      {/* Correlation / recommendation */}
-      {result.correlation ? (
-        <View style={styles.correlation}>
-          <Link2 size={17} color={Colors.teal700} />
-          <Text style={styles.correlationText}>{result.correlation}</Text>
+          ) : null}
+        </>
+      ) : (
+        <View style={styles.previewBanner}>
+          <Text style={styles.previewTitle}>Photo scoring isn&apos;t live yet</Text>
+          <Text style={styles.previewBody}>
+            We saved your photo, but Petwell won&apos;t invent a score or finding from it. For symptom
+            guidance, start the guided check — it asks adaptive questions and routes urgent cases to a
+            vet. You can keep the photo on the timeline and share it with your vet.
+          </Text>
+          <Pressable
+            onPress={() => router.push("/ask")}
+            accessibilityRole="button"
+            accessibilityLabel="Start guided symptom check"
+            style={({ pressed }) => [styles.previewCta, pressed && { opacity: 0.85 }]}
+          >
+            <Text style={styles.previewCtaText}>Start guided check</Text>
+          </Pressable>
         </View>
-      ) : null}
+      )}
 
       {/* Your notes */}
       {notes ? (
@@ -149,7 +175,7 @@ export default function ScanResultScreen() {
       ) : null}
 
       {/* Follow-up questions */}
-      <Text style={styles.sectionTitle}>Suggested follow-up</Text>
+      <Text style={styles.sectionTitle}>{mockScan ? "Suggested follow-up" : "Questions to consider"}</Text>
       <Card style={{ gap: 12, marginTop: 8 }}>
         {result.followUps.map((q, i) => (
           <View key={i} style={styles.bulletRow}>
@@ -219,6 +245,24 @@ export default function ScanResultScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.cream, paddingTop: Space.xl },
   headerRow: { flexDirection: "row", alignItems: "flex-start", gap: Space.md },
+  previewBanner: {
+    backgroundColor: Colors.amber100,
+    borderRadius: Radius.lg,
+    padding: Space.md,
+    marginVertical: Space.md,
+    gap: 8,
+  },
+  previewTitle: { ...Fonts.h3, color: Colors.amber600 },
+  previewBody: { ...Fonts.small, color: Colors.ink, lineHeight: 19 },
+  previewCta: {
+    alignSelf: "flex-start",
+    marginTop: 4,
+    backgroundColor: Colors.teal700,
+    borderRadius: Radius.pill,
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+  },
+  previewCtaText: { ...Fonts.h3, fontSize: 14, color: "#fff" },
   title: { ...Fonts.title, marginVertical: 2 },
   scoreBadge: {
     backgroundColor: Colors.teal800,
