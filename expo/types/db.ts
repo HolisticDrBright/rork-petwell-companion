@@ -3279,7 +3279,24 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      match_food_products: {
+        Args: {
+          name_hint?: string | null
+          species_filter?: string | null
+          barcode_in?: string | null
+          include_demo?: boolean
+          max_candidates?: number
+        }
+        Returns: {
+          id: string
+          name: string
+          brand: string | null
+          barcode: string | null
+          species: string
+          product_type: string
+          ingredient_names: string[]
+        }[]
+      }
     }
     Enums: {
       evidence_status:

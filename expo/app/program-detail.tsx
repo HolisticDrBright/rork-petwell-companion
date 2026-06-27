@@ -16,7 +16,7 @@ export default function ProgramDetailScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const { selectedPet } = usePets();
   const template = id ? programById(id) : undefined;
-  const { runs, start, logDay, stop } = useProgramRuns(selectedPet?.id ?? "");
+  const { runs, start, logDay, stop } = useProgramRuns(selectedPet?.id);
 
   const run = useMemo(
     () => runs.find((r) => r.templateId === id && r.status !== "stopped") ?? null,

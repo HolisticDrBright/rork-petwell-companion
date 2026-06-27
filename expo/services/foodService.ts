@@ -158,6 +158,51 @@ export const foodService = {
     }));
   },
 
+  /**
+   * Candidate products for label/barcode matching, narrowed server-side.
+   *
+   * Tries the `match_food_products` RPC (migration 0020) — barcode exact-match +
+   * trigram-indexed name ILIKE, species-narrowed, demo-aware — so the client
+   * fetches only the products worth scoring instead of the whole catalog. The
+   * existing in-JS `matchByText` then scores these candidates unchanged.
+   *
+   * Falls back to {@link getCatalogItems} if the RPC isn't deployed or errors, so
+   * matching keeps working with or without 0020. Returns `CatalogItem[]`.
+   */
+  async getMatchCandidates(opts: {
+    nameHint?: string | null;
+    barcode?: string | null;
+    species?: "dog" | "cat";
+    limit?: number;
+  }): Promise<CatalogItem[]> {
+    try {
+      const { data, error } = await supabase.rpc("match_food_products", {
+        name_hint: opts.nameHint?.trim() || null,
+        species_filter: opts.species ?? null,
+        barcode_in: opts.barcode?.trim() || null,
+        include_demo: shouldShowDemoData,
+        max_candidates: opts.limit ?? 60,
+      });
+      if (error) throw error;
+      if (data && data.length > 0) {
+        return data.map((r) => ({
+          id: r.id,
+          name: r.name,
+          brand: r.brand,
+          barcode: r.barcode,
+          species: r.species as CatalogItem["species"],
+          productType: r.product_type,
+          ingredientNames: r.ingredient_names ?? [],
+        }));
+      }
+      // RPC reachable but no candidates → fall back to the catalog so the
+      // ingredient-based matcher still gets a chance (and demo filtering applies).
+    } catch (e) {
+      console.warn("[petwell] match RPC unavailable, using client catalog:", e);
+    }
+    return foodService.getCatalogItems({ species: opts.species, limit: opts.limit });
+  },
+
   /** Assemble full ProductBundle(s) in a constant number of batched queries.
    *  Demo/seed products are excluded in production (admin/dev see them). */
   async getBundles(filter: BundleFilter): Promise<ProductBundle[]> {
@@ -438,7 +483,10 @@ export const foodService = {
     let brand = opff.brand;
     let suggestions: { id: string; name: string; brand: string | null }[] = [];
     if (opff.ingredientsText) {
-      const [idx, items] = await Promise.all([foodService.getIngredientIndex(), foodService.getCatalogItems()]);
+      const [idx, items] = await Promise.all([
+        foodService.getIngredientIndex(),
+        foodService.getMatchCandidates({ nameHint: opff.name }),
+      ]);
       const parsed = parseLabelText(`Ingredients: ${opff.ingredientsText}`);
       const m = matchByText(parsed, items, {
         nameHint: opff.name ?? "",
@@ -457,7 +505,10 @@ export const foodService = {
 
   /** Match a pasted/scanned label to the catalog. */
   async matchLabel(rawText: string, nameHint?: string): Promise<BarcodeLookupResult> {
-    const [idx, items] = await Promise.all([foodService.getIngredientIndex(), foodService.getCatalogItems()]);
+    const [idx, items] = await Promise.all([
+      foodService.getIngredientIndex(),
+      foodService.getMatchCandidates({ nameHint: nameHint ?? "" }),
+    ]);
     const parsed = parseLabelText(rawText);
     const m = matchByText(parsed, items, { nameHint: nameHint ?? "", canonicalNames: idx.canonicalNames, aliasMap: idx.aliasMap });
     return {

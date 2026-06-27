@@ -54,11 +54,16 @@ function withProgress(run: ProgramRun): ProgramRunView | null {
   return { ...run, progress };
 }
 
-export function useProgramRuns(petId: string) {
+export function useProgramRuns(petId: string | null | undefined) {
   const [runs, setRuns] = useState<ProgramRunView[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
   const refresh = useCallback(async () => {
+    if (!petId) {
+      setRuns([]);
+      setLoading(false);
+      return;
+    }
     const all = await loadAll();
     const views = all
       .filter((r) => r.petId === petId)
@@ -72,6 +77,11 @@ export function useProgramRuns(petId: string) {
   useEffect(() => {
     let active = true;
     (async () => {
+      if (!petId) {
+        setRuns([]);
+        setLoading(false);
+        return;
+      }
       const all = await loadAll();
       if (!active) return;
       const views = all
@@ -89,6 +99,7 @@ export function useProgramRuns(petId: string) {
 
   const start = useCallback(
     async (templateId: string): Promise<string | null> => {
+      if (!petId) return null;
       const template = programById(templateId);
       if (!template) return null;
       const all = await loadAll();

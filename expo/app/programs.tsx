@@ -15,7 +15,7 @@ export default function ProgramsScreen() {
   const router = useRouter();
   const { selectedPet } = usePets();
   const programs = useMemo(() => (selectedPet ? programsForSpecies(selectedPet.species) : []), [selectedPet]);
-  const { runs } = useProgramRuns(selectedPet?.id ?? "");
+  const { runs } = useProgramRuns(selectedPet?.id);
   const activeByTemplate = useMemo(() => {
     const m: Record<string, (typeof runs)[number]> = {};
     for (const r of runs) if (r.status !== "stopped") m[r.templateId] = r;
