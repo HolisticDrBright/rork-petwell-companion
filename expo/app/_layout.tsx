@@ -5,8 +5,10 @@ import { StatusBar } from "expo-status-bar";
 import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
+import { BackendRequired } from "@/components/BackendRequired";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Colors from "@/constants/colors";
+import { isBackendRequiredButMissing } from "@/lib/supabaseConfig";
 import { initSentry } from "@/lib/sentry";
 import { PetProvider } from "@/providers/PetProvider";
 import { SubscriptionProvider } from "@/providers/SubscriptionProvider";
@@ -72,6 +74,17 @@ export default function RootLayout() {
   useEffect(() => {
     SplashScreen.hideAsync();
   }, []);
+
+  // Production builds must not silently fall back to demo/local data when the
+  // backend isn't configured — show a clear blocking state instead.
+  if (isBackendRequiredButMissing) {
+    return (
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <StatusBar style="dark" />
+        <BackendRequired />
+      </GestureHandlerRootView>
+    );
+  }
 
   return (
     <ErrorBoundary>

@@ -23,6 +23,7 @@ import {
   signUpWithEmail,
   type AuthResult,
 } from "@/lib/backend";
+import { shouldShowDemoData } from "@/lib/dataMode";
 import { clampAge, clampWeight } from "@/lib/petValidation";
 import { supabase } from "@/lib/supabase";
 import {
@@ -101,7 +102,9 @@ export const [PetProvider, usePets] = createContextHook(() => {
     staleTime: Infinity,
     queryFn: async () => {
       const res = await initBackend();
-      if (res.mode === "remote") {
+      // Auto-seed demo pets ONLY in dev/demo mode. Production users start with the
+      // add-pet flow (or the explicit "Try demo profile" action in Settings).
+      if (res.mode === "remote" && shouldShowDemoData) {
         try {
           await petsService.ensureDemoData();
         } catch (e) {
@@ -137,8 +140,16 @@ export const [PetProvider, usePets] = createContextHook(() => {
     [stateQuery.data]
   );
 
+  // Remote pets when ready; otherwise the local set. Demo pets (PETS) are only
+  // included in dev/demo mode — production never shows mock pets, only the user's
+  // own (extraPets), so a misconfigured/offline production app stays empty, not fake.
   const pets: Pet[] = useMemo(
-    () => (remoteReady ? (petsQuery.data as Pet[]) : [...PETS, ...persisted.extraPets]),
+    () =>
+      remoteReady
+        ? (petsQuery.data as Pet[])
+        : shouldShowDemoData
+          ? [...PETS, ...persisted.extraPets]
+          : persisted.extraPets,
     [remoteReady, petsQuery.data, persisted.extraPets]
   );
 
@@ -312,6 +323,21 @@ export const [PetProvider, usePets] = createContextHook(() => {
     [remoteMode, queryClient, persist]
   );
 
+  // Explicit "Try demo profile" — seeds Buddy/Luna/Milo on demand (after a user
+  // action) even in production, so the app can be tried without real data. The
+  // seeded pets carry demo_key and are labeled DEMO in the UI.
+  const loadDemoProfile = useCallback(async (): Promise<boolean> => {
+    if (!remoteMode) return false;
+    try {
+      await petsService.ensureDemoData();
+      await queryClient.invalidateQueries({ queryKey: ["pets"] });
+      return true;
+    } catch (e) {
+      console.warn("[petwell] load demo profile failed:", e);
+      return false;
+    }
+  }, [remoteMode, queryClient]);
+
   // ── Auth (email + password) ──
   const [authInfo, setAuthInfo] = useState<{ email: string | null; isAnonymous: boolean }>({
     email: null,
@@ -435,12 +461,15 @@ export const [PetProvider, usePets] = createContextHook(() => {
       selectedPet,
       selectPet,
       addPet,
+      loadDemoProfile,
       careItems,
       toggleCareItem,
       reminders,
       toggleReminder,
       addLog,
-      todayIso: TODAY_ISO,
+      // Real "today" in production; the fixed demo date only in dev/demo mode so
+      // sample data lines up. Never ship 2026-06-25 as "today" to real users.
+      todayIso: shouldShowDemoData ? TODAY_ISO : new Date().toISOString().slice(0, 10),
       premium: persisted.premium,
       setPremium,
       completeOnboarding,
@@ -466,6 +495,7 @@ export const [PetProvider, usePets] = createContextHook(() => {
       selectedPet,
       selectPet,
       addPet,
+      loadDemoProfile,
       careItems,
       toggleCareItem,
       reminders,

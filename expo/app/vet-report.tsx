@@ -11,6 +11,7 @@ import type { VetReportRewrite } from "@/lib/ai/types";
 import { aiService } from "@/services/aiService";
 import Colors, { Fonts, Radius, Space, Urgency } from "@/constants/colors";
 import { RECORDS } from "@/constants/mockData";
+import { shouldShowDemoData } from "@/lib/dataMode";
 import { compileReport, type CompileInput } from "@/lib/report/compile";
 import { exportReportPdf, shareReport } from "@/lib/report/export";
 import { buildReportHtml, buildReportText } from "@/lib/report/html";
@@ -138,7 +139,7 @@ export default function VetReportScreen() {
           medications: (g?.medications ?? []).map((m) => ({ name: m.name, purpose: m.purpose, status: m.status })),
         };
       } else {
-        const localMeds = (RECORDS[selectedPet.demoKey ?? selectedPet.id]?.["Medications"] ?? []).map((r) => ({
+        const localMeds = (shouldShowDemoData ? RECORDS[selectedPet.demoKey ?? selectedPet.id]?.["Medications"] ?? [] : []).map((r) => ({
           name: r.title,
           purpose: r.subtitle,
         }));

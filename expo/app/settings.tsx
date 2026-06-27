@@ -48,7 +48,7 @@ const PERMISSIONS: Toggle[] = [
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const { selectedPet, timeline, mode, authEmail, isAuthenticated, canUseAuth } = usePets();
+  const { selectedPet, timeline, mode, authEmail, isAuthenticated, canUseAuth, loadDemoProfile } = usePets();
   const { isPro, isSupported, manageSubscription, restore } = useSubscription();
 
   const [prefs, setPrefs] = useState<PrivacyPrefs>(DEFAULT_PRIVACY);
@@ -115,6 +115,14 @@ export default function SettingsScreen() {
     },
     [],
   );
+
+  const onTryDemo = useCallback(async () => {
+    setBusy(true);
+    setStatus(null);
+    const ok = await loadDemoProfile();
+    setBusy(false);
+    setStatus(ok ? "Demo profile loaded — sample pets added (labeled DEMO)." : "Couldn't load a demo profile right now.");
+  }, [loadDemoProfile]);
 
   const onDeleteAiHistory = useCallback(async () => {
     setBusy(true);
@@ -346,6 +354,12 @@ export default function SettingsScreen() {
         <Text style={styles.groupTitle}>Pets & care</Text>
         <Card style={{ gap: 0 }}>
           <ActionRow icon={PawPrint} label="Manage pets" onPress={() => router.push("/add-pet")} />
+          {canUseAuth ? (
+            <>
+              <View style={styles.divider} />
+              <ActionRow icon={Sparkles} label="Try a demo profile (sample pets)" onPress={onTryDemo} />
+            </>
+          ) : null}
           <View style={styles.divider} />
           <ActionRow icon={Bell} label="Reminders" onPress={() => router.push("/reminders")} />
           <View style={styles.divider} />

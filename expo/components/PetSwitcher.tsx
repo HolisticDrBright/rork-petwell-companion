@@ -40,6 +40,11 @@ export const PetSwitcher = memo(function PetSwitcher({
             <Text style={[styles.name, light && { color: "#fff" }]} numberOfLines={1}>
               {selectedPet.name}
             </Text>
+            {selectedPet.demoKey ? (
+              <View style={styles.demoPill}>
+                <Text style={styles.demoText}>DEMO</Text>
+              </View>
+            ) : null}
             <View style={[styles.statusPill, { backgroundColor: status.bg }]}>
               <Text style={[styles.statusText, { color: status.color }]}>
                 {selectedPet.statusNote}
@@ -114,6 +119,8 @@ const styles = StyleSheet.create({
   avatar: { width: 46, height: 46, borderRadius: 23, backgroundColor: Colors.cream2 },
   switcherInfo: { flex: 1 },
   nameRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  demoPill: { backgroundColor: Colors.amber100, borderRadius: Radius.pill, paddingHorizontal: 7, paddingVertical: 2 },
+  demoText: { ...Fonts.tiny, color: Colors.amber600, fontSize: 9, letterSpacing: 0.5 },
   name: { ...Fonts.h2 },
   sub: { ...Fonts.small, marginTop: 1 },
   statusPill: { paddingHorizontal: 9, paddingVertical: 3, borderRadius: Radius.pill },

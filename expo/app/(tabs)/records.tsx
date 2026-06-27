@@ -32,6 +32,7 @@ import { usePets } from "@/providers/PetProvider";
 import { recordsService } from "@/services";
 import { aiService } from "@/services/aiService";
 import { AiDisclaimer, AiDisabledNote, AiSafetyBanner, AiSparkleButton } from "@/components/ai/AiBits";
+import { shouldShowDemoData } from "@/lib/dataMode";
 import type { RecordSummary } from "@/lib/ai/types";
 import type { RecordItem } from "@/types/pet";
 
@@ -139,7 +140,8 @@ export default function RecordsScreen() {
   const baseSections = useMemo(() => {
     // In remote mode show the user's real records only (never the demo set).
     if (mode === "remote") return recordsQuery.data ?? {};
-    return RECORDS[selectedPet.demoKey ?? selectedPet.id] ?? {};
+    // Local mode: demo records only in dev/demo mode, never in production.
+    return shouldShowDemoData ? RECORDS[selectedPet.demoKey ?? selectedPet.id] ?? {} : {};
   }, [mode, recordsQuery.data, selectedPet.demoKey, selectedPet.id]);
 
   const sections = useMemo(() => {

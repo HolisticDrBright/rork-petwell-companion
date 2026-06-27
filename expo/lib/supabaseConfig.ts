@@ -15,12 +15,15 @@
  *   EXPO_PUBLIC_USE_DEMO_SUPABASE  set to "1" to use the shared demo project (dev only)
  */
 
+import { dataMode } from "./dataMode";
+
 const ENV_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const ENV_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
-// Shared demo project — used ONLY when a developer explicitly opts in. Never the
-// default, so a production build without env vars can't accidentally use it.
-const DEMO_OPT_IN = process.env.EXPO_PUBLIC_USE_DEMO_SUPABASE === "1";
+// Shared demo project — used ONLY when a developer explicitly opts in AND the build
+// is not production. A production build can never fall back to it, even if the
+// EXPO_PUBLIC_USE_DEMO_SUPABASE flag is somehow set.
+const DEMO_OPT_IN = dataMode.demoSupabaseAllowed;
 const DEMO_URL = "https://iwrqvrfklmyppfhrikfb.supabase.co";
 const DEMO_ANON_KEY = "sb_publishable_jxzFL6hguLM7yIgpLwXTXQ_IS3rXCdh";
 
@@ -29,9 +32,20 @@ export const SUPABASE_ANON_KEY = ENV_ANON_KEY ?? (DEMO_OPT_IN ? DEMO_ANON_KEY : 
 
 export const isSupabaseConfigured = SUPABASE_URL.length > 0 && SUPABASE_ANON_KEY.length > 0;
 
+/**
+ * True when a production build is missing its backend config. The app must show a
+ * blocking state instead of silently dropping to local/demo data.
+ */
+export const isBackendRequiredButMissing = dataMode.shouldRequireBackend && !isSupabaseConfigured;
+
 // Developer-facing warning so it's never a mystery why the backend is off.
 if (!ENV_URL || !ENV_ANON_KEY) {
-  if (DEMO_OPT_IN) {
+  if (isBackendRequiredButMissing) {
+    console.warn(
+      "[petwell] PRODUCTION build is missing EXPO_PUBLIC_SUPABASE_URL / EXPO_PUBLIC_SUPABASE_ANON_KEY. " +
+        "The app will show a configuration-required screen instead of demo/local data.",
+    );
+  } else if (DEMO_OPT_IN) {
     console.warn(
       "[petwell] Using the SHARED DEMO Supabase project (EXPO_PUBLIC_USE_DEMO_SUPABASE=1). " +
         "For development only — set EXPO_PUBLIC_SUPABASE_URL / EXPO_PUBLIC_SUPABASE_ANON_KEY for your own project.",

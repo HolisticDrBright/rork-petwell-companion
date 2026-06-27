@@ -26,6 +26,7 @@ import {
 import { PrimaryButton } from "@/components/ui";
 import Colors, { Fonts, Radius, Space, cardShadow } from "@/constants/colors";
 import { RECORDS } from "@/constants/mockData";
+import { shouldShowDemoData } from "@/lib/dataMode";
 import { usePets } from "@/providers/PetProvider";
 import type { LogCategory, TimelineEntry } from "@/types/pet";
 
@@ -87,9 +88,14 @@ export default function LogScreen() {
   const [symptom, setSymptom] = useState<string>("");
   const [notes, setNotes] = useState<string>("");
 
+  // Medication-name autocomplete hints. Demo records are only consulted in
+  // dev/demo mode so production never surfaces sample medications.
   const medSuggestions = useMemo(
-    () => (RECORDS[selectedPet.id]?.Medications ?? []).map((m) => m.title),
-    [selectedPet.id]
+    () =>
+      shouldShowDemoData
+        ? (RECORDS[selectedPet.demoKey ?? selectedPet.id]?.Medications ?? []).map((m) => m.title)
+        : [],
+    [selectedPet.id, selectedPet.demoKey]
   );
 
   const active = KINDS.find((k) => k.id === kind)!;

@@ -23,6 +23,7 @@ import { HealthScoreChip, PatternsPreview } from "@/components/longevitySurfaces
 import { Card, EmptyState } from "@/components/ui";
 import Colors, { Fonts, Radius, Space, cardShadow } from "@/constants/colors";
 import { TODAY_ISO } from "@/constants/mockData";
+import { shouldShowDemoData } from "@/lib/dataMode";
 import { computeHealthScore, SCORE_BAND_LABEL } from "@/lib/health/score";
 import { detectPatterns } from "@/lib/integrative/patterns";
 import { usePets } from "@/providers/PetProvider";
@@ -78,7 +79,9 @@ const INSIGHT_META = {
 
 function formatDateHeader(iso: string): string {
   const d = new Date(iso + "T00:00:00");
-  const today = new Date(TODAY_ISO + "T00:00:00");
+  // Demo data is dated relative to the fixed demo "today"; real data uses the
+  // actual current date so "Today/Yesterday" labels are correct in production.
+  const today = shouldShowDemoData ? new Date(TODAY_ISO + "T00:00:00") : new Date();
   const diff = Math.round((today.getTime() - d.getTime()) / 86400000);
   const label = d.toLocaleDateString("en-US", { month: "long", day: "numeric" });
   if (diff === 0) return `Today · ${label}`;
