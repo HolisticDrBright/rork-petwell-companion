@@ -39,3 +39,6 @@ jobs:
 
       - name: AI safety tests
         run: bun tests/ai.test.ts
+
+      - name: Data-mode gating tests
+        run: bun tests/dataMode.test.ts

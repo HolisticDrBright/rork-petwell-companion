@@ -3,6 +3,7 @@ import { buildReview, pickAlternatives, type AlternativeItem } from "@/lib/food/
 import { matchByText, type CatalogItem } from "@/lib/food/match";
 import { buildAliasMap } from "@/lib/food/normalize";
 import { parseLabelText } from "@/lib/food/ocr";
+import { shouldShowDemoData } from "@/lib/dataMode";
 import { isStale } from "@/lib/food/provenance";
 import type {
   EvidenceSource,
@@ -166,9 +167,9 @@ export const foodService = {
               .in("brand_id", brandIds)
               .is("product_id", null)
           : emptyRows(),
-        supabase.from("recall_events").select("product_id, recall_date, reason, severity, source_url").in("product_id", productIds),
+        supabase.from("recall_events").select("product_id, recall_date, reason, severity, source_url, evidence_status").in("product_id", productIds),
         brandIds.length
-          ? supabase.from("recall_events").select("brand_id, recall_date, reason, severity, source_url").in("brand_id", brandIds)
+          ? supabase.from("recall_events").select("brand_id, recall_date, reason, severity, source_url, evidence_status").in("brand_id", brandIds)
           : emptyRows(),
         supabase
           .from("evidence_links")
@@ -259,6 +260,7 @@ export const foodService = {
       reason: r.reason as string,
       severity: (r.severity as Severity) ?? "watch",
       sourceUrl: (r.source_url as string) ?? null,
+      isDemo: r.evidence_status === "demo_seed",
     });
     for (const r of (recallProdRes.data ?? []) as Record<string, unknown>[]) {
       const arr = recallByProduct.get(r.product_id as string) ?? [];
@@ -335,9 +337,19 @@ export const foodService = {
               kcalPer100g: nut.kcal_per_100g,
             }
           : null,
-        labTests: [...(labByProduct.get(p.id) ?? []), ...(brandId ? labTestByBrand.get(brandId) ?? [] : [])],
-        recalls: [...(recallByProduct.get(p.id) ?? []), ...(brandId ? recallByBrand.get(brandId) ?? [] : [])],
-        sources: [...(srcByProduct.get(p.id) ?? []), ...(brandId ? srcByBrand.get(brandId) ?? [] : [])],
+        // Production user views never show demo/seed lab or source rows — they're
+        // illustrative only and would otherwise read as evidence. (Purity then
+        // correctly falls back to "no public lab test found".) Admin/dev/demo keep
+        // them. Demo rows can never raise purity regardless (countsAsProductLevelPurity).
+        labTests: [...(labByProduct.get(p.id) ?? []), ...(brandId ? labTestByBrand.get(brandId) ?? [] : [])].filter(
+          (t) => shouldShowDemoData || !t.isDemo,
+        ),
+        recalls: [...(recallByProduct.get(p.id) ?? []), ...(brandId ? recallByBrand.get(brandId) ?? [] : [])].filter(
+          (r) => shouldShowDemoData || !r.isDemo,
+        ),
+        sources: [...(srcByProduct.get(p.id) ?? []), ...(brandId ? srcByBrand.get(brandId) ?? [] : [])].filter(
+          (s) => shouldShowDemoData || !s.isDemo,
+        ),
       };
     });
   },

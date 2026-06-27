@@ -1,6 +1,7 @@
 import { TOXINS } from "@/lib/toxins/data";
 import { getToxinBySlug, matchToxinsInText, searchToxins, toxinsForSpecies } from "@/lib/toxins/search";
 import type { ToxinCategory, ToxinEntry } from "@/lib/toxins/types";
+import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 
 /**
  * Toxin data access (spec: services/toxinService.ts).
@@ -30,10 +31,20 @@ export const toxinService = {
   },
 
   /**
-   * Phase 2 hook: hydrate newer entries from Supabase. Currently a no-op that
-   * keeps the local dataset (offline-first). Never throws.
+   * Check the Supabase reference table (toxin_references, migration 0016) and
+   * report whether remote data is available. The bundled, vet-curated set stays
+   * the OFFLINE-FIRST source the UI reads (so lookup + emergency routing always
+   * work with no network); remote hydration of newer entries layers on top once
+   * they carry vet_reviewed status. Never throws — always falls back to local.
    */
   async hydrate(): Promise<{ ok: boolean; source: "local" | "remote"; count: number }> {
-    return { ok: true, source: "local", count: TOXINS.length };
+    if (!isSupabaseConfigured) return { ok: true, source: "local", count: TOXINS.length };
+    try {
+      const { count, error } = await supabase.from("toxin_references").select("id", { count: "exact", head: true });
+      if (error || !count) return { ok: true, source: "local", count: TOXINS.length };
+      return { ok: true, source: "remote", count };
+    } catch {
+      return { ok: true, source: "local", count: TOXINS.length };
+    }
   },
 };

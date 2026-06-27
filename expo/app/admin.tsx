@@ -11,7 +11,7 @@ import type { CoaExtraction } from "@/lib/ai/types";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { adminReviewService, dataQualityService } from "@/services";
 import { aiService } from "@/services/aiService";
-import type { DataQualityMetrics } from "@/services/dataQualityService";
+import type { DataQualityMetrics, DataSourceStatus } from "@/services/dataQualityService";
 
 type Submission = { id: string; raw_ocr_text: string | null; matched_product_id: string | null; created_at: string };
 type QueueItem = { id: string; entity_type: string; entity_id: string | null; priority: number; note: string | null };
@@ -25,6 +25,7 @@ type QueueItem = { id: string; entity_type: string; entity_id: string | null; pr
 export default function AdminScreen() {
   const [state, setState] = useState<"loading" | "no-backend" | "not-admin" | "ready">("loading");
   const [metrics, setMetrics] = useState<DataQualityMetrics | null>(null);
+  const [status, setStatus] = useState<DataSourceStatus | null>(null);
   const [pending, setPending] = useState<Submission[]>([]);
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -38,13 +39,15 @@ export default function AdminScreen() {
     (async () => {
       if (!isSupabaseConfigured) return active && setState("no-backend");
       if (!(await isCurrentUserAdmin())) return active && setState("not-admin");
-      const [m, subs, q] = await Promise.all([
+      const [m, st, subs, q] = await Promise.all([
         dataQualityService.getMetrics(),
+        dataQualityService.getDataSourceStatus(),
         adminReviewService.listPendingSubmissions(),
         adminReviewService.listOpenQueue(),
       ]);
       if (!active) return;
       setMetrics(m);
+      setStatus(st);
       setPending(subs as Submission[]);
       setQueue(q as QueueItem[]);
       setState("ready");
@@ -133,8 +136,36 @@ export default function AdminScreen() {
           </Card>
         ) : (
           <>
-            {/* Data-quality metrics */}
+            {/* Data source status */}
             <View style={styles.head}>
+              <Database size={18} color={Colors.teal700} />
+              <Text style={styles.headText}>Data source status</Text>
+            </View>
+            {status ? (
+              <Card style={{ gap: 0 }}>
+                <Text style={styles.modeLine}>Supabase: {status.supabaseConnected ? "connected ✓" : "not connected"}</Text>
+                <Text style={styles.modeLine}>App data mode: {status.dataMode}</Text>
+                <Metric label="Food products" value={status.foodProducts} />
+                <Metric label="— Open Pet Food Facts (open database)" value={status.openDatabaseProducts} warn />
+                <Metric label="— Admin-reviewed" value={status.adminReviewedProducts} good />
+                <Metric label="— Pending review" value={status.pendingReviewProducts} warn />
+                <Metric label="— Demo / seed" value={status.demoSeedProducts} warn />
+                <Metric label="Lab evidence rows" value={status.labTotal} />
+                <Metric label="— Verified product-level COA" value={status.verifiedProductCoaRows} good />
+                <Metric label="— Real / verified (any level)" value={status.labRealVerified} good />
+                <Metric label="— Demo / seed lab rows" value={status.labDemo} warn />
+                <Metric label="Recall rows" value={status.recalls} />
+                <Metric label="Toxin entries (bundled)" value={status.toxinEntries} />
+                <Metric label="— Vet-reviewed toxins" value={status.vetReviewedToxins} good />
+                <Metric label="— Pending vet review" value={status.pendingVetReviewToxins} warn />
+                <Metric label="AI extracted records pending review" value={status.aiExtractedPending} warn />
+                <Text style={styles.modeLine}>Last recall import: {status.lastRecallImport ? status.lastRecallImport.slice(0, 10) : "never"}</Text>
+                <Text style={styles.modeLine}>Last OPFF import: {status.lastOpffImport ? status.lastOpffImport.slice(0, 10) : "never"}</Text>
+              </Card>
+            ) : null}
+
+            {/* Data-quality metrics */}
+            <View style={[styles.head, { marginTop: Space.lg }]}>
               <Database size={18} color={Colors.teal700} />
               <Text style={styles.headText}>Catalog & evidence</Text>
             </View>
@@ -318,6 +349,7 @@ const styles = StyleSheet.create({
   coaResult: { gap: 6, backgroundColor: Colors.cream2, borderRadius: Radius.md, padding: Space.sm },
   coaLine: { ...Fonts.small, color: Colors.ink, lineHeight: 18 },
   coaWarn: { ...Fonts.tiny, color: Colors.amber600, fontWeight: "700" },
+  modeLine: { ...Fonts.small, color: Colors.inkSoft, paddingVertical: 6, fontWeight: "600" },
   actions: { flexDirection: "row", gap: 8, justifyContent: "flex-end" },
   btn: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 14, paddingVertical: 8, borderRadius: Radius.md },
   reject: { backgroundColor: Colors.red100 },

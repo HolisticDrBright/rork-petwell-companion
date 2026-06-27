@@ -1,4 +1,6 @@
-import { supabase } from "@/lib/supabase";
+import { dataModeLabel } from "@/lib/dataMode";
+import { isSupabaseConfigured, supabase } from "@/lib/supabase";
+import { TOXINS } from "@/lib/toxins/data";
 import type { Database } from "@/types/db";
 
 type EvidenceStatus = Database["public"]["Enums"]["evidence_status"];
@@ -31,7 +33,103 @@ export interface DataQualityMetrics {
   unmatchedRecalls: number;
 }
 
+/** High-level "where is our data coming from" snapshot for the admin panel. */
+export interface DataSourceStatus {
+  supabaseConnected: boolean;
+  dataMode: string;
+  foodProducts: number;
+  openDatabaseProducts: number;
+  adminReviewedProducts: number;
+  pendingReviewProducts: number;
+  demoSeedProducts: number;
+  labTotal: number;
+  labRealVerified: number;
+  labDemo: number;
+  verifiedProductCoaRows: number;
+  recalls: number;
+  lastRecallImport: string | null;
+  lastOpffImport: string | null;
+  toxinEntries: number;
+  vetReviewedToxins: number;
+  pendingVetReviewToxins: number;
+  aiExtractedPending: number;
+}
+
 export const dataQualityService = {
+  /** Provenance/data-source snapshot for the admin "Data Source Status" panel. */
+  async getDataSourceStatus(): Promise<DataSourceStatus> {
+    const vetReviewedToxins = TOXINS.filter((t) => t.evidenceStatus === "vet_reviewed").length;
+    const localToxins = {
+      toxinEntries: TOXINS.length,
+      vetReviewedToxins,
+      pendingVetReviewToxins: TOXINS.length - vetReviewedToxins,
+    };
+    if (!isSupabaseConfigured) {
+      return {
+        supabaseConnected: false,
+        dataMode: dataModeLabel(),
+        foodProducts: 0,
+        openDatabaseProducts: 0,
+        adminReviewedProducts: 0,
+        pendingReviewProducts: 0,
+        demoSeedProducts: 0,
+        labTotal: 0,
+        labRealVerified: 0,
+        labDemo: 0,
+        verifiedProductCoaRows: 0,
+        recalls: 0,
+        lastRecallImport: null,
+        lastOpffImport: null,
+        ...localToxins,
+        aiExtractedPending: 0,
+      };
+    }
+    const head = { count: "exact" as const, head: true };
+    const lastImport = (source: string) =>
+      supabase
+        .from("data_import_runs")
+        .select("finished_at")
+        .eq("source", source)
+        .eq("status", "success")
+        .order("finished_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+    const [products, openDb, adminReviewed, pendingReview, demoSeed, labTotal, labReal, labDemo, verifiedCoa, recalls, recallRun, opffRun, aiPending] =
+      await Promise.all([
+        supabase.from("food_products").select("id", head),
+        supabase.from("food_products").select("id", head).eq("evidence_status", "open_database"),
+        supabase.from("food_products").select("id", head).eq("evidence_status", "admin_reviewed"),
+        supabase.from("food_products").select("id", head).eq("evidence_status", "crowdsourced_unverified"),
+        supabase.from("food_products").select("id", head).eq("evidence_status", "demo_seed"),
+        supabase.from("lab_tests").select("id", head),
+        supabase.from("lab_tests").select("id", head).in("evidence_status", REAL_LAB_STATUSES),
+        supabase.from("lab_tests").select("id", head).eq("evidence_status", "demo_seed"),
+        supabase.from("lab_tests").select("id", head).eq("level", "product").in("evidence_status", REAL_LAB_STATUSES),
+        supabase.from("recall_events").select("id", head),
+        lastImport("openfda_recalls"),
+        lastImport("open_pet_food_facts"),
+        supabase.from("ai_extracted_records").select("id", head).eq("review_status", "needs_review"),
+      ]);
+    return {
+      supabaseConnected: true,
+      dataMode: dataModeLabel(),
+      foodProducts: products.count ?? 0,
+      openDatabaseProducts: openDb.count ?? 0,
+      adminReviewedProducts: adminReviewed.count ?? 0,
+      pendingReviewProducts: pendingReview.count ?? 0,
+      demoSeedProducts: demoSeed.count ?? 0,
+      labTotal: labTotal.count ?? 0,
+      labRealVerified: labReal.count ?? 0,
+      labDemo: labDemo.count ?? 0,
+      verifiedProductCoaRows: verifiedCoa.count ?? 0,
+      recalls: recalls.count ?? 0,
+      lastRecallImport: (recallRun.data as { finished_at?: string } | null)?.finished_at ?? null,
+      lastOpffImport: (opffRun.data as { finished_at?: string } | null)?.finished_at ?? null,
+      ...localToxins,
+      aiExtractedPending: aiPending.count ?? 0,
+    };
+  },
+
   async getMetrics(): Promise<DataQualityMetrics> {
     const head = { count: "exact" as const, head: true };
     const [pending, unmatched, products, recalls, labTotal, labReal, labDemo, labStale, realProductRows, openDb, brandClaim, needsReview] =

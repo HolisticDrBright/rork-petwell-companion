@@ -34,10 +34,15 @@ export default function DevicesScreen() {
     >
       <Stack.Screen options={{ title: "Connected devices" }} />
 
-      <Text style={styles.title}>Connected devices</Text>
+      <View style={styles.titleRow}>
+        <Text style={styles.title}>Connected devices</Text>
+        <View style={styles.previewPill}>
+          <Text style={styles.previewPillText}>PREVIEW</Text>
+        </View>
+      </View>
       <Text style={styles.subtitle}>
-        Link a wearable to bring activity, sleep, and vitals into the timeline — so behavior
-        connects to diet and symptoms.
+        Wearable syncing isn&apos;t live yet. This previews how a linked device would bring activity, sleep, and vitals
+        into the timeline — the toggles below don&apos;t connect to a real device.
       </Text>
 
       <View style={styles.list}>
@@ -97,7 +102,10 @@ export default function DevicesScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.cream },
+  titleRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   title: { ...Fonts.title },
+  previewPill: { backgroundColor: Colors.amber100, borderRadius: Radius.pill, paddingHorizontal: 9, paddingVertical: 3 },
+  previewPillText: { ...Fonts.tiny, color: Colors.amber600, letterSpacing: 0.5 },
   subtitle: { ...Fonts.bodySoft, lineHeight: 22, marginTop: 4, marginBottom: Space.lg },
   list: { gap: Space.sm },
   deviceCard: { gap: Space.sm },

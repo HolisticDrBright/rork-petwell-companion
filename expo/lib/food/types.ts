@@ -67,6 +67,8 @@ export interface RecallInfo {
   reason: string;
   severity: Severity;
   sourceUrl: string | null;
+  /** True for demo/seed recall rows (hidden from production user views). */
+  isDemo?: boolean;
 }
 
 export interface EvidenceSource {
