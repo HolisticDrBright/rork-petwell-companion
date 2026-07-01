@@ -48,7 +48,7 @@ const SectionHeader = memo(function SectionHeader({ children }: { children: stri
 });
 
 function toTimelineItems(timeline: TimelineEntry[]) {
-  return timeline.map((t) => ({ date: t.date, title: t.title, detail: t.detail, category: t.category }));
+  return timeline.map((t) => ({ date: t.date, title: t.title, detail: t.detail, category: t.category, hasPhoto: !!t.imagePath }));
 }
 
 export default function VetReportScreen() {

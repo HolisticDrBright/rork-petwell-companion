@@ -137,6 +137,20 @@ export function compileReport(input: CompileInput): ReportData {
     foodChanges: input.timeline.filter((t) => t.category === "food").slice(0, 6),
     medications: input.medications,
     timeline: input.timeline.slice(0, 10),
+    loggingSummary: loggingSummary(input),
     questions: generateQuestions(input),
   };
+}
+
+/** Honest last-7-days arithmetic: entry + photo counts, nothing interpretive. */
+function loggingSummary(input: CompileInput): string | null {
+  const today = input.generatedAt.slice(0, 10);
+  const d = new Date(`${today}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - 6);
+  const weekAgo = d.toISOString().slice(0, 10);
+  const week = input.timeline.filter((t) => t.date >= weekAgo && t.date <= today);
+  if (week.length === 0) return null;
+  const photos = week.filter((t) => t.hasPhoto).length;
+  const photoNote = photos > 0 ? ` · ${photos} with photo${photos === 1 ? "" : "s"} attached in the app (available on request)` : "";
+  return `${week.length} owner log${week.length === 1 ? "" : "s"} in the last 7 days${photoNote}.`;
 }

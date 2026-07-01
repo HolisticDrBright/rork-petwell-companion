@@ -126,6 +126,8 @@ export function getProvider(): AiProvider | null {
 
 export const MODELS = {
   chat: () => Deno.env.get("AI_CHAT_MODEL") ?? "gpt-4.1-mini",
-  vision: () => Deno.env.get("AI_VISION_MODEL") ?? "gpt-4.1-mini",
+  // Vision is low-volume and trust-critical (symptom photos, label OCR) — default
+  // to the full-size model; the cost delta is trivial at this call volume.
+  vision: () => Deno.env.get("AI_VISION_MODEL") ?? "gpt-4.1",
   summary: () => Deno.env.get("AI_SUMMARY_MODEL") ?? "gpt-4.1-mini",
 };

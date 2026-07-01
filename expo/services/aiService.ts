@@ -8,6 +8,8 @@
  * stricter allowDocumentProcessing opt-in. When anything is off we return a
  * friendly disabled envelope instead of calling out.
  */
+import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
+
 import { getMode, requireUserId } from "@/lib/backend";
 import { getAiPreferences } from "@/lib/ai/config";
 import { assessInput } from "@/lib/ai/safety";
@@ -63,14 +65,27 @@ export const aiService = {
     return blocked ? { ok: false, reason: blocked.disabledReason } : { ok: true };
   },
 
-  /** Upload a transient scan image to the private documents bucket; returns its path. */
+  /** Upload a transient scan image to the private documents bucket; returns its path.
+   *  Always re-encodes to JPEG first: iPhones may hand us HEIC (which vision
+   *  providers reject), and re-encoding also strips EXIF/GPS metadata before the
+   *  photo leaves the device. Falls back to the original bytes if encoding fails. */
   async uploadScanImage(localUri: string): Promise<string | null> {
     if (!isSupabaseConfigured || getMode() !== "remote") return null;
     try {
       const ownerId = requireUserId();
-      const res = await fetch(localUri);
+      let uri = localUri;
+      let ext = (localUri.split(".").pop()?.split("?")[0] || "jpg").toLowerCase();
+      try {
+        const ctx = ImageManipulator.manipulate(localUri);
+        const rendered = await ctx.renderAsync();
+        const jpeg = await rendered.saveAsync({ format: SaveFormat.JPEG, compress: 0.8 });
+        uri = jpeg.uri;
+        ext = "jpg";
+      } catch {
+        // keep original; guessMime server-side will still refuse unsupported kinds
+      }
+      const res = await fetch(uri);
       const bytes = await res.arrayBuffer();
-      const ext = (localUri.split(".").pop()?.split("?")[0] || "jpg").toLowerCase();
       const mime = ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
       const path = `${ownerId}/ai-scan-${Date.now()}.${ext}`;
       const { error } = await supabase.storage.from("documents").upload(path, bytes, { contentType: mime, upsert: true });

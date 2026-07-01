@@ -51,6 +51,8 @@ export interface TimelineEntry {
   detail?: string;
   value?: number; // numeric for charts (stool score, itching, weight)
   urgency?: UrgencyKey;
+  /** Attached photo: a storage path (remote mode) or a local file URI (local mode). */
+  imagePath?: string;
 }
 
 export interface UpcomingItem {

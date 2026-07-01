@@ -2913,6 +2913,7 @@ export type Database = {
           category: string
           created_at: string
           detail: string | null
+          image_path: string | null
           event_date: string
           event_time: string | null
           id: string
@@ -2928,6 +2929,7 @@ export type Database = {
           category: string
           created_at?: string
           detail?: string | null
+          image_path?: string | null
           event_date?: string
           event_time?: string | null
           id?: string
@@ -2943,6 +2945,7 @@ export type Database = {
           category?: string
           created_at?: string
           detail?: string | null
+          image_path?: string | null
           event_date?: string
           event_time?: string | null
           id?: string

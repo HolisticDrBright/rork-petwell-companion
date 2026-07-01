@@ -79,6 +79,7 @@ export default function ScanResultScreen() {
   const [aiBanner, setAiBanner] = useState<string | null>(null);
   const [aiNote, setAiNote] = useState<string | null>(null);
   const [kbMatches, setKbMatches] = useState<SymptomKbEntry[]>([]);
+  const [uploadedPath, setUploadedPath] = useState<string | null>(null);
 
   const onAnalyzeAi = useCallback(async () => {
     if (!selectedPet || !aiArea || !photo) return;
@@ -86,11 +87,12 @@ export default function ScanResultScreen() {
     setAiNote(null);
     setKbMatches([]);
     try {
-      const path = await aiService.uploadScanImage(photo);
+      const path = uploadedPath ?? (await aiService.uploadScanImage(photo));
       if (!path) {
         setAiNote("Couldn't upload the photo — please try again.");
         return;
       }
+      setUploadedPath(path);
       const res = await aiService.observeSymptomPhoto({
         imagePath: path,
         area: aiArea,
@@ -118,7 +120,7 @@ export default function ScanResultScreen() {
     } finally {
       setAiBusy(false);
     }
-  }, [selectedPet, aiArea, photo, notes]);
+  }, [selectedPet, aiArea, photo, notes, uploadedPath]);
 
   const goGuided = useCallback(() => {
     router.push({ pathname: "/ask-flow", params: { concern: guidedConcern } });
@@ -137,9 +139,16 @@ export default function ScanResultScreen() {
     setCorrectOpen(false);
   }, [correctText, mode, type]);
 
-  const saveToTimeline = useCallback(() => {
+  const saveToTimeline = useCallback(async () => {
     if (!selectedPet) return;
+    // Attach the photo: reuse the AI-upload if it happened, else upload now in
+    // remote mode; in local mode keep the device URI so the thumbnail still shows.
+    let imagePath: string | undefined = uploadedPath ?? undefined;
+    if (!imagePath && photo) {
+      imagePath = (mode === "remote" ? await aiService.uploadScanImage(photo) : null) ?? photo;
+    }
     addLog(selectedPet.id, {
+      imagePath,
       id: `scan-${Date.now()}`,
       petId: selectedPet.id,
       date: todayIso,
@@ -161,7 +170,7 @@ export default function ScanResultScreen() {
         .catch((e) => console.warn("[petwell] scan save failed:", e));
     }
     router.replace("/(tabs)/timeline");
-  }, [addLog, selectedPet, todayIso, result, mode, type, notes, router, mockScan, aiObs, aiBanner]);
+  }, [addLog, selectedPet, todayIso, result, mode, type, notes, router, mockScan, aiObs, aiBanner, uploadedPath, photo]);
 
   if (!selectedPet) return <NoPetSelected />;
 

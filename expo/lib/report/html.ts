@@ -147,6 +147,7 @@ export function buildReportHtml(data: ReportData): string {
   <p class="sub">${profile}${p.statusNote ? ` · ${esc(p.statusNote)}` : ""}</p>
 
   ${section("Concern summary", data.concernSummary ? `<p>${esc(data.concernSummary)}</p>` : "")}
+  ${section("Owner logging", data.loggingSummary ? `<p>${esc(data.loggingSummary)}</p>` : "")}
   ${section("Triage", triageBlock)}
   ${section("Red-flag screen", redFlags)}
   ${section("Allergies & conditions", allergiesConditions)}
@@ -170,6 +171,7 @@ export function buildReportText(data: ReportData): string {
   lines.push(`Generated ${fmtDate(data.generatedAt)}`);
   lines.push(`${data.pet.ageYears} yr · ${data.pet.breed} · ${data.pet.sex} · ${data.pet.weightLb} lb`);
   if (data.concernSummary) lines.push(`\nConcern: ${data.concernSummary}`);
+  if (data.loggingSummary) lines.push(`Logging: ${data.loggingSummary}`);
   if (data.triage) {
     lines.push(`\nTriage: ${data.triage.concernLabel} — ${data.triage.urgencyLabel} (${data.triage.confidence} confidence)`);
     data.triage.causes.slice(0, 3).forEach((c) => lines.push(`  • ${c.name}`));

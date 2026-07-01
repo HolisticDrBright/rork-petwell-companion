@@ -135,6 +135,39 @@ export async function cancelReminder(reminderId: string): Promise<void> {
   await storage.setJSON(MAP_KEY, map);
 }
 
+const WEEKLY_DIGEST_ID = "petwell-weekly-digest";
+
+/**
+ * Schedule the Sunday-evening weekly digest check-in. Never prompts — only
+ * schedules when notification permission is ALREADY granted (the reminders flow
+ * owns the permission ask). Idempotent via a fixed identifier; the notification
+ * is a generic nudge and the digest itself is computed fresh when the app opens.
+ */
+export async function scheduleWeeklyDigest(petName: string): Promise<boolean> {
+  if (isWeb) return false;
+  try {
+    const perm = await Notifications.getPermissionsAsync();
+    if (perm.status !== "granted") return false;
+    await Notifications.cancelScheduledNotificationAsync(WEEKLY_DIGEST_ID).catch(() => {});
+    await Notifications.scheduleNotificationAsync({
+      identifier: WEEKLY_DIGEST_ID,
+      content: {
+        title: `${petName}'s week in review`,
+        body: "Your weekly digest is ready — see what you logged and what's worth watching.",
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
+        weekday: 1, // Sunday
+        hour: 18,
+        minute: 0,
+      },
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export const notificationsService = {
   parseTimeLabel,
   requestNotificationPermission,

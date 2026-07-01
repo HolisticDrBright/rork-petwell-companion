@@ -48,3 +48,6 @@ jobs:
 
       - name: Symptom knowledge-base tests
         run: bun tests/symptomKb.test.ts
+
+      - name: Weekly insights tests
+        run: bun tests/insights.test.ts

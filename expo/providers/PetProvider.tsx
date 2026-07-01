@@ -288,6 +288,7 @@ export const [PetProvider, usePets] = createContextHook(() => {
             date: entry.date,
             time: entry.time,
             source: "manual",
+            imagePath: entry.imagePath,
           })
           .catch((e) => console.warn("[petwell] log failed:", e))
           .finally(() => queryClient.invalidateQueries({ queryKey: ["timeline", pid] }));

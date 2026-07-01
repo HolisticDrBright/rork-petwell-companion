@@ -34,6 +34,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MiniTrend } from "@/components/Charts";
 import { NoPetSelected } from "@/components/NoPetSelected";
 import { PetSwitcher } from "@/components/PetSwitcher";
+import { WeeklyDigestCard } from "@/components/WeeklyDigestCard";
+import { scheduleWeeklyDigest } from "@/services/notificationsService";
 import { HealthScoreBadge, PatternsPreview } from "@/components/longevitySurfaces";
 import { Card, EmptyState, SectionTitle } from "@/components/ui";
 import Colors, { Fonts, Radius, Space, cardShadow } from "@/constants/colors";
@@ -125,7 +127,7 @@ const UpcomingRow = memo(function UpcomingRow({ item }: { item: UpcomingItem }) 
 export default function TodayScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { selectedPet, careItems, toggleCareItem, smartInsight, trends, timeline, upcoming, onboarded, isLoading } =
+  const { selectedPet, careItems, toggleCareItem, smartInsight, trends, timeline, upcoming, onboarded, isLoading, todayIso } =
     usePets();
   const [fabOpen, setFabOpen] = useState<boolean>(false);
 
@@ -139,6 +141,11 @@ export default function TodayScreen() {
       router.replace("/onboarding");
     }
   }, [isLoading, onboarded, router]);
+
+  // Keep the Sunday weekly-digest check-in scheduled (no-op without permission).
+  useEffect(() => {
+    if (selectedPet) scheduleWeeklyDigest(selectedPet.name).catch(() => {});
+  }, [selectedPet]);
 
   const remaining = useMemo(() => careItems.filter((c) => !c.done).length, [careItems]);
 
@@ -264,6 +271,11 @@ export default function TodayScreen() {
               </View>
             ))}
           </Card>
+        </View>
+
+        {/* Weekly digest + streak (honest counts of what was logged) */}
+        <View style={styles.section}>
+          <WeeklyDigestCard timeline={timeline} todayIso={todayIso} petName={selectedPet.name} />
         </View>
 
         {/* Smart insight */}

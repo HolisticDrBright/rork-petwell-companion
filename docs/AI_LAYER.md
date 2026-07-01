@@ -45,7 +45,7 @@ NEVER as `EXPO_PUBLIC_*`:
 | `AI_PROVIDER` | `openai` (Anthropic later) | `openai` |
 | `AI_ENABLED` | master switch; `false` disables all AI | `true` |
 | `AI_CHAT_MODEL` | chat/explain/care-plan model | `gpt-4.1-mini` |
-| `AI_VISION_MODEL` | label vision model | `gpt-4.1-mini` |
+| `AI_VISION_MODEL` | symptom/label vision model | `gpt-4.1` (full-size: trust-critical, low volume) |
 | `AI_SUMMARY_MODEL` | record/COA/report model | `gpt-4.1-mini` |
 | `AI_DAILY_BUDGET_CENTS` | global daily cost cap (0 = none) | `0` |
 | `AI_USER_DAILY_LIMIT` | per-user daily call cap (0 = none) | `100` |
@@ -62,7 +62,7 @@ edge functions automatically.
 
 ```bash
 supabase secrets set OPENAI_API_KEY=sk-... AI_PROVIDER=openai AI_ENABLED=true \
-  AI_CHAT_MODEL=gpt-4.1-mini AI_VISION_MODEL=gpt-4.1-mini AI_SUMMARY_MODEL=gpt-4.1-mini \
+  AI_CHAT_MODEL=gpt-4.1-mini AI_VISION_MODEL=gpt-4.1 AI_SUMMARY_MODEL=gpt-4.1-mini \
   AI_DAILY_BUDGET_CENTS=2000 AI_USER_DAILY_LIMIT=100
 supabase functions deploy ai-vet-report-rewrite ai-record-summary ai-coa-extract \
   ai-vision-label ai-vision-symptom ai-explain ai-care-plan ai-chat

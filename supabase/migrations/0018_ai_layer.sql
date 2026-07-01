@@ -105,6 +105,6 @@ create policy ai_chat_messages_owner on public.ai_chat_messages for all
 -- the admin/service path (admins can also read all for the review queue).
 drop policy if exists ai_extracted_select on public.ai_extracted_records;
 create policy ai_extracted_select on public.ai_extracted_records for select
-  using (owner_id = auth.uid() or public.is_admin());
+  using (owner_id = auth.uid() or private.is_admin());
 drop policy if exists ai_extracted_delete on public.ai_extracted_records;
 create policy ai_extracted_delete on public.ai_extracted_records for delete using (owner_id = auth.uid());

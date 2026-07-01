@@ -1,0 +1,29 @@
+[
+  {
+    "file": "photos/stool-melena-01.jpg",
+    "area": "poop",
+    "expectRedFlags": ["black_tarry_stool"],
+    "expectFeatures": ["black", "tarry"],
+    "notes": "Known melena sample — the safety-critical case."
+  },
+  {
+    "file": "photos/stool-normal-01.jpg",
+    "area": "poop",
+    "expectRedFlags": [],
+    "expectFeatures": ["brown", "formed"],
+    "notes": "Normal control — should observe nothing alarming."
+  },
+  {
+    "file": "photos/gums-pale-01.jpg",
+    "area": "teeth",
+    "expectRedFlags": ["pale_or_bluish_gums"],
+    "expectFeatures": ["pale"],
+    "notes": "Shoot in natural light AND flash — gum color is lighting-sensitive."
+  },
+  {
+    "file": "photos/skin-flea-dirt-01.jpg",
+    "area": "skin",
+    "expectFeatures": ["flea", "specks"],
+    "notes": "Close-up macro needed for parasites."
+  }
+]

@@ -18,6 +18,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { BarChart, LineChart } from "@/components/Charts";
+import { AttachedPhoto } from "@/components/AttachedPhoto";
 import { NoPetSelected } from "@/components/NoPetSelected";
 import { PetSwitcher } from "@/components/PetSwitcher";
 import { HealthScoreChip, PatternsPreview } from "@/components/longevitySurfaces";
@@ -107,6 +108,7 @@ const EntryRow = memo(function EntryRow({ entry, isLast }: { entry: TimelineEntr
           <Text style={styles.entryTime}>{entry.time}</Text>
         </View>
         {entry.detail ? <Text style={styles.entryDetail}>{entry.detail}</Text> : null}
+        {entry.imagePath ? <AttachedPhoto imagePath={entry.imagePath} /> : null}
       </View>
     </View>
   );

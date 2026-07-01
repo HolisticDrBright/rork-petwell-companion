@@ -13,6 +13,7 @@ type EventRow = {
   urgency: string | null;
   event_date: string;
   event_time: string | null;
+  image_path?: string | null;
 };
 
 function mapEvent(row: EventRow): TimelineEntry {
@@ -24,6 +25,7 @@ function mapEvent(row: EventRow): TimelineEntry {
     category: row.category as LogCategory,
     title: row.title,
     detail: row.detail ?? undefined,
+    imagePath: row.image_path ?? undefined,
     value: row.value ?? undefined,
     urgency: (row.urgency as UrgencyKey) ?? undefined,
   };
@@ -42,6 +44,7 @@ export interface NewTimelineEntry {
   time: string;
   source?: string;
   refId?: string;
+  imagePath?: string;
 }
 
 export const timelineService = {
@@ -75,6 +78,7 @@ export const timelineService = {
         event_time: entry.time,
         source: entry.source ?? "manual",
         ref_id: entry.refId ?? null,
+        image_path: entry.imagePath ?? null,
       })
       .select("*")
       .single();

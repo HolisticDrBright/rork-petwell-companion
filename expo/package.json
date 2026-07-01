@@ -9,7 +9,7 @@
     "start-web-dev": "DEBUG=expo* bunx rork start -p u36ek53il5cxdlwr8ag9m --web --tunnel",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
-    "test": "bun tests/safety.test.ts && bun tests/data.test.ts && bun tests/toxins.test.ts && bun tests/ai.test.ts && bun tests/dataMode.test.ts && bun tests/petEmptyState.test.ts && bun tests/symptomKb.test.ts",
+    "test": "bun tests/safety.test.ts && bun tests/data.test.ts && bun tests/toxins.test.ts && bun tests/ai.test.ts && bun tests/dataMode.test.ts && bun tests/petEmptyState.test.ts && bun tests/symptomKb.test.ts && bun tests/insights.test.ts",
     "test:safety": "bun tests/safety.test.ts",
     "test:data": "bun tests/data.test.ts",
     "test:toxins": "bun tests/toxins.test.ts",
@@ -19,7 +19,8 @@
     "test:symptomkb": "bun tests/symptomKb.test.ts",
     "import:recalls": "bun scripts/import-recalls.ts",
     "import:opff": "bun scripts/import-opff.ts",
-    "toxins:export-review": "bun scripts/export-toxin-review.ts"
+    "toxins:export-review": "bun scripts/export-toxin-review.ts",
+    "test:insights": "bun tests/insights.test.ts"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
@@ -37,6 +38,7 @@
     "expo-font": "~14.0.10",
     "expo-haptics": "~15.0.8",
     "expo-image": "~3.0.11",
+    "expo-image-manipulator": "14.0.7",
     "expo-image-picker": "~17.0.9",
     "expo-linear-gradient": "~15.0.8",
     "expo-linking": "~8.0.10",

@@ -233,6 +233,10 @@ const mig0022 = has("../../supabase/migrations/0022_symptom_vision_logging.sql")
   ? read("../../supabase/migrations/0022_symptom_vision_logging.sql")
   : "";
 ck("16 migration 0022 allows feature 'symptom_vision' (budget/audit logging works)", /'symptom_vision'/.test(mig0022) && /ai_generations_feature_check/.test(mig0022));
+// 0017 moved is_admin() to the private schema and DROPPED public.is_admin() —
+// any later migration referencing public.is_admin() fails on a fresh db reset.
+const mig0021 = has("../../supabase/migrations/0021_symptom_kb.sql") ? read("../../supabase/migrations/0021_symptom_kb.sql") : "";
+ck("16 post-0017 migrations use private.is_admin(), never public.is_admin()", !/public\.is_admin\(\)/.test(mig0018) && !/public\.is_admin\(\)/.test(mig0021) && /private\.is_admin\(\)/.test(mig0018) && /private\.is_admin\(\)/.test(mig0021));
 ck("16 symptom function logs the feature the constraint allows", /feature: "symptom_vision"/.test(symFnSrc));
 
 console.log(`\n${pass} passed, ${fail} failed`);

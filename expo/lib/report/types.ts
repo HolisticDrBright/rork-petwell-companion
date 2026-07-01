@@ -35,6 +35,8 @@ export interface ReportTimelineItem {
   title: string;
   detail?: string;
   category: string;
+  /** A photo is attached to this entry in the app (not embedded in the PDF). */
+  hasPhoto?: boolean;
 }
 
 export interface ReportMedication {
@@ -56,5 +58,7 @@ export interface ReportData {
   foodChanges: ReportTimelineItem[];
   medications: ReportMedication[];
   timeline: ReportTimelineItem[];
+  /** Factual last-7-days logging line, e.g. "8 entries · 2 with photos". */
+  loggingSummary: string | null;
   questions: string[];
 }

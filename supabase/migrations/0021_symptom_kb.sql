@@ -37,7 +37,7 @@ drop policy if exists symptom_kb_read on public.symptom_kb_entries;
 create policy symptom_kb_read on public.symptom_kb_entries for select using (true);
 drop policy if exists symptom_kb_admin on public.symptom_kb_entries;
 create policy symptom_kb_admin on public.symptom_kb_entries
-  for all using (public.is_admin()) with check (public.is_admin());
+  for all using (private.is_admin()) with check (private.is_admin());
 
 -- ── Seed: representative subset (offline module carries the full set) ─────────
 insert into public.symptom_kb_entries (species, area, feature, match_tokens, title, may_indicate, urgency, watch_for, related_concern, source_name, source_url)
