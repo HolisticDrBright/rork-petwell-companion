@@ -4,10 +4,16 @@
  * vet-curated entries from `symptom_kb_entries` and merge them (remote overrides a
  * local entry with the same area+title). Never throws — falls back to local.
  */
+import { getUserId } from "@/lib/backend";
 import { matchSymptomKb, type KbMatchInput } from "@/lib/symptomKb/match";
 import { SYMPTOM_KB } from "@/lib/symptomKb/data";
-import type { KbUrgency, SymptomKbEntry } from "@/lib/symptomKb/types";
+import type { KbReviewStatus, KbUrgency, SymptomKbEntry } from "@/lib/symptomKb/types";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
+
+/** A KB entry as stored in Supabase, with its row id (for admin review). */
+export interface SymptomKbAdminRow extends SymptomKbEntry {
+  dbId: string;
+}
 
 interface KbRow {
   species: string;
@@ -76,5 +82,56 @@ export const symptomKbService = {
   /** Match observed features against the KB (remote + local). */
   async match(input: KbMatchInput): Promise<SymptomKbEntry[]> {
     return matchSymptomKb(input, await this.getEntries());
+  },
+
+  // ── Admin / vet review (RLS: only admins can write; reads are public) ────────
+
+  /** All remote entries with their row id + review status, for the admin screen. */
+  async listAll(): Promise<SymptomKbAdminRow[]> {
+    const { data, error } = await supabase
+      .from("symptom_kb_entries")
+      .select(
+        "id, species, area, feature, match_tokens, title, may_indicate, urgency, watch_for, related_concern, source_name, source_url, review_status",
+      )
+      .order("area", { ascending: true })
+      .order("title", { ascending: true });
+    if (error) throw error;
+    return (data ?? []).map((r) => ({ ...mapRow(r as KbRow), dbId: (r as { id: string }).id }));
+  },
+
+  /** Push the bundled seed into the review queue (idempotent; never overwrites a
+   *  reviewed entry — skips rows that already exist by area+title). Admin-only. */
+  async importSeed(): Promise<{ ok: boolean; count: number; error?: string }> {
+    const rows = SYMPTOM_KB.map((e) => ({
+      species: e.species,
+      area: e.area,
+      feature: e.feature,
+      match_tokens: e.matchTokens,
+      title: e.title,
+      may_indicate: e.mayIndicate,
+      urgency: e.urgency,
+      watch_for: e.watchFor,
+      related_concern: e.relatedConcern,
+      source_name: e.source.name,
+      source_url: e.source.url ?? null,
+    }));
+    const { error } = await supabase
+      .from("symptom_kb_entries")
+      .upsert(rows, { onConflict: "area,title", ignoreDuplicates: true });
+    cache = null;
+    if (error) return { ok: false, count: 0, error: error.message };
+    return { ok: true, count: rows.length };
+  },
+
+  /** Promote/demote an entry's review status (admin-only via RLS). */
+  async setReviewStatus(id: string, status: KbReviewStatus): Promise<{ ok: boolean; error?: string }> {
+    const patch =
+      status === "vet_reviewed"
+        ? { review_status: "vet_reviewed", reviewed_by: getUserId(), last_reviewed_at: new Date().toISOString() }
+        : { review_status: "needs_vet_review", reviewed_by: null, last_reviewed_at: null };
+    const { error } = await supabase.from("symptom_kb_entries").update(patch).eq("id", id);
+    cache = null;
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
   },
 };

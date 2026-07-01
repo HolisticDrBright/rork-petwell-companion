@@ -66,6 +66,7 @@ function RootLayoutNav() {
       <Stack.Screen name="toxins" options={{ title: "Is it toxic?", presentation: "card" }} />
       <Stack.Screen name="toxin-detail" options={{ title: "Toxin", presentation: "card" }} />
       <Stack.Screen name="admin" options={{ title: "Admin", presentation: "card" }} />
+      <Stack.Screen name="admin-symptom-kb" options={{ title: "Symptom KB review", presentation: "card" }} />
     </Stack>
   );
 }

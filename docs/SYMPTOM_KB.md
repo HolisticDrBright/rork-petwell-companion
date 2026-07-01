@@ -73,14 +73,17 @@ not change routing.
 
 ## Growing it (scaffold → curated library)
 
-This is a **scaffold**: ~19 high-value features across all five areas, offline-first,
-each source-backed and `needs_vet_review`. To grow it:
+The bundled seed is ~40+ features across all five areas (including species-specific
+dog/cat entries), offline-first, each source-backed and `needs_vet_review`. To grow
+and curate it:
 
 1. Add entries to `expo/lib/symptomKb/data.ts` (offline) and/or the
    `symptom_kb_entries` table (remote, vet-curated). Remote overrides local by
    `area + title`.
-2. A licensed vet reviews each entry and sets `review_status = 'vet_reviewed'`
-   (+ `reviewed_by`, `last_reviewed_at`).
+2. **Admin → Symptom KB review** (`app/admin-symptom-kb.tsx`, admin-gated by RLS):
+   import the bundled seed into the review queue, then a licensed vet promotes each
+   entry to `vet_reviewed` (sets `review_status`, `reviewed_by`, `last_reviewed_at`)
+   or sends it back to pending. Only `profiles.is_admin` accounts can write.
 3. Keep copy hedged and cited; the tests block diagnosis/treatment/purity language.
 
 Future direction (see `docs/AI_LAYER.md`): as the library grows, the app can weight

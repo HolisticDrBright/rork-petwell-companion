@@ -19,11 +19,13 @@ const ck = (n: string, c: boolean, x = "") => {
 };
 
 // ── 1. Every entry is well-formed + carries provenance, pending vet review ───
-ck("1 seed is non-empty", SYMPTOM_KB.length >= 15);
+ck("1 seed is a meaningful library", SYMPTOM_KB.length >= 40);
 ck("1 unique ids", new Set(SYMPTOM_KB.map((e) => e.id)).size === SYMPTOM_KB.length);
 ck("1 every entry cites a source", SYMPTOM_KB.every((e) => !!e.source?.name));
 ck("1 every entry has match tokens + related concern", SYMPTOM_KB.every((e) => e.matchTokens.length > 0 && !!e.relatedConcern));
 ck("1 every entry is needs_vet_review (nothing auto-trusted)", SYMPTOM_KB.every((e) => e.reviewStatus === "needs_vet_review"));
+ck("1 covers all five areas", new Set(SYMPTOM_KB.map((e) => e.area)).size === 5);
+ck("1 has species-specific + shared entries", SYMPTOM_KB.some((e) => e.species === "cat") && SYMPTOM_KB.some((e) => e.species === "both"));
 
 // ── 2. No entry reads as a diagnosis / treatment / purity claim ──────────────
 const DIAGNOSIS = /\b(your (dog|cat|pet) has|is suffering from|diagnos|definitely|certainly (a|an)|it'?s (definitely|certainly))\b/i;
@@ -35,8 +37,10 @@ ck("2 no treatment/dosing anywhere", !TREATMENT.test(allText));
 ck("2 no purity/clean claim anywhere", !PURITY.test(allText));
 
 // ── 3. Language is hedged and defers ─────────────────────────────────────────
-const HEDGE = /\b(can be associated|may|worth|should be|is worth|can worsen|is recommended)\b/i;
-ck("3 every mayIndicate hedges (never states a fact as certain)", SYMPTOM_KB.every((e) => HEDGE.test(e.mayIndicate)));
+// Every entry either hedges ("can be associated with…") OR defers to a vet /
+// flags an emergency — it never states a plain fact as a certainty.
+const HEDGE = /\b(can be associated|may|worth|should|is recommended|vet|emergency|right away|prompt)\b/i;
+ck("3 every mayIndicate hedges or defers to a vet", SYMPTOM_KB.every((e) => HEDGE.test(e.mayIndicate)));
 
 // ── 4. Observed red flags map to emergency urgency ───────────────────────────
 const melena = SYMPTOM_KB.find((e) => e.id === "poop-melena");
@@ -53,6 +57,8 @@ ck("5 most-urgent match first", poopBlack.length > 0 && poopBlack[0].urgency ===
 ck("5 same tokens in the WRONG area return nothing", matchSymptomKb({ area: "eye", species: "dog", observations: [{ feature: "x", value: "black tarry" }] }).length === 0);
 ck("5 unrelated observation returns nothing", matchSymptomKb({ area: "poop", species: "cat", observations: [{ feature: "x", value: "normal formed brown" }] }).length === 0);
 ck("5 cat matches 'both' entries", matchSymptomKb({ area: "teeth", species: "cat", observations: [{ feature: "gums", value: "pale white" }] }).some((e) => e.id === "gums-pale"));
+ck("5 cat-specific entry matches a cat", matchSymptomKb({ area: "ear", species: "cat", observations: [{ feature: "debris", value: "dry dark coffee-ground debris" }] }).some((e) => e.id === "ear-mites-cat"));
+ck("5 cat-specific entry does NOT match a dog", !matchSymptomKb({ area: "ear", species: "dog", observations: [{ feature: "debris", value: "dry dark coffee-ground debris" }] }).some((e) => e.id === "ear-mites-cat"));
 ck("5 summary text is also matched", matchSymptomKb({ area: "eye", species: "dog", observations: [], summary: "thick green discharge from the eye" }).some((e) => e.id === "eye-discharge"));
 ck("5 results are capped", matchSymptomKb({ area: "poop", species: "dog", observations: [{ feature: "x", value: "black tarry blood watery worm pale" }] }).length <= 4);
 

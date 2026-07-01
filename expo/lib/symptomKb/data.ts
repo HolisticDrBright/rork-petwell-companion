@@ -16,6 +16,7 @@ const VCA: KbSource = { name: "VCA Animal Hospitals", url: "https://vcahospitals
 const ASPCA: KbSource = { name: "ASPCA", url: "https://www.aspca.org" };
 const CAPC: KbSource = { name: "Companion Animal Parasite Council", url: "https://capcvet.org" };
 const AAHA: KbSource = { name: "American Animal Hospital Association", url: "https://www.aaha.org" };
+const CORNELL: KbSource = { name: "Cornell Feline Health Center", url: "https://www.vet.cornell.edu" };
 
 const R = "needs_vet_review" as const;
 
@@ -160,5 +161,183 @@ export const SYMPTOM_KB: SymptomKbEntry[] = [
     mayIndicate:
       "Squinting or holding an eye shut can be associated with eye pain or a surface injury; eye issues can worsen quickly, so a prompt check is recommended.",
     urgency: "vet_soon", watchFor: ["redness", "tearing", "rubbing"], relatedConcern: "eye", source: VCA, reviewStatus: R,
+  },
+
+  // ── Stool (expanded) ────────────────────────────────────────────────────────
+  {
+    id: "poop-mucus", species: "both", area: "poop", feature: "stool_finding",
+    matchTokens: ["mucus", "slimy", "slime", "jelly"], title: "Mucus or slimy coating on stool",
+    mayIndicate:
+      "A slimy or jelly-like coating can be associated with irritation of the lower bowel. Occasional mucus is common; ongoing mucus, especially with blood or diarrhea, is worth a vet check.",
+    urgency: "watch", watchFor: ["diarrhea", "straining", "blood"], relatedConcern: "diarrhea", source: MERCK, reviewStatus: R,
+  },
+  {
+    id: "poop-yellow", species: "both", area: "poop", feature: "stool_color",
+    matchTokens: ["yellow", "orange", "mustard"], title: "Yellow or orange stool",
+    mayIndicate:
+      "Yellow or orange stool can be associated with food passing through quickly or a change in bile, and is worth watching; check with your vet if it persists or the pet is unwell.",
+    urgency: "watch", watchFor: ["diarrhea", "reduced appetite"], relatedConcern: "diarrhea", source: VCA, reviewStatus: R,
+  },
+  {
+    id: "poop-steatorrhea", species: "both", area: "poop", feature: "stool_finding",
+    matchTokens: ["greasy", "oily", "shiny stool"], title: "Greasy or oily-looking stool",
+    mayIndicate:
+      "Greasy, oily, or unusually shiny stool can be associated with trouble digesting fat and is worth a vet check.",
+    urgency: "vet_soon", watchFor: ["weight loss", "increased appetite", "large volume"], relatedConcern: "diarrhea", source: MERCK, reviewStatus: R,
+  },
+  {
+    id: "poop-tapeworm", species: "both", area: "poop", feature: "foreign_material",
+    matchTokens: ["tapeworm", "sesame", "white specks", "moving specks"], title: "Small white segments near the rear",
+    mayIndicate:
+      "Small white rice- or sesame-like segments near the stool or rear can be associated with tapeworms, often linked to fleas. A vet can confirm and treat.",
+    urgency: "vet_soon", watchFor: ["scooting", "fleas"], relatedConcern: "diarrhea", source: CAPC, reviewStatus: R,
+  },
+  {
+    id: "cat-urinary-straining", species: "cat", area: "poop", feature: "litter_behavior",
+    matchTokens: ["straining", "crying in box", "in and out of box", "frequent trips"], title: "A cat straining in the litter box",
+    mayIndicate:
+      "A cat straining, making frequent trips, or crying in the litter box can be a urinary emergency — in male cats a blockage is life-threatening and should be seen by a vet right away.",
+    urgency: "emergency", watchFor: ["no urine", "vocalizing", "lethargy"], relatedConcern: "urinary", source: CORNELL, reviewStatus: R,
+  },
+
+  // ── Gums / teeth (expanded) ─────────────────────────────────────────────────
+  {
+    id: "teeth-fracture", species: "both", area: "teeth", feature: "teeth_finding",
+    matchTokens: ["broken tooth", "fractured", "chipped", "cracked tooth"], title: "Broken or fractured tooth",
+    mayIndicate:
+      "A broken or fractured tooth can be painful and may expose the inner tooth; a vet check is recommended.",
+    urgency: "vet_soon", watchFor: ["reluctant to eat", "pawing at mouth", "bad breath"], relatedConcern: "other", source: AAHA, reviewStatus: R,
+  },
+  {
+    id: "mouth-mass", species: "both", area: "teeth", feature: "gum_finding",
+    matchTokens: ["growth", "mass", "lump on gum", "bump"], title: "Growth or lump on the gum",
+    mayIndicate:
+      "A new growth or lump on the gum should be checked by a vet, as some mouth masses need early attention.",
+    urgency: "vet_soon", watchFor: ["bleeding", "difficulty eating", "drooling"], relatedConcern: "other", source: VCA, reviewStatus: R,
+  },
+  {
+    id: "gums-stomatitis-cat", species: "cat", area: "teeth", feature: "gum_finding",
+    matchTokens: ["very red", "severe inflammation", "raw gums", "ulcer"], title: "Severe gum inflammation (cat)",
+    mayIndicate:
+      "Severe, raw, or very red gum inflammation can be associated with painful oral disease in cats and is worth a prompt vet check.",
+    urgency: "vet_soon", watchFor: ["drooling", "reduced appetite", "weight loss"], relatedConcern: "other", source: CORNELL, reviewStatus: R,
+  },
+  {
+    id: "mouth-bleeding", species: "both", area: "teeth", feature: "gum_finding",
+    matchTokens: ["bleeding mouth", "blood in mouth", "bleeding from mouth"], title: "Bleeding from the mouth",
+    mayIndicate:
+      "Bleeding from the mouth can be associated with dental disease, injury, or a growth and is worth a prompt vet check.",
+    urgency: "vet_soon", watchFor: ["drooling", "difficulty eating"], relatedConcern: "other", source: MERCK, reviewStatus: R,
+  },
+
+  // ── Skin (expanded) ─────────────────────────────────────────────────────────
+  {
+    id: "skin-ringworm", species: "both", area: "skin", feature: "skin_finding",
+    matchTokens: ["circular", "ring-shaped", "round bald", "crusty ring"], title: "Circular patch of hair loss",
+    mayIndicate:
+      "A circular or ring-shaped patch of hair loss with scaling can be associated with several skin conditions (including ringworm, which may spread to people) and is worth a vet check.",
+    urgency: "vet_soon", watchFor: ["itching", "spreading", "scaling"], relatedConcern: "skin", source: MERCK, reviewStatus: R,
+  },
+  {
+    id: "skin-mass", species: "both", area: "skin", feature: "skin_finding",
+    matchTokens: ["lump", "mass", "growth", "nodule"], title: "New lump or mass under the skin",
+    mayIndicate:
+      "A new lump or mass under the skin should be checked by a vet — most are harmless, but early evaluation matters.",
+    urgency: "vet_soon", watchFor: ["rapid growth", "changes", "discharge"], relatedConcern: "skin", source: VCA, reviewStatus: R,
+  },
+  {
+    id: "skin-pustules", species: "both", area: "skin", feature: "skin_finding",
+    matchTokens: ["pustule", "pimple", "pus bump", "whitehead"], title: "Pimple-like bumps or pustules",
+    mayIndicate:
+      "Small pimple-like bumps or pustules can be associated with a skin infection and are worth a vet check, especially if spreading.",
+    urgency: "vet_soon", watchFor: ["redness", "itching", "odor"], relatedConcern: "skin", source: VCA, reviewStatus: R,
+  },
+  {
+    id: "skin-seborrhea", species: "both", area: "skin", feature: "skin_finding",
+    matchTokens: ["flaky", "dandruff", "scaling", "greasy skin"], title: "Greasy or flaky skin (dandruff)",
+    mayIndicate:
+      "Greasy, flaky, or heavily scaling skin can be associated with a skin or coat problem and is worth a vet check if it persists.",
+    urgency: "watch", watchFor: ["odor", "itching", "hair loss"], relatedConcern: "skin", source: MERCK, reviewStatus: R,
+  },
+  {
+    id: "skin-myiasis", species: "both", area: "skin", feature: "skin_finding",
+    matchTokens: ["maggot", "maggots", "larvae"], title: "Maggots in a wound",
+    mayIndicate:
+      "Visible maggots in a wound or the coat is an emergency and should be treated by a vet right away.",
+    urgency: "emergency", watchFor: ["open wound", "odor", "weakness"], relatedConcern: "skin", source: MERCK, reviewStatus: R,
+  },
+  {
+    id: "skin-interdigital", species: "both", area: "skin", feature: "skin_finding",
+    matchTokens: ["between toes", "interdigital", "red paw", "paw redness"], title: "Redness or swelling between the toes",
+    mayIndicate:
+      "Redness, swelling, or a lump between the toes can be associated with irritation, allergy, or infection and is worth a vet check if it persists.",
+    urgency: "watch", watchFor: ["licking paws", "limping", "discharge"], relatedConcern: "skin", source: VCA, reviewStatus: R,
+  },
+  {
+    id: "cat-barbering", species: "cat", area: "skin", feature: "skin_finding",
+    matchTokens: ["bald strip", "over-groom", "overgrooming", "symmetrical hair loss"], title: "Bald strip from over-grooming (cat)",
+    mayIndicate:
+      "A smooth bald strip, often along the belly or legs, can be associated with over-grooming in cats — often linked to itch, pain, or stress — and is worth a vet check.",
+    urgency: "vet_soon", watchFor: ["scratching", "behavior change"], relatedConcern: "skin", source: CORNELL, reviewStatus: R,
+  },
+
+  // ── Ear (expanded) ──────────────────────────────────────────────────────────
+  {
+    id: "ear-mites-cat", species: "cat", area: "ear", feature: "ear_discharge",
+    matchTokens: ["coffee ground", "coffee-ground", "dry black", "crumbly black"], title: "Dry, coffee-ground ear debris (cat)",
+    mayIndicate:
+      "Dry, dark, coffee-ground-like ear debris can be associated with ear mites, which are common in cats, and is worth a vet check.",
+    urgency: "vet_soon", watchFor: ["scratching ears", "head shaking"], relatedConcern: "ear", source: CORNELL, reviewStatus: R,
+  },
+  {
+    id: "ear-hematoma", species: "both", area: "ear", feature: "ear_finding",
+    matchTokens: ["swollen ear flap", "puffy ear", "ballooned ear", "fluid ear flap"], title: "Swollen ear flap",
+    mayIndicate:
+      "A soft, swollen ear flap can be associated with a collection of blood (aural hematoma), often from head shaking, and is worth a prompt vet check.",
+    urgency: "vet_soon", watchFor: ["head shaking", "scratching", "pain"], relatedConcern: "ear", source: VCA, reviewStatus: R,
+  },
+  {
+    id: "ear-odor", species: "both", area: "ear", feature: "ear_finding",
+    matchTokens: ["yeasty", "foul smell", "smelly ear", "bad odor"], title: "Strong or yeasty ear odor",
+    mayIndicate:
+      "A strong, foul, or yeasty odor from the ear can be associated with an ear infection and is worth a vet check.",
+    urgency: "vet_soon", watchFor: ["discharge", "redness", "scratching"], relatedConcern: "ear", source: MERCK, reviewStatus: R,
+  },
+
+  // ── Eye (expanded) ──────────────────────────────────────────────────────────
+  {
+    id: "eye-proptosis", species: "both", area: "eye", feature: "eye_finding",
+    matchTokens: ["bulging", "out of socket", "protruding eye", "popped out"], title: "Bulging eye or eye out of socket",
+    mayIndicate:
+      "An eye that appears bulging or out of its socket is an emergency and should be seen by a vet right away.",
+    urgency: "emergency", watchFor: ["swelling", "bleeding", "distress"], relatedConcern: "eye", source: MERCK, reviewStatus: R,
+  },
+  {
+    id: "eye-cherry", species: "both", area: "eye", feature: "eye_finding",
+    matchTokens: ["cherry eye", "red bump corner", "pink mass corner"], title: "Red bump in the eye corner (cherry eye)",
+    mayIndicate:
+      "A red, fleshy bump in the inner corner of the eye can be associated with a prolapsed tear gland ('cherry eye') and is worth a prompt vet check.",
+    urgency: "vet_soon", watchFor: ["tearing", "rubbing"], relatedConcern: "eye", source: VCA, reviewStatus: R,
+  },
+  {
+    id: "eye-anisocoria", species: "both", area: "eye", feature: "eye_finding",
+    matchTokens: ["uneven pupils", "different size pupils", "one pupil larger", "dilated pupil"], title: "Unequal or very dilated pupils",
+    mayIndicate:
+      "Pupils that are very unequal in size, or stay very dilated, can be associated with eye or nervous-system problems and are worth a prompt vet check.",
+    urgency: "vet_soon", watchFor: ["squinting", "bumping into things", "behavior change"], relatedConcern: "eye", source: MERCK, reviewStatus: R,
+  },
+  {
+    id: "eye-tearing", species: "both", area: "eye", feature: "eye_discharge",
+    matchTokens: ["watery eye", "excess tearing", "tear stain", "runny eye"], title: "Excessive tearing or tear staining",
+    mayIndicate:
+      "Watery eyes or heavy tear staining can be associated with irritation or blocked tear drainage and is worth watching; a vet check helps if it is persistent or with redness.",
+    urgency: "watch", watchFor: ["redness", "squinting", "rubbing"], relatedConcern: "eye", source: VCA, reviewStatus: R,
+  },
+  {
+    id: "cat-third-eyelid", species: "cat", area: "eye", feature: "eye_finding",
+    matchTokens: ["third eyelid", "haw showing", "white membrane", "nictitating"], title: "Third eyelids showing (cat)",
+    mayIndicate:
+      "Third eyelids visible across both eyes can be associated with a cat feeling unwell and is worth a vet check, especially with other signs.",
+    urgency: "vet_soon", watchFor: ["reduced appetite", "lethargy", "diarrhea"], relatedConcern: "eye", source: CORNELL, reviewStatus: R,
   },
 ];

@@ -1,5 +1,5 @@
-import { Stack } from "expo-router";
-import { Check, Database, FlaskConical, ShieldCheck, X } from "lucide-react-native";
+import { Stack, useRouter } from "expo-router";
+import { BookOpen, Check, ChevronRight, Database, FlaskConical, ShieldCheck, X } from "lucide-react-native";
 import React, { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
@@ -33,6 +33,7 @@ export default function AdminScreen() {
   const [coaResult, setCoaResult] = useState<CoaExtraction | null>(null);
   const [coaBusy, setCoaBusy] = useState<boolean>(false);
   const [coaNote, setCoaNote] = useState<string | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
     let active = true;
@@ -136,6 +137,21 @@ export default function AdminScreen() {
           </Card>
         ) : (
           <>
+            {/* Symptom knowledge-base review */}
+            <Pressable
+              onPress={() => router.push("/admin-symptom-kb")}
+              accessibilityRole="button"
+              accessibilityLabel="Open symptom knowledge-base review"
+              style={({ pressed }) => [styles.navLink, pressed && { opacity: 0.85 }]}
+            >
+              <BookOpen size={18} color={Colors.teal700} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.navLinkTitle}>Symptom KB review</Text>
+                <Text style={styles.navLinkSub}>Review + vet-approve symptom knowledge-base entries</Text>
+              </View>
+              <ChevronRight size={18} color={Colors.inkFaint} />
+            </Pressable>
+
             {/* Data source status */}
             <View style={styles.head}>
               <Database size={18} color={Colors.teal700} />
@@ -325,6 +341,17 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.cream },
   head: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 },
   headText: { ...Fonts.h3 },
+  navLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.md,
+    padding: Space.md,
+    marginBottom: Space.lg,
+  },
+  navLinkTitle: { ...Fonts.h3, fontSize: 15 },
+  navLinkSub: { ...Fonts.small, color: Colors.inkFaint, marginTop: 1 },
   msg: { ...Fonts.body, color: Colors.ink, lineHeight: 21 },
   sub: { ...Fonts.small, color: Colors.inkSoft, lineHeight: 18 },
   metric: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 11 },
