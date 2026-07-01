@@ -38,13 +38,20 @@
       [
         "expo-image-picker",
         {
-          "cameraPermission": "Petwell uses the camera to photograph food ingredient labels and scan barcodes — the photo reads the label only, never your pet.",
+          "cameraPermission": "Petwell uses the camera to photograph food ingredient labels and scan barcodes \u2014 the photo reads the label only, never your pet.",
           "photosPermission": "Petwell accesses your photos so you can import a saved food label to scan."
         }
       ]
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "fbc9b8c2-d42c-419c-af86-f0ba93f42529"
+      }
+    },
+    "owner": "holisticdrbright"
   }
 }
