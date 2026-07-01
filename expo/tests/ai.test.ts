@@ -226,6 +226,14 @@ const scanResultSrc = read("../app/scan-result.tsx");
 ck("16 scan-result hands off to guided triage (ask-flow)", /ai-vision-symptom|observeSymptomPhoto/.test(scanResultSrc) && /pathname: "\/ask-flow"/.test(scanResultSrc));
 const aiTypesSrc = read("../lib/ai/types.ts");
 ck("16 SymptomObservation type carries no diagnosis/score field", /interface SymptomObservation/.test(aiTypesSrc) && !/diagnos|score/i.test(/interface SymptomObservation[\s\S]*?\n}/.exec(aiTypesSrc)?.[0] ?? ""));
+// Regression: 0018's feature CHECK predates symptom_vision — without 0022 the
+// logGeneration insert is silently dropped AND those calls escape the budget
+// (checkBudget counts ai_generations rows).
+const mig0022 = has("../../supabase/migrations/0022_symptom_vision_logging.sql")
+  ? read("../../supabase/migrations/0022_symptom_vision_logging.sql")
+  : "";
+ck("16 migration 0022 allows feature 'symptom_vision' (budget/audit logging works)", /'symptom_vision'/.test(mig0022) && /ai_generations_feature_check/.test(mig0022));
+ck("16 symptom function logs the feature the constraint allows", /feature: "symptom_vision"/.test(symFnSrc));
 
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);
