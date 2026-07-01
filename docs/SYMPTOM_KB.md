@@ -81,9 +81,12 @@ and curate it:
    `symptom_kb_entries` table (remote, vet-curated). Remote overrides local by
    `area + title`.
 2. **Admin → Symptom KB review** (`app/admin-symptom-kb.tsx`, admin-gated by RLS):
-   import the bundled seed into the review queue, then a licensed vet promotes each
-   entry to `vet_reviewed` (sets `review_status`, `reviewed_by`, `last_reviewed_at`)
-   or sends it back to pending. Only `profiles.is_admin` accounts can write.
+   import the bundled seed into the review queue, **add or edit entries** without SQL
+   (`app/admin-kb-edit.tsx` — a conservative-language guard blocks diagnosis /
+   treatment / purity phrasing before save), **export** the whole KB as JSON for a
+   vet to review offline, then promote each entry to `vet_reviewed` (sets
+   `review_status`, `reviewed_by`, `last_reviewed_at`) or send it back to pending.
+   New/edited entries stay pending; only `profiles.is_admin` accounts can write.
 3. Keep copy hedged and cited; the tests block diagnosis/treatment/purity language.
 
 Future direction (see `docs/AI_LAYER.md`): as the library grows, the app can weight

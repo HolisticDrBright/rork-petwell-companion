@@ -7,7 +7,7 @@
 import { getUserId } from "@/lib/backend";
 import { matchSymptomKb, type KbMatchInput } from "@/lib/symptomKb/match";
 import { SYMPTOM_KB } from "@/lib/symptomKb/data";
-import type { KbReviewStatus, KbUrgency, SymptomKbEntry } from "@/lib/symptomKb/types";
+import type { KbArea, KbReviewStatus, KbSpecies, KbUrgency, SymptomKbEntry } from "@/lib/symptomKb/types";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 
 /** A KB entry as stored in Supabase, with its row id (for admin review). */
@@ -121,6 +121,56 @@ export const symptomKbService = {
     cache = null;
     if (error) return { ok: false, count: 0, error: error.message };
     return { ok: true, count: rows.length };
+  },
+
+  /** Fetch a single remote entry for the edit form. */
+  async getById(id: string): Promise<SymptomKbAdminRow | null> {
+    const { data, error } = await supabase
+      .from("symptom_kb_entries")
+      .select(
+        "id, species, area, feature, match_tokens, title, may_indicate, urgency, watch_for, related_concern, source_name, source_url, review_status",
+      )
+      .eq("id", id)
+      .maybeSingle();
+    if (error || !data) return null;
+    return { ...mapRow(data as KbRow), dbId: (data as { id: string }).id };
+  },
+
+  /** Create or update an entry (admin-only via RLS). New entries are always
+   *  `needs_vet_review`; edits preserve the existing status (the vet re-toggles). */
+  async upsertEntry(input: {
+    id?: string;
+    species: KbSpecies;
+    area: KbArea;
+    feature: string;
+    matchTokens: string[];
+    title: string;
+    mayIndicate: string;
+    urgency: KbUrgency;
+    watchFor: string[];
+    relatedConcern: string;
+    sourceName: string;
+    sourceUrl?: string;
+  }): Promise<{ ok: boolean; error?: string }> {
+    const row = {
+      species: input.species,
+      area: input.area,
+      feature: input.feature || input.area,
+      match_tokens: input.matchTokens,
+      title: input.title,
+      may_indicate: input.mayIndicate,
+      urgency: input.urgency,
+      watch_for: input.watchFor,
+      related_concern: input.relatedConcern || null,
+      source_name: input.sourceName || null,
+      source_url: input.sourceUrl || null,
+    };
+    const { error } = input.id
+      ? await supabase.from("symptom_kb_entries").update(row).eq("id", input.id)
+      : await supabase.from("symptom_kb_entries").insert({ ...row, review_status: "needs_vet_review" });
+    cache = null;
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
   },
 
   /** Promote/demote an entry's review status (admin-only via RLS). */

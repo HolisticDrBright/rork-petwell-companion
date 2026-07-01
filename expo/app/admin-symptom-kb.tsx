@@ -1,11 +1,12 @@
-import { Stack } from "expo-router";
-import { BookOpen, Check, Clock, Download } from "lucide-react-native";
+import { Stack, useFocusEffect, useRouter } from "expo-router";
+import { BookOpen, Check, Clock, Download, Pencil, Plus, Share2 } from "lucide-react-native";
 import React, { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { Card } from "@/components/ui";
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
 import { isCurrentUserAdmin } from "@/lib/backend";
+import { exportJson } from "@/lib/report/export";
 import type { KbUrgency } from "@/lib/symptomKb/types";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { symptomKbService, type SymptomKbAdminRow } from "@/services/symptomKbService";
@@ -32,6 +33,7 @@ type Filter = "all" | "pending" | "reviewed";
  * drives the local-seed → review → vet_reviewed pipeline.
  */
 export default function AdminSymptomKbScreen() {
+  const router = useRouter();
   const [state, setState] = useState<"loading" | "no-backend" | "not-admin" | "ready">("loading");
   const [rows, setRows] = useState<SymptomKbAdminRow[]>([]);
   const [filter, setFilter] = useState<Filter>("pending");
@@ -60,6 +62,34 @@ export default function AdminSymptomKbScreen() {
       active = false;
     };
   }, [load]);
+
+  // Refresh when returning from the add/edit modal.
+  useFocusEffect(
+    useCallback(() => {
+      if (state === "ready") load().catch(() => {});
+    }, [state, load]),
+  );
+
+  const onExport = useCallback(async () => {
+    setNote(null);
+    try {
+      const payload = {
+        app: "Petwell",
+        kind: "symptom_kb_review",
+        exportedAt: new Date().toISOString(),
+        total: rows.length,
+        entries: rows.map((r) => ({
+          area: r.area, species: r.species, title: r.title, urgency: r.urgency,
+          mayIndicate: r.mayIndicate, watchFor: r.watchFor, relatedConcern: r.relatedConcern,
+          source: r.source, reviewStatus: r.reviewStatus,
+        })),
+      };
+      const method = await exportJson(payload, "petwell-symptom-kb-review.json");
+      setNote(method === "download" ? "Exported the knowledge base as JSON." : "Shared the knowledge base for review.");
+    } catch {
+      setNote("Couldn't export right now — please try again.");
+    }
+  }, [rows]);
 
   const onImport = useCallback(async () => {
     setImporting(true);
@@ -144,6 +174,27 @@ export default function AdminSymptomKbScreen() {
             </>
           )}
         </Pressable>
+        <View style={styles.btnRow}>
+          <Pressable
+            onPress={() => router.push("/admin-kb-edit")}
+            accessibilityRole="button"
+            accessibilityLabel="Add a knowledge-base entry"
+            style={({ pressed }) => [styles.smallBtn, pressed && { opacity: 0.85 }]}
+          >
+            <Plus size={15} color={Colors.teal700} />
+            <Text style={styles.smallBtnText}>Add entry</Text>
+          </Pressable>
+          <Pressable
+            onPress={onExport}
+            disabled={rows.length === 0}
+            accessibilityRole="button"
+            accessibilityLabel="Export the knowledge base for review"
+            style={({ pressed }) => [styles.smallBtn, pressed && { opacity: 0.85 }, rows.length === 0 && { opacity: 0.5 }]}
+          >
+            <Share2 size={15} color={Colors.teal700} />
+            <Text style={styles.smallBtnText}>Export for review</Text>
+          </Pressable>
+        </View>
       </Card>
 
       <View style={styles.filters}>
@@ -195,25 +246,37 @@ export default function AdminSymptomKbScreen() {
                       {isReviewed ? "Vet-reviewed" : "Pending vet review"}
                     </Text>
                   </View>
-                  <Pressable
-                    onPress={() => onToggle(row)}
-                    disabled={busyId === row.dbId}
-                    accessibilityRole="button"
-                    accessibilityLabel={isReviewed ? "Mark as pending review" : "Mark as vet-reviewed"}
-                    style={({ pressed }) => [
-                      styles.toggle,
-                      isReviewed ? styles.toggleUndo : styles.toggleApprove,
-                      pressed && { opacity: 0.85 },
-                    ]}
-                  >
-                    {busyId === row.dbId ? (
-                      <ActivityIndicator color={isReviewed ? Colors.inkSoft : "#fff"} size="small" />
-                    ) : (
-                      <Text style={[styles.toggleText, { color: isReviewed ? Colors.inkSoft : "#fff" }]}>
-                        {isReviewed ? "Mark pending" : "Mark vet-reviewed"}
-                      </Text>
-                    )}
-                  </Pressable>
+                  <View style={styles.rowActions}>
+                    <Pressable
+                      onPress={() => router.push({ pathname: "/admin-kb-edit", params: { id: row.dbId } })}
+                      hitSlop={8}
+                      accessibilityRole="button"
+                      accessibilityLabel="Edit entry"
+                      style={({ pressed }) => [styles.editBtn, pressed && { opacity: 0.7 }]}
+                    >
+                      <Pencil size={14} color={Colors.teal700} />
+                      <Text style={styles.editText}>Edit</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => onToggle(row)}
+                      disabled={busyId === row.dbId}
+                      accessibilityRole="button"
+                      accessibilityLabel={isReviewed ? "Mark as pending review" : "Mark as vet-reviewed"}
+                      style={({ pressed }) => [
+                        styles.toggle,
+                        isReviewed ? styles.toggleUndo : styles.toggleApprove,
+                        pressed && { opacity: 0.85 },
+                      ]}
+                    >
+                      {busyId === row.dbId ? (
+                        <ActivityIndicator color={isReviewed ? Colors.inkSoft : "#fff"} size="small" />
+                      ) : (
+                        <Text style={[styles.toggleText, { color: isReviewed ? Colors.inkSoft : "#fff" }]}>
+                          {isReviewed ? "Mark pending" : "Mark vet-reviewed"}
+                        </Text>
+                      )}
+                    </Pressable>
+                  </View>
                 </View>
               </Card>
             );
@@ -243,6 +306,18 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   importText: { ...Fonts.h3, fontSize: 14, color: Colors.teal700 },
+  btnRow: { flexDirection: "row", gap: 8 },
+  smallBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    backgroundColor: Colors.cream2,
+    borderRadius: Radius.md,
+    paddingVertical: 9,
+  },
+  smallBtnText: { ...Fonts.small, color: Colors.teal700, fontWeight: "700" },
   filters: { flexDirection: "row", gap: 8, marginTop: Space.md, marginBottom: Space.sm },
   chip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: Radius.pill, backgroundColor: Colors.surface },
   chipActive: { backgroundColor: Colors.teal700 },
@@ -262,6 +337,9 @@ const styles = StyleSheet.create({
   statusReviewed: {},
   statusPending: {},
   statusText: { ...Fonts.small, fontWeight: "700", fontSize: 12 },
+  rowActions: { flexDirection: "row", alignItems: "center", gap: 10 },
+  editBtn: { flexDirection: "row", alignItems: "center", gap: 4 },
+  editText: { ...Fonts.small, color: Colors.teal700, fontWeight: "700" },
   toggle: { borderRadius: Radius.pill, paddingHorizontal: 14, paddingVertical: 8, minWidth: 120, alignItems: "center" },
   toggleApprove: { backgroundColor: Colors.teal700 },
   toggleUndo: { backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.hairline },
