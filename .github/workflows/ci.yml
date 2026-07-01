@@ -45,3 +45,6 @@ jobs:
 
       - name: Empty-pet + demo-provenance tests
         run: bun tests/petEmptyState.test.ts
+
+      - name: Symptom knowledge-base tests
+        run: bun tests/symptomKb.test.ts

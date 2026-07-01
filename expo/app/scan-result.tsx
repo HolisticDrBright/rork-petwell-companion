@@ -1,5 +1,5 @@
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { AlertTriangle, FileText, Link2, Pencil, Save, Sparkles } from "lucide-react-native";
+import { AlertTriangle, BookOpen, FileText, Link2, Pencil, Save, Sparkles } from "lucide-react-native";
 import React, { useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
@@ -9,9 +9,11 @@ import Colors, { Fonts, Radius, Space } from "@/constants/colors";
 import { getScanResult } from "@/constants/scans";
 import { config } from "@/lib/config";
 import type { SymptomObservation } from "@/lib/ai/types";
+import { URGENCY_LABEL, type KbUrgency, type SymptomKbEntry } from "@/lib/symptomKb/types";
 import { usePets } from "@/providers/PetProvider";
 import { scanService } from "@/services";
 import { aiService } from "@/services/aiService";
+import { symptomKbService } from "@/services/symptomKbService";
 
 function nowLabel(): string {
   const d = new Date();
@@ -34,6 +36,19 @@ const TONE_BG = {
   watch: Colors.amber100,
   bad: Colors.coral100,
 } as const;
+
+const KB_URGENCY_COLOR: Record<KbUrgency, string> = {
+  info: Colors.teal700,
+  watch: Colors.amber600,
+  vet_soon: Colors.coral600,
+  emergency: Colors.red600,
+};
+const KB_URGENCY_BG: Record<KbUrgency, string> = {
+  info: Colors.teal50,
+  watch: Colors.amber100,
+  vet_soon: Colors.coral100,
+  emergency: Colors.red100,
+};
 
 // Symptom areas the vision model can observe, and the real triage concern each
 // hands off to. teeth/weight have no observation/concern → fall back to generic.
@@ -63,11 +78,13 @@ export default function ScanResultScreen() {
   const [aiObs, setAiObs] = useState<SymptomObservation | null>(null);
   const [aiBanner, setAiBanner] = useState<string | null>(null);
   const [aiNote, setAiNote] = useState<string | null>(null);
+  const [kbMatches, setKbMatches] = useState<SymptomKbEntry[]>([]);
 
   const onAnalyzeAi = useCallback(async () => {
     if (!selectedPet || !aiArea || !photo) return;
     setAiBusy(true);
     setAiNote(null);
+    setKbMatches([]);
     try {
       const path = await aiService.uploadScanImage(photo);
       if (!path) {
@@ -90,6 +107,14 @@ export default function ScanResultScreen() {
       }
       setAiObs(res.data);
       setAiBanner(res.safety?.banner ?? null);
+      // Match observed features to the source-backed knowledge base (context only).
+      const kb = await symptomKbService.match({
+        area: aiArea,
+        species: selectedPet.species === "cat" ? "cat" : "dog",
+        observations: res.data.observations,
+        summary: res.data.summary,
+      });
+      setKbMatches(kb);
     } finally {
       setAiBusy(false);
     }
@@ -215,6 +240,7 @@ export default function ScanResultScreen() {
 
           {aiArea && photo ? (
             aiObs ? (
+              <>
               <Card style={{ gap: 10 }}>
                 <View style={styles.aiHead}>
                   <Sparkles size={16} color={Colors.teal700} />
@@ -237,6 +263,33 @@ export default function ScanResultScreen() {
                   check and your vet.
                 </Text>
               </Card>
+              {kbMatches.length > 0 ? (
+                <Card style={{ gap: 12 }}>
+                  <View style={styles.aiHead}>
+                    <BookOpen size={16} color={Colors.teal700} />
+                    <Text style={styles.aiTitle}>What this may relate to</Text>
+                  </View>
+                  {kbMatches.map((e) => (
+                    <View key={e.id} style={styles.kbRow}>
+                      <View style={styles.kbTitleRow}>
+                        <Text style={styles.kbTitle}>{e.title}</Text>
+                        <View style={[styles.kbUrgency, { backgroundColor: KB_URGENCY_BG[e.urgency] }]}>
+                          <Text style={[styles.kbUrgencyText, { color: KB_URGENCY_COLOR[e.urgency] }]}>
+                            {URGENCY_LABEL[e.urgency]}
+                          </Text>
+                        </View>
+                      </View>
+                      <Text style={styles.kbBody}>{e.mayIndicate}</Text>
+                      <Text style={styles.kbSource}>Source: {e.source.name} · general reference, pending vet review</Text>
+                    </View>
+                  ))}
+                  <Text style={styles.aiFootnote}>
+                    General reference matched to the photo — not a diagnosis. The guided check and your vet make the
+                    assessment.
+                  </Text>
+                </Card>
+              ) : null}
+              </>
             ) : (
               <View style={styles.previewBanner}>
                 <Text style={styles.previewTitle}>Read this photo with AI</Text>
@@ -404,6 +457,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   guidedCtaText: { ...Fonts.h3, fontSize: 15, color: "#fff" },
+  kbRow: { gap: 4, paddingVertical: 4 },
+  kbTitleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
+  kbTitle: { ...Fonts.h3, fontSize: 14.5, flexShrink: 1 },
+  kbUrgency: { borderRadius: Radius.pill, paddingHorizontal: 8, paddingVertical: 2 },
+  kbUrgencyText: { ...Fonts.tiny, fontWeight: "800", fontSize: 10 },
+  kbBody: { ...Fonts.small, color: Colors.ink, lineHeight: 19 },
+  kbSource: { ...Fonts.tiny, color: Colors.inkFaint },
   title: { ...Fonts.title, marginVertical: 2 },
   scoreBadge: {
     backgroundColor: Colors.teal800,

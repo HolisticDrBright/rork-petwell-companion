@@ -2971,6 +2971,63 @@ export type Database = {
           },
         ]
       }
+      symptom_kb_entries: {
+        Row: {
+          area: string
+          created_at: string
+          feature: string
+          id: string
+          last_reviewed_at: string | null
+          match_tokens: string[]
+          may_indicate: string
+          related_concern: string | null
+          review_status: string
+          reviewed_by: string | null
+          source_name: string | null
+          source_url: string | null
+          species: string
+          title: string
+          urgency: string
+          watch_for: string[]
+        }
+        Insert: {
+          area: string
+          created_at?: string
+          feature: string
+          id?: string
+          last_reviewed_at?: string | null
+          match_tokens?: string[]
+          may_indicate: string
+          related_concern?: string | null
+          review_status?: string
+          reviewed_by?: string | null
+          source_name?: string | null
+          source_url?: string | null
+          species?: string
+          title: string
+          urgency?: string
+          watch_for?: string[]
+        }
+        Update: {
+          area?: string
+          created_at?: string
+          feature?: string
+          id?: string
+          last_reviewed_at?: string | null
+          match_tokens?: string[]
+          may_indicate?: string
+          related_concern?: string | null
+          review_status?: string
+          reviewed_by?: string | null
+          source_name?: string | null
+          source_url?: string | null
+          species?: string
+          title?: string
+          urgency?: string
+          watch_for?: string[]
+        }
+        Relationships: []
+      }
       toxin_references: {
         Row: {
           aliases: string[]
