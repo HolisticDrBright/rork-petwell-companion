@@ -42,8 +42,8 @@ export default function ScanFlowScreen() {
   }, []);
 
   const analyze = useCallback(() => {
-    router.replace({ pathname: "/scan-result", params: { type: type ?? "poop", notes } });
-  }, [router, type, notes]);
+    router.replace({ pathname: "/scan-result", params: { type: type ?? "poop", notes, photo: photo ?? "" } });
+  }, [router, type, notes, photo]);
 
   if (!selectedPet) return <NoPetSelected />;
 

@@ -178,3 +178,47 @@ export const chatSchema = {
     },
   },
 };
+
+// Symptom photo → OBSERVABLE features only. No diagnosis, no score, no urgency —
+// the app's deterministic rules map observedRedFlags to routing. Designed to feed
+// a future image knowledge base (feature/value/confidence triples).
+export const symptomObservationSchema = {
+  name: "symptom_observation",
+  schema: {
+    type: "object",
+    additionalProperties: false,
+    required: ["area", "quality", "summary", "observations", "observedRedFlags"],
+    properties: {
+      area: { type: "string", enum: ["poop", "skin", "ear", "eye", "teeth"] },
+      quality: { type: "string", enum: ["clear", "unclear", "not_applicable"] },
+      summary: { type: "string" },
+      observations: {
+        type: "array",
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: ["feature", "value", "confidence"],
+          properties: {
+            feature: { type: "string" },
+            value: { type: "string" },
+            confidence: conf,
+          },
+        },
+      },
+      observedRedFlags: {
+        type: "array",
+        items: {
+          type: "string",
+          enum: [
+            "none",
+            "large_amount_of_blood",
+            "black_tarry_stool",
+            "pale_or_bluish_gums",
+            "severe_swelling",
+            "open_wound_active_bleeding",
+          ],
+        },
+      },
+    },
+  },
+};

@@ -18,6 +18,7 @@ Expo app  →  Supabase Edge Function  →  OpenAI (Responses API)
 | `ai-record-summary` | record_summary | uploaded PDF/image → structured; `needs_review`; never invents |
 | `ai-coa-extract` | coa_extraction | **admin-only**; never `verified_lab`; never writes `lab_tests`; queues review |
 | `ai-vision-label` | food_label_vision | OCR fallback; label only; never contaminant confidence |
+| `ai-vision-symptom` | symptom_vision | describes OBSERVABLE features in a symptom photo (stool/skin/ear/eye/teeth); never diagnoses/scores; server rules (not the model) set urgency; hands off to the rule-based triage |
 | `ai-explain` | explanation | explains a deterministic result; adds no conclusions |
 | `ai-care-plan` | care_plan | phrases an already-gated plan; suppresses gentle options on red flags |
 | `ai-chat` | chat | assistant; deterministic emergency/poison routing first |
@@ -64,7 +65,7 @@ supabase secrets set OPENAI_API_KEY=sk-... AI_PROVIDER=openai AI_ENABLED=true \
   AI_CHAT_MODEL=gpt-4.1-mini AI_VISION_MODEL=gpt-4.1-mini AI_SUMMARY_MODEL=gpt-4.1-mini \
   AI_DAILY_BUDGET_CENTS=2000 AI_USER_DAILY_LIMIT=100
 supabase functions deploy ai-vet-report-rewrite ai-record-summary ai-coa-extract \
-  ai-vision-label ai-explain ai-care-plan ai-chat
+  ai-vision-label ai-vision-symptom ai-explain ai-care-plan ai-chat
 # apply migration 0018 (psql or the SQL editor)
 ```
 
@@ -89,4 +90,18 @@ supabase functions deploy ai-vet-report-rewrite ai-record-summary ai-coa-extract
   and never writes `lab_tests`.
 - Care plans are drafts to discuss with a vet; gentle options are suppressed on red
   flags server-side.
+- **Symptom photos** produce *observations only* — no diagnosis, score, or urgency.
+  The model observes visible features; deterministic server rules (`assessInput` on
+  the notes + a fixed observed-red-flag → routing map) decide urgency, and the UI
+  hands off to the rule-based guided triage. Observations are `needs_review`.
 - Sentry scrubs prompts/records/PII (`sendDefaultPii:false` + `beforeSend`).
+
+## Roadmap: symptom image knowledge base
+
+`ai-vision-symptom` deliberately returns structured `feature / value / confidence`
+observations (not prose) so they can seed a future **dog & cat image knowledge
+base** — mapping observed features (stool color/consistency, tongue/gum color, skin
+lesions, ear redness, visible fleas/ticks, rashes) to what they may indicate, so the
+app can interpret observations against curated, source-backed references instead of a
+general model. Until that exists, observations stay descriptive and defer to the
+deterministic triage and a veterinarian.

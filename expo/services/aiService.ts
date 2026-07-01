@@ -19,6 +19,7 @@ import type {
   ExplainReply,
   LabelExtraction,
   RecordSummary,
+  SymptomObservation,
   VetReportRewrite,
 } from "@/lib/ai/types";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
@@ -106,6 +107,17 @@ export const aiService = {
     productHint?: string | null;
   }): Promise<AiEnvelope<LabelExtraction>> {
     return (await gate<LabelExtraction>({ needsDocs: true })) ?? invokeAi<LabelExtraction>("ai-vision-label", input);
+  },
+
+  /** Describe observable features in a symptom photo (never a diagnosis/score).
+   *  Deterministic red-flag routing comes back in `safety`; hand off to guided triage. */
+  async observeSymptomPhoto(input: {
+    imagePath: string;
+    area: "poop" | "skin" | "ear" | "eye" | "teeth";
+    petId?: string | null;
+    notes?: string | null;
+  }): Promise<AiEnvelope<SymptomObservation>> {
+    return (await gate<SymptomObservation>({ needsDocs: true })) ?? invokeAi<SymptomObservation>("ai-vision-symptom", input);
   },
 
   async explain(input: { feature: string; result: unknown }): Promise<AiEnvelope<ExplainReply>> {

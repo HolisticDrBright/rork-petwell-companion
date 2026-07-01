@@ -8,6 +8,7 @@ export type AiFeature =
   | "chat"
   | "explanation"
   | "food_label_vision"
+  | "symptom_vision"
   | "record_summary"
   | "coa_extraction"
   | "care_plan"
@@ -120,4 +121,26 @@ export interface ChatReply {
 
 export interface ExplainReply {
   explanation: string;
+}
+
+/** Observable red-flag signs the model may report; the app maps them to routing. */
+export type ObservedRedFlag =
+  | "none"
+  | "large_amount_of_blood"
+  | "black_tarry_stool"
+  | "pale_or_bluish_gums"
+  | "severe_swelling"
+  | "open_wound_active_bleeding";
+
+/**
+ * Symptom-photo observations — visible features only, never a diagnosis, score, or
+ * urgency (deterministic rules decide routing). Shaped as feature/value/confidence
+ * triples so it can later feed an image knowledge base.
+ */
+export interface SymptomObservation {
+  area: "poop" | "skin" | "ear" | "eye" | "teeth";
+  quality: "clear" | "unclear" | "not_applicable";
+  summary: string;
+  observations: { feature: string; value: string; confidence: "low" | "medium" | "high" }[];
+  observedRedFlags: ObservedRedFlag[];
 }

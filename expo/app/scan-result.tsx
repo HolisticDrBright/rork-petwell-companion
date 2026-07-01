@@ -1,15 +1,17 @@
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { FileText, Link2, Pencil, Save } from "lucide-react-native";
+import { AlertTriangle, FileText, Link2, Pencil, Save, Sparkles } from "lucide-react-native";
 import React, { useCallback, useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { NoPetSelected } from "@/components/NoPetSelected";
 import { Card, Disclaimer, PrimaryButton, UrgencyBand } from "@/components/ui";
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
 import { getScanResult } from "@/constants/scans";
 import { config } from "@/lib/config";
+import type { SymptomObservation } from "@/lib/ai/types";
 import { usePets } from "@/providers/PetProvider";
 import { scanService } from "@/services";
+import { aiService } from "@/services/aiService";
 
 function nowLabel(): string {
   const d = new Date();
@@ -33,20 +35,69 @@ const TONE_BG = {
   bad: Colors.coral100,
 } as const;
 
+// Symptom areas the vision model can observe, and the real triage concern each
+// hands off to. teeth/weight have no observation/concern → fall back to generic.
+const AI_AREAS = ["poop", "skin", "ear", "eye", "teeth"] as const;
+type AiArea = (typeof AI_AREAS)[number];
+const CONCERN_FOR: Record<string, string> = { poop: "diarrhea", skin: "skin", ear: "ear", eye: "eye" };
+
 export default function ScanResultScreen() {
   const router = useRouter();
-  const { type, notes } = useLocalSearchParams<{ type: string; notes: string }>();
+  const { type, notes, photo } = useLocalSearchParams<{ type: string; notes: string; photo?: string }>();
   const { selectedPet, addLog, todayIso, mode } = usePets();
   const result = useMemo(() => getScanResult(type ?? "poop"), [type]);
   const isLabel = type === "food" || type === "treat";
   // Photo "scoring" of symptom pictures is illustrative only. In production
   // (mockScanEnabled = false) we never present fabricated scores/findings — we
-  // save the photo and route to the real adaptive triage instead.
+  // offer AI *observations* (opt-in) and route to the real adaptive triage.
   const mockScan = config.mockScanEnabled;
+  const aiArea: AiArea | null = (AI_AREAS as readonly string[]).includes(type ?? "") ? (type as AiArea) : null;
+  const guidedConcern = CONCERN_FOR[type ?? ""] ?? "other";
 
   const [correctOpen, setCorrectOpen] = useState<boolean>(false);
   const [correctText, setCorrectText] = useState<string>("");
   const [corrected, setCorrected] = useState<boolean>(false);
+
+  // AI photo observations (opt-in; observations only, never a diagnosis/score).
+  const [aiBusy, setAiBusy] = useState<boolean>(false);
+  const [aiObs, setAiObs] = useState<SymptomObservation | null>(null);
+  const [aiBanner, setAiBanner] = useState<string | null>(null);
+  const [aiNote, setAiNote] = useState<string | null>(null);
+
+  const onAnalyzeAi = useCallback(async () => {
+    if (!selectedPet || !aiArea || !photo) return;
+    setAiBusy(true);
+    setAiNote(null);
+    try {
+      const path = await aiService.uploadScanImage(photo);
+      if (!path) {
+        setAiNote("Couldn't upload the photo — please try again.");
+        return;
+      }
+      const res = await aiService.observeSymptomPhoto({
+        imagePath: path,
+        area: aiArea,
+        petId: selectedPet.id,
+        notes: notes || undefined,
+      });
+      if (res.disabled) {
+        setAiNote(res.disabledReason ?? "Turn on AI and document processing in Settings to read photos.");
+        return;
+      }
+      if (!res.ok || !res.data) {
+        setAiNote(res.error ?? "Couldn't read this photo — you can still use the guided check.");
+        return;
+      }
+      setAiObs(res.data);
+      setAiBanner(res.safety?.banner ?? null);
+    } finally {
+      setAiBusy(false);
+    }
+  }, [selectedPet, aiArea, photo, notes]);
+
+  const goGuided = useCallback(() => {
+    router.push({ pathname: "/ask-flow", params: { concern: guidedConcern } });
+  }, [router, guidedConcern]);
 
   const saveCorrection = useCallback(() => {
     const note = correctText.trim();
@@ -69,10 +120,14 @@ export default function ScanResultScreen() {
       date: todayIso,
       time: nowLabel(),
       category: "scan",
-      title: mockScan ? `${result.title} saved` : "Photo saved to timeline",
-      detail: mockScan && result.score ? `${result.scoreLabel}: ${result.score}` : undefined,
+      title: mockScan ? `${result.title} saved` : aiObs ? "Photo + AI observations saved" : "Photo saved to timeline",
+      detail: mockScan && result.score
+        ? `${result.scoreLabel}: ${result.score}`
+        : aiObs
+          ? aiObs.summary.slice(0, 140)
+          : undefined,
       value: undefined,
-      urgency: mockScan ? result.urgency : undefined,
+      urgency: mockScan ? result.urgency : aiBanner ? "red" : undefined,
     });
     // Persist the full scan record (best-effort; ignored in local mode).
     if (mode === "remote") {
@@ -81,7 +136,7 @@ export default function ScanResultScreen() {
         .catch((e) => console.warn("[petwell] scan save failed:", e));
     }
     router.replace("/(tabs)/timeline");
-  }, [addLog, selectedPet, todayIso, result, mode, type, notes, router, mockScan]);
+  }, [addLog, selectedPet, todayIso, result, mode, type, notes, router, mockScan, aiObs, aiBanner]);
 
   if (!selectedPet) return <NoPetSelected />;
 
@@ -148,20 +203,82 @@ export default function ScanResultScreen() {
           ) : null}
         </>
       ) : (
-        <View style={styles.previewBanner}>
-          <Text style={styles.previewTitle}>Photo scoring isn&apos;t live yet</Text>
-          <Text style={styles.previewBody}>
-            We saved your photo, but Petwell won&apos;t invent a score or finding from it. For symptom
-            guidance, start the guided check — it asks adaptive questions and routes urgent cases to a
-            vet. You can keep the photo on the timeline and share it with your vet.
-          </Text>
+        <View style={{ marginVertical: Space.md, gap: Space.md }}>
+          {/* Deterministic red-flag routing — from observed signs or the notes.
+              The model observes; the app's rules (not the model) set this. */}
+          {aiBanner ? (
+            <View style={styles.redFlag}>
+              <AlertTriangle size={18} color={Colors.red600} />
+              <Text style={styles.redFlagText}>{aiBanner}</Text>
+            </View>
+          ) : null}
+
+          {aiArea && photo ? (
+            aiObs ? (
+              <Card style={{ gap: 10 }}>
+                <View style={styles.aiHead}>
+                  <Sparkles size={16} color={Colors.teal700} />
+                  <Text style={styles.aiTitle}>AI photo observations</Text>
+                </View>
+                <Text style={styles.aiSummary}>{aiObs.summary}</Text>
+                {aiObs.observations.length > 0 ? (
+                  <View style={{ gap: 8 }}>
+                    {aiObs.observations.map((o, i) => (
+                      <View key={i} style={styles.obsRow}>
+                        <Text style={styles.obsFeature}>{o.feature}</Text>
+                        <Text style={styles.obsValue}>{o.value}</Text>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
+                <Text style={styles.aiFootnote}>
+                  Observations only — not a diagnosis or score.
+                  {aiObs.quality === "unclear" ? " The photo was hard to read." : ""} Confirm with the guided
+                  check and your vet.
+                </Text>
+              </Card>
+            ) : (
+              <View style={styles.previewBanner}>
+                <Text style={styles.previewTitle}>Read this photo with AI</Text>
+                <Text style={styles.previewBody}>
+                  Optional: AI can describe what&apos;s visible (color, redness, blood, discharge) as
+                  observations — never a diagnosis or score. The guided check makes the actual assessment.
+                </Text>
+                <Pressable
+                  onPress={onAnalyzeAi}
+                  disabled={aiBusy}
+                  accessibilityRole="button"
+                  accessibilityLabel="Read this photo with AI, observations only"
+                  style={({ pressed }) => [styles.previewCta, pressed && { opacity: 0.85 }]}
+                >
+                  {aiBusy ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.previewCtaText}>Read photo (observations only)</Text>
+                  )}
+                </Pressable>
+                {aiNote ? <Text style={styles.aiNote}>{aiNote}</Text> : null}
+              </View>
+            )
+          ) : (
+            <View style={styles.previewBanner}>
+              <Text style={styles.previewTitle}>Photo saved</Text>
+              <Text style={styles.previewBody}>
+                Petwell won&apos;t invent a score from a photo. Use the guided check for real, adaptive
+                symptom guidance — it routes urgent cases to a vet. You can keep the photo on the timeline
+                and share it with your vet.
+              </Text>
+            </View>
+          )}
+
+          {/* Always hand off to the real, rule-based triage. */}
           <Pressable
-            onPress={() => router.push("/ask")}
+            onPress={goGuided}
             accessibilityRole="button"
-            accessibilityLabel="Start guided symptom check"
-            style={({ pressed }) => [styles.previewCta, pressed && { opacity: 0.85 }]}
+            accessibilityLabel="Continue to guided check"
+            style={({ pressed }) => [styles.guidedCta, pressed && { opacity: 0.85 }]}
           >
-            <Text style={styles.previewCtaText}>Start guided check</Text>
+            <Text style={styles.guidedCtaText}>Continue to guided check</Text>
           </Pressable>
         </View>
       )}
@@ -263,6 +380,30 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
   },
   previewCtaText: { ...Fonts.h3, fontSize: 14, color: "#fff" },
+  aiNote: { ...Fonts.small, color: Colors.inkSoft, marginTop: 6, lineHeight: 18 },
+  redFlag: {
+    flexDirection: "row",
+    gap: 10,
+    alignItems: "flex-start",
+    backgroundColor: Colors.red100,
+    borderRadius: Radius.md,
+    padding: Space.md,
+  },
+  redFlagText: { ...Fonts.small, color: Colors.red600, flex: 1, lineHeight: 19, fontWeight: "700" },
+  aiHead: { flexDirection: "row", alignItems: "center", gap: 8 },
+  aiTitle: { ...Fonts.h3, fontSize: 15, color: Colors.teal900 },
+  aiSummary: { ...Fonts.body, color: Colors.ink, lineHeight: 21 },
+  obsRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12 },
+  obsFeature: { ...Fonts.small, color: Colors.inkSoft, flex: 1 },
+  obsValue: { ...Fonts.small, color: Colors.ink, fontWeight: "700", flexShrink: 1, textAlign: "right" },
+  aiFootnote: { ...Fonts.tiny, color: Colors.inkFaint, lineHeight: 15 },
+  guidedCta: {
+    backgroundColor: Colors.coral500,
+    borderRadius: Radius.md,
+    paddingVertical: 14,
+    alignItems: "center",
+  },
+  guidedCtaText: { ...Fonts.h3, fontSize: 15, color: "#fff" },
   title: { ...Fonts.title, marginVertical: 2 },
   scoreBadge: {
     backgroundColor: Colors.teal800,

@@ -195,5 +195,37 @@ ck("15 chat banner gate keys on hotline numbers", /426-4435/.test(chatFnSrc) && 
 const searchSrc = read("../lib/toxins/search.ts");
 ck("15 searchToxins guards short-alias substring match", /a\.length >= 3 && q\.includes\(a\)/.test(searchSrc));
 
+// ── 16. Symptom vision: observations only, deterministic routing, real triage ─
+const symPrompt = has("../../prompts/symptom-vision-v1.md") ? read("../../prompts/symptom-vision-v1.md") : "";
+ck("16 symptom-vision prompt exists", symPrompt.length > 0);
+ck("16 symptom prompt: observable only, no disease", /observable/i.test(symPrompt) && /never name a disease|do not.*diagnos/i.test(symPrompt));
+ck("16 symptom prompt: never score/rate/urgency", /never assign a score|no score|rating|severity level|urgency/i.test(symPrompt));
+ck("16 symptom prompt: never treat/dose", /never (recommend|prescribe|.*dose)|do not.*treat/i.test(symPrompt));
+// Authoritative server prompt (sharedPrompts) carries the same rules.
+ck("16 server SYMPTOM_VISION_PROMPT present + observation-only", /SYMPTOM_VISION_PROMPT/.test(sharedPrompts) && /never assign a score/i.test(sharedPrompts));
+
+// The observation schema cannot express a diagnosis, score, or urgency.
+const symSchema = /symptomObservationSchema[\s\S]*?\n};/.exec(schemasSrc)?.[0] ?? "";
+ck("16 symptom schema has observedRedFlags + observations", /observedRedFlags/.test(symSchema) && /observations/.test(symSchema));
+ck("16 symptom schema has no diagnosis/score/urgency/severity field", !/diagnos|score|urgency|severity|grade|rating/i.test(symSchema));
+ck("16 symptom schema is strict (additionalProperties:false)", /additionalProperties:\s*false/.test(symSchema));
+
+// The function decides routing deterministically — not the model.
+const symFnSrc = has("../../supabase/functions/ai-vision-symptom/index.ts")
+  ? read("../../supabase/functions/ai-vision-symptom/index.ts")
+  : "";
+ck("16 symptom function exists", symFnSrc.length > 0);
+ck("16 symptom function runs deterministic assessInput on notes", /assessInput\(notes\)/.test(symFnSrc));
+ck("16 symptom function maps observed red flags → emergency routing (server rule)", /observedRedFlags/.test(symFnSrc) && /emergency_vet/.test(symFnSrc) && /textAssess\.routing/.test(symFnSrc));
+ck("16 symptom function reviews output + neutralizes forbidden claims", /reviewOutput\(/.test(symFnSrc) && /output_neutralized/.test(symFnSrc));
+ck("16 symptom function is needs_review + scoped to owner", /needs_review/.test(symFnSrc) && /startsWith\(`\$\{ctx\.caller\.userId\}\//.test(symFnSrc));
+
+// Client: opt-in gated, and the UI hands off to the REAL rule-based triage.
+ck("16 observeSymptomPhoto gates on document opt-in", /observeSymptomPhoto[\s\S]*?gate<SymptomObservation>\(\{ needsDocs: true \}\)/.test(aiServiceSrc));
+const scanResultSrc = read("../app/scan-result.tsx");
+ck("16 scan-result hands off to guided triage (ask-flow)", /ai-vision-symptom|observeSymptomPhoto/.test(scanResultSrc) && /pathname: "\/ask-flow"/.test(scanResultSrc));
+const aiTypesSrc = read("../lib/ai/types.ts");
+ck("16 SymptomObservation type carries no diagnosis/score field", /interface SymptomObservation/.test(aiTypesSrc) && !/diagnos|score/i.test(/interface SymptomObservation[\s\S]*?\n}/.exec(aiTypesSrc)?.[0] ?? ""));
+
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);
