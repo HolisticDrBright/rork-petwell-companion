@@ -6,3 +6,6 @@ node_modules
 # vision golden set: local photos + dated reports stay out of git
 expo/data/vision-golden-set/photos/
 expo/data/vision-golden-set/report-*.json
+
+# graphify knowledge-graph output (generated)
+graphify-out/
