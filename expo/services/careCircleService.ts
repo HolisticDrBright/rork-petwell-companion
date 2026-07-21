@@ -2,6 +2,8 @@
 // All circle management goes through SECURITY DEFINER RPCs; reads rely on the
 // section-gated RLS, so a caregiver's queries simply return what they're
 // allowed and nothing else. Remote mode only — sharing has no local/demo mode.
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
 import { requireUserId } from "@/lib/backend";
 import type { CareRole, SharedSections } from "@/lib/careCircle";
 import { normalizeInviteCode, normalizeSharedSections } from "@/lib/careCircle";
@@ -45,6 +47,17 @@ export interface CareTaskEvent {
   completedAt: string;
   note: string | null;
   photoUrl: string | null;
+}
+
+const PENDING_KEY = "petwell.careCircle.pendingCheckoffs.v1";
+
+interface PendingCheckoff {
+  petId: string;
+  sourceKind: CareTaskKind;
+  sourceId: string;
+  occurrenceDate: string;
+  clientCompletedAt: string;
+  note?: string;
 }
 
 type MemberRow = {
@@ -259,6 +272,56 @@ export const careCircleService = {
     const { data, error } = await query;
     if (error) throw new Error(error.message);
     return ((data ?? []) as EventRow[]).map(mapEvent);
+  },
+
+  /**
+   * Check off with an offline queue: on network failure the tap is stored and
+   * replayed by flushPendingCheckoffs(). Server-side collapse per occurrence
+   * makes replays idempotent (last write wins), so double-flushing is safe.
+   */
+  async completeTaskQueued(input: {
+    petId: string;
+    sourceKind: CareTaskKind;
+    sourceId: string;
+    occurrenceDate: string;
+    note?: string;
+  }): Promise<{ queued: boolean }> {
+    const clientCompletedAt = new Date().toISOString();
+    try {
+      await this.completeTask({ ...input, clientCompletedAt });
+      return { queued: false };
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "";
+      // Permission/validation errors should surface, not queue.
+      if (/access|owner|belong|kind|signed in/i.test(message)) throw e;
+      const raw = await AsyncStorage.getItem(PENDING_KEY);
+      const pending: PendingCheckoff[] = raw ? JSON.parse(raw) : [];
+      pending.push({ ...input, clientCompletedAt });
+      await AsyncStorage.setItem(PENDING_KEY, JSON.stringify(pending.slice(-100)));
+      return { queued: true };
+    }
+  },
+
+  /** Replay queued offline check-offs; keeps whatever still fails. */
+  async flushPendingCheckoffs(): Promise<number> {
+    const raw = await AsyncStorage.getItem(PENDING_KEY);
+    if (!raw) return 0;
+    const pending: PendingCheckoff[] = JSON.parse(raw);
+    if (!pending.length) return 0;
+    const stillPending: PendingCheckoff[] = [];
+    let flushed = 0;
+    for (const item of pending) {
+      try {
+        await this.completeTask(item);
+        flushed++;
+      } catch (e) {
+        const message = e instanceof Error ? e.message : "";
+        // Drop entries the server rejects outright; keep network failures.
+        if (!/access|owner|belong|kind|signed in/i.test(message)) stillPending.push(item);
+      }
+    }
+    await AsyncStorage.setItem(PENDING_KEY, JSON.stringify(stillPending));
+    return flushed;
   },
 
   /**

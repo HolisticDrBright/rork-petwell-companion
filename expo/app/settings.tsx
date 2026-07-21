@@ -19,6 +19,7 @@ import {
   Sparkles,
   Trash2,
   UserCircle,
+  Users,
 } from "lucide-react-native";
 import React, { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
@@ -361,6 +362,10 @@ export default function SettingsScreen() {
               <ActionRow icon={Sparkles} label="Try a demo profile (sample pets)" onPress={onTryDemo} />
             </>
           ) : null}
+          <View style={styles.divider} />
+          <ActionRow icon={Users} label="Care Circle (share this pet)" onPress={() => router.push("/care-circle")} />
+          <View style={styles.divider} />
+          <ActionRow icon={PawPrint} label="Shared with me / join with a code" onPress={() => router.push("/join-circle")} />
           <View style={styles.divider} />
           <ActionRow icon={Bell} label="Reminders" onPress={() => router.push("/reminders")} />
           <View style={styles.divider} />
