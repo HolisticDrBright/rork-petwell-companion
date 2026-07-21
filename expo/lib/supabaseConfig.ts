@@ -24,8 +24,8 @@ const ENV_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 // is not production. A production build can never fall back to it, even if the
 // EXPO_PUBLIC_USE_DEMO_SUPABASE flag is somehow set.
 const DEMO_OPT_IN = dataMode.demoSupabaseAllowed;
-const DEMO_URL = "https://iwrqvrfklmyppfhrikfb.supabase.co";
-const DEMO_ANON_KEY = "sb_publishable_jxzFL6hguLM7yIgpLwXTXQ_IS3rXCdh";
+const DEMO_URL = "https://dxcuuguorvbqoiybefes.supabase.co";
+const DEMO_ANON_KEY = "sb_publishable_KBWrEXHxLbADVhRqIGDINQ_rMdhtN29";
 
 export const SUPABASE_URL = ENV_URL ?? (DEMO_OPT_IN ? DEMO_URL : "");
 export const SUPABASE_ANON_KEY = ENV_ANON_KEY ?? (DEMO_OPT_IN ? DEMO_ANON_KEY : "");

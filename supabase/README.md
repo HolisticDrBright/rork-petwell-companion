@@ -5,7 +5,7 @@ Security, storage, seed data, and a typed service layer the app talks to.
 
 ## Project
 
-- Project: **petwell** (`iwrqvrfklmyppfhrikfb`), region `us-east-1`.
+- Project: **petwell** (`dxcuuguorvbqoiybefes`), region `us-east-1`.
 - URL + publishable key live in `expo/lib/supabaseConfig.ts` (overridable via
   `EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_ANON_KEY`; see
   `expo/.env.example`). The publishable key is safe to ship — RLS protects data.
@@ -53,14 +53,14 @@ Applied in order (`supabase/migrations/`):
 Apply with the Supabase CLI:
 
 ```bash
-supabase link --project-ref iwrqvrfklmyppfhrikfb
+supabase link --project-ref dxcuuguorvbqoiybefes
 supabase db push
 ```
 
 Regenerate types after schema changes:
 
 ```bash
-supabase gen types typescript --project-id iwrqvrfklmyppfhrikfb > expo/types/db.ts
+supabase gen types typescript --project-id dxcuuguorvbqoiybefes > expo/types/db.ts
 ```
 
 ## Security model
