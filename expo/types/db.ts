@@ -251,6 +251,56 @@ export type Database = {
         }
         Relationships: []
       }
+      care_task_events: {
+        Row: {
+          client_completed_at: string | null
+          completed_at: string
+          completed_by: string | null
+          created_at: string
+          id: string
+          note: string | null
+          occurrence_date: string
+          pet_id: string
+          photo_url: string | null
+          source_id: string
+          source_kind: string
+        }
+        Insert: {
+          client_completed_at?: string | null
+          completed_at?: string
+          completed_by?: string | null
+          created_at?: string
+          id?: string
+          note?: string | null
+          occurrence_date?: string
+          pet_id: string
+          photo_url?: string | null
+          source_id: string
+          source_kind: string
+        }
+        Update: {
+          client_completed_at?: string | null
+          completed_at?: string
+          completed_by?: string | null
+          created_at?: string
+          id?: string
+          note?: string | null
+          occurrence_date?: string
+          pet_id?: string
+          photo_url?: string | null
+          source_id?: string
+          source_kind?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "care_task_events_pet_id_fkey"
+            columns: ["pet_id"]
+            isOneToOne: false
+            referencedRelation: "pet_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       care_tasks: {
         Row: {
           created_at: string
@@ -1897,6 +1947,33 @@ export type Database = {
           },
         ]
       }
+      pet_access_log: {
+        Row: {
+          action: string
+          actor_id: string
+          created_at: string
+          detail: Json | null
+          id: string
+          pet_id: string
+        }
+        Insert: {
+          action: string
+          actor_id: string
+          created_at?: string
+          detail?: Json | null
+          id?: string
+          pet_id: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string
+          created_at?: string
+          detail?: Json | null
+          id?: string
+          pet_id?: string
+        }
+        Relationships: []
+      }
       pet_allergies: {
         Row: {
           created_at: string
@@ -1967,6 +2044,56 @@ export type Database = {
           },
         ]
       }
+      pet_invites: {
+        Row: {
+          access_expires_at: string | null
+          claimed_at: string | null
+          claimed_by: string | null
+          code: string
+          created_at: string
+          created_by: string
+          id: string
+          invite_expires_at: string
+          pet_id: string
+          role: string
+          shared_sections: Json
+        }
+        Insert: {
+          access_expires_at?: string | null
+          claimed_at?: string | null
+          claimed_by?: string | null
+          code: string
+          created_at?: string
+          created_by: string
+          id?: string
+          invite_expires_at?: string
+          pet_id: string
+          role: string
+          shared_sections: Json
+        }
+        Update: {
+          access_expires_at?: string | null
+          claimed_at?: string | null
+          claimed_by?: string | null
+          code?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          invite_expires_at?: string
+          pet_id?: string
+          role?: string
+          shared_sections?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pet_invites_pet_id_fkey"
+            columns: ["pet_id"]
+            isOneToOne: false
+            referencedRelation: "pet_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pet_medications: {
         Row: {
           created_at: string
@@ -2004,6 +2131,53 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "pet_medications_pet_id_fkey"
+            columns: ["pet_id"]
+            isOneToOne: false
+            referencedRelation: "pet_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pet_members: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          expires_at: string | null
+          id: string
+          pet_id: string
+          revoked_at: string | null
+          role: string
+          shared_sections: Json
+          status: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          pet_id: string
+          revoked_at?: string | null
+          role: string
+          shared_sections?: Json
+          status?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          pet_id?: string
+          revoked_at?: string | null
+          role?: string
+          shared_sections?: Json
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pet_members_pet_id_fkey"
             columns: ["pet_id"]
             isOneToOne: false
             referencedRelation: "pet_profiles"
@@ -3339,6 +3513,31 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      claim_invite: {
+        Args: { p_code: string }
+        Returns: Json
+      }
+      complete_care_task: {
+        Args: {
+          p_pet_id: string
+          p_source_kind: string
+          p_source_id: string
+          p_occurrence_date?: string | null
+          p_client_completed_at?: string | null
+          p_note?: string | null
+          p_photo_url?: string | null
+        }
+        Returns: string
+      }
+      create_pet_invite: {
+        Args: {
+          p_pet_id: string
+          p_role: string
+          p_shared_sections?: Json | null
+          p_access_expires_at?: string | null
+        }
+        Returns: Json
+      }
       match_food_products: {
         Args: {
           name_hint?: string | null
@@ -3356,6 +3555,14 @@ export type Database = {
           product_type: string
           ingredient_names: string[]
         }[]
+      }
+      revoke_member: {
+        Args: { p_pet_id: string; p_user_id: string }
+        Returns: undefined
+      }
+      update_member_sections: {
+        Args: { p_pet_id: string; p_user_id: string; p_shared_sections: Json }
+        Returns: Json
       }
     }
     Enums: {

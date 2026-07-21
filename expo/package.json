@@ -9,7 +9,7 @@
     "start-web-dev": "DEBUG=expo* expo start --web",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
-    "test": "bun tests/safety.test.ts && bun tests/data.test.ts && bun tests/toxins.test.ts && bun tests/ai.test.ts && bun tests/dataMode.test.ts && bun tests/petEmptyState.test.ts && bun tests/symptomKb.test.ts && bun tests/insights.test.ts",
+    "test": "bun tests/safety.test.ts && bun tests/data.test.ts && bun tests/toxins.test.ts && bun tests/ai.test.ts && bun tests/dataMode.test.ts && bun tests/petEmptyState.test.ts && bun tests/symptomKb.test.ts && bun tests/insights.test.ts && bun tests/sharedCare.test.ts",
     "test:safety": "bun tests/safety.test.ts",
     "test:data": "bun tests/data.test.ts",
     "test:toxins": "bun tests/toxins.test.ts",
@@ -20,7 +20,8 @@
     "import:recalls": "bun scripts/import-recalls.ts",
     "import:opff": "bun scripts/import-opff.ts",
     "toxins:export-review": "bun scripts/export-toxin-review.ts",
-    "test:insights": "bun tests/insights.test.ts"
+    "test:insights": "bun tests/insights.test.ts",
+    "test:sharedcare": "bun tests/sharedCare.test.ts"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
