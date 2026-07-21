@@ -244,8 +244,8 @@ bun scripts/export-toxin-review.ts > ../docs/toxin-review-checklist.md
 
 | Item | Status | Action |
 |---|---|---|
-| iOS bundle ID | ⚠️ placeholder `app.rork.u36ek53il5cxdlwr8ag9m` | set your reverse-DNS id in `app.json` → `ios.bundleIdentifier` |
-| Android package | ⚠️ placeholder `app.rork.u36ek53il5cxdlwr8ag9m` | set in `app.json` → `android.package` |
+| iOS bundle ID | ✅ `com.holisticdrbright.petwell` | `app.json` → `ios.bundleIdentifier` |
+| Android package | ✅ `com.holisticdrbright.petwell` | `app.json` → `android.package` |
 | App slug / name | ⚠️ slug is a generated id | set a real `slug`/`name` (also used by the `start` scripts) |
 | App icon / splash | ⚠️ verify defaults replaced | provide production icon + splash assets |
 | Native permissions | ✅ camera/photos (image-picker), notifications declared in `app.json` | confirm usage strings read well in the store |

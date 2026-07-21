@@ -30,7 +30,7 @@ real keys/partners**. Don't advertise anything past the rung it has actually rea
 1. Stand up your **own Supabase project**, `db push` migrations 0001–0017, run the **RLS verification
    checklist** (PRODUCTION_SETUP §4) until Advisors shows 0 lints.
 2. Set production **env/EAS secrets** (Supabase URL/anon, Sentry DSN) — no demo opt-in.
-3. Replace **bundle IDs + slug + icon/splash** in `app.json` (currently rork placeholders).
+3. Bundle IDs + slug are set (`com.holisticdrbright.petwell`, `petwell-companion`); replace **icon/splash** art in `app.json` if rebranding.
 4. Configure **RevenueCat**: per-store keys, products (monthly/yearly/lifetime), `Petwell Pro` entitlement,
    paywall, customer center; set the key env vars.
 5. **Sandbox-test IAP** on device (PRODUCTION_SETUP §2 checklist); don't claim payments live until it passes.
