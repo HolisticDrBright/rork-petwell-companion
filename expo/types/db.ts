@@ -3106,6 +3106,69 @@ export type Database = {
         }
         Relationships: []
       }
+      telehealth_requests: {
+        Row: {
+          admin_notes: string | null
+          created_at: string
+          id: string
+          kind: string
+          meeting_url: string | null
+          pet_id: string | null
+          practitioner_id: string | null
+          preferred_times: string | null
+          reason: string | null
+          scheduled_at: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          admin_notes?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          meeting_url?: string | null
+          pet_id?: string | null
+          practitioner_id?: string | null
+          preferred_times?: string | null
+          reason?: string | null
+          scheduled_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          admin_notes?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          meeting_url?: string | null
+          pet_id?: string | null
+          practitioner_id?: string | null
+          preferred_times?: string | null
+          reason?: string | null
+          scheduled_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "telehealth_requests_pet_id_fkey"
+            columns: ["pet_id"]
+            isOneToOne: false
+            referencedRelation: "pet_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "telehealth_requests_practitioner_id_fkey"
+            columns: ["practitioner_id"]
+            isOneToOne: false
+            referencedRelation: "vet_practitioners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       timeline_events: {
         Row: {
           category: string
@@ -3426,6 +3489,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      vet_practitioners: {
+        Row: {
+          active: boolean
+          bio: string | null
+          booking_url: string | null
+          created_at: string
+          credentials: string | null
+          display_name: string
+          id: string
+          photo_url: string | null
+          specialties: string[]
+          species: string
+          timezone: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          bio?: string | null
+          booking_url?: string | null
+          created_at?: string
+          credentials?: string | null
+          display_name: string
+          id?: string
+          photo_url?: string | null
+          specialties?: string[]
+          species?: string
+          timezone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          bio?: string | null
+          booking_url?: string | null
+          created_at?: string
+          credentials?: string | null
+          display_name?: string
+          id?: string
+          photo_url?: string | null
+          specialties?: string[]
+          species?: string
+          timezone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       vet_records: {
         Row: {

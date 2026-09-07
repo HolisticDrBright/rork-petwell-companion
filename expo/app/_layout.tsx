@@ -48,6 +48,7 @@ function RootLayoutNav() {
       <Stack.Screen name="ai-assistant" options={{ title: "Pet assistant", presentation: "card" }} />
       <Stack.Screen name="reminders" options={{ title: "Reminders", presentation: "card" }} />
       <Stack.Screen name="care-circle" options={{ title: "Care Circle", presentation: "card" }} />
+      <Stack.Screen name="telehealth" options={{ title: "Vet telehealth", presentation: "card" }} />
       <Stack.Screen name="join-circle" options={{ title: "Shared with me", presentation: "card" }} />
       <Stack.Screen name="shared-pet/[id]" options={{ title: "Shared pet", presentation: "card" }} />
       <Stack.Screen name="premium" options={{ headerShown: false, presentation: "modal" }} />

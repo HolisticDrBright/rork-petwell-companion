@@ -20,6 +20,7 @@ import {
   Trash2,
   UserCircle,
   Users,
+  Video,
 } from "lucide-react-native";
 import React, { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
@@ -366,6 +367,8 @@ export default function SettingsScreen() {
           <ActionRow icon={Users} label="Care Circle (share this pet)" onPress={() => router.push("/care-circle")} />
           <View style={styles.divider} />
           <ActionRow icon={PawPrint} label="Shared with me / join with a code" onPress={() => router.push("/join-circle")} />
+          <View style={styles.divider} />
+          <ActionRow icon={Video} label="Vet telehealth (coming soon)" onPress={() => router.push("/telehealth")} />
           <View style={styles.divider} />
           <ActionRow icon={Bell} label="Reminders" onPress={() => router.push("/reminders")} />
           <View style={styles.divider} />

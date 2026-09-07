@@ -38,4 +38,7 @@ export const OWNED_TABLES = [
   "progress_programs",
   "program_logs",
   "product_recommendations",
+  // Telehealth (0031): the user's own requests; the practitioner directory is
+  // world-readable reference data and stays out.
+  "telehealth_requests",
 ] as const;

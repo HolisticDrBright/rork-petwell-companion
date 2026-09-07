@@ -1,212 +1,283 @@
-import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { Bell, Check, ChevronLeft, Leaf, MapPin, PhoneCall, Phone, Stethoscope, Video } from "lucide-react-native";
-import React, { useCallback, useEffect, useState } from "react";
-import { Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Stack } from "expo-router";
+import { AlertTriangle, CalendarPlus, ExternalLink, Video, XCircle } from "lucide-react-native";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
-import { Card, PrimaryButton } from "@/components/ui";
+import { EmergencyContacts } from "@/components/EmergencyContacts";
+import { InfoNote, ScreenHeader } from "@/components/integrative";
+import { Card } from "@/components/ui";
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
-import { storage } from "@/services";
-
-interface PreferredVet {
-  name: string;
-  phone: string;
-}
-
-const NOTIFY_KEY = "petwell.telehealth.notified";
-const VET_KEY = "petwell.preferredVet";
+import { getMode } from "@/lib/backend";
+import { isSupabaseConfigured } from "@/lib/supabase";
+import {
+  REQUEST_STATUS_LABELS,
+  TELEHEALTH_COMING_SOON_BLURB,
+  TELEHEALTH_NOT_EMERGENCY_LINE,
+  TELEHEALTH_SCOPE_NOTE,
+  canCancelRequest,
+  isTelehealthLive,
+  type TelehealthPractitioner,
+  type TelehealthRequest,
+} from "@/lib/telehealth";
+import { usePets } from "@/providers/PetProvider";
+import { telehealthService } from "@/services/telehealthService";
 
 export default function TelehealthScreen() {
-  const insets = useSafeAreaInsets();
-  const router = useRouter();
-  const { urgent, holistic } = useLocalSearchParams<{ urgent?: string; holistic?: string }>();
-  const isUrgent = urgent === "1";
-  const isHolistic = holistic === "1";
-  const [notified, setNotified] = useState<boolean>(false);
-  const [vet, setVet] = useState<PreferredVet | null>(null);
-  const [vetName, setVetName] = useState<string>("");
-  const [vetPhone, setVetPhone] = useState<string>("");
+  const { selectedPet } = usePets();
+  const remote = isSupabaseConfigured && getMode() === "remote";
+
+  const [loading, setLoading] = useState<boolean>(true);
+  const [practitioners, setPractitioners] = useState<TelehealthPractitioner[]>([]);
+  const [requests, setRequests] = useState<TelehealthRequest[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState<boolean>(false);
+  const [composerFor, setComposerFor] = useState<TelehealthPractitioner | null>(null);
+  const [reason, setReason] = useState<string>("");
+  const [preferredTimes, setPreferredTimes] = useState<string>("");
+
+  const load = useCallback(async () => {
+    try {
+      setError(null);
+      const [vets, mine] = await Promise.all([telehealthService.listPractitioners(), telehealthService.myRequests()]);
+      setPractitioners(vets);
+      setRequests(mine);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't load telehealth");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    let active = true;
-    (async () => {
-      const [n, v] = await Promise.all([
-        storage.getJSON<boolean>(NOTIFY_KEY, false),
-        storage.getJSON<PreferredVet | null>(VET_KEY, null),
-      ]);
-      if (!active) return;
-      setNotified(n);
-      if (v) {
-        setVet(v);
-        setVetName(v.name);
-        setVetPhone(v.phone);
+    if (!remote) {
+      setLoading(false);
+      return;
+    }
+    void load();
+  }, [remote, load]);
+
+  const live = isTelehealthLive(practitioners.length);
+  const onWaitlist = useMemo(() => requests.some((r) => r.kind === "waitlist" && r.status !== "cancelled"), [requests]);
+  const appointments = useMemo(() => requests.filter((r) => r.kind === "appointment"), [requests]);
+
+  const joinWaitlist = useCallback(async () => {
+    setBusy(true);
+    try {
+      await telehealthService.joinWaitlist(selectedPet?.id ?? null);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't join the waitlist");
+    } finally {
+      setBusy(false);
+    }
+  }, [selectedPet?.id, load]);
+
+  const submitRequest = useCallback(async () => {
+    if (!composerFor) return;
+    setBusy(true);
+    try {
+      await telehealthService.requestAppointment({
+        petId: selectedPet?.id ?? null,
+        practitionerId: composerFor.id,
+        reason,
+        preferredTimes,
+      });
+      setComposerFor(null);
+      setReason("");
+      setPreferredTimes("");
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't send the request");
+    } finally {
+      setBusy(false);
+    }
+  }, [composerFor, selectedPet?.id, reason, preferredTimes, load]);
+
+  const cancel = useCallback(
+    async (id: string) => {
+      setBusy(true);
+      try {
+        await telehealthService.cancelRequest(id);
+        await load();
+      } finally {
+        setBusy(false);
       }
-    })();
-    return () => {
-      active = false;
-    };
-  }, []);
+    },
+    [load],
+  );
 
-  const onNotify = useCallback(() => {
-    setNotified(true);
-    storage.setJSON(NOTIFY_KEY, true).catch(() => {});
-  }, []);
-
-  const saveVet = useCallback(() => {
-    const next: PreferredVet = { name: vetName.trim(), phone: vetPhone.trim() };
-    if (!next.name && !next.phone) return;
-    setVet(next);
-    storage.setJSON(VET_KEY, next).catch(() => {});
-  }, [vetName, vetPhone]);
-
-  const callVet = useCallback(() => {
-    if (vet?.phone) Linking.openURL(`tel:${vet.phone.replace(/[^0-9+]/g, "")}`).catch(() => {});
-  }, [vet]);
-
-  const findEmergency = useCallback(() => {
-    Linking.openURL("https://www.google.com/maps/search/emergency+vet+near+me").catch(() => {});
-  }, []);
-
-  const findHolistic = useCallback(() => {
-    Linking.openURL(
-      "https://www.google.com/maps/search/holistic+integrative+veterinarian+near+me"
-    ).catch(() => {});
+  const book = useCallback((vet: TelehealthPractitioner) => {
+    if (vet.bookingUrl) {
+      Linking.openURL(vet.bookingUrl).catch(() => {});
+    } else {
+      setComposerFor(vet);
+    }
   }, []);
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
-      <View style={styles.topbar}>
-        <Pressable onPress={() => router.back()} style={styles.iconBtn} hitSlop={10}>
-          <ChevronLeft size={24} color={Colors.ink} />
-        </Pressable>
-        <Text style={Fonts.h3}>Talk to a vet</Text>
-        <View style={{ width: 40 }} />
-      </View>
-
-      <ScrollView contentContainerStyle={{ padding: Space.md, paddingBottom: 50 }} showsVerticalScrollIndicator={false}>
-        {/* Urgent banner first */}
-        {isUrgent ? (
-          <View style={styles.urgentCard}>
-            <Phone size={18} color={Colors.red600} />
-            <Text style={styles.urgentText}>
-              For urgent symptoms, don&apos;t wait for telehealth — call your vet or an emergency clinic now.
+      <ScreenHeader title="Vet telehealth" subtitle="Video visits with a licensed veterinarian" />
+      <ScrollView contentContainerStyle={{ padding: Space.md, paddingBottom: 60 }} showsVerticalScrollIndicator={false}>
+        {!remote ? (
+          <Card>
+            <Text style={styles.body}>
+              Telehealth needs an online account. Sign in with the app&apos;s full (remote) mode to join the waitlist
+              or book a visit.
             </Text>
-          </View>
-        ) : null}
+          </Card>
+        ) : loading ? (
+          <ActivityIndicator color={Colors.teal700} style={{ marginTop: Space.lg }} />
+        ) : (
+          <>
+            {error ? (
+              <Card style={styles.errorCard}>
+                <Text style={styles.errorText}>{error}</Text>
+              </Card>
+            ) : null}
 
-        {/* Holistic / integrative intro when arriving from an integrative plan */}
-        {isHolistic && !isUrgent ? (
-          <View style={styles.holisticCard}>
-            <Leaf size={18} color={Colors.teal700} />
-            <Text style={styles.holisticText}>
-              Integrative and holistic vets blend conventional medicine with nutrition, herbs, and
-              lifestyle care. Look for an accredited practitioner to review any natural support plan.
-            </Text>
-          </View>
-        ) : null}
-
-        <View style={styles.hero}>
-          <View style={styles.heroIcon}>
-            <Video size={30} color={Colors.teal700} />
-          </View>
-          <Text style={styles.title}>Vet telehealth is coming soon</Text>
-          <Text style={styles.body}>
-            We&apos;re partnering with licensed veterinary telehealth providers so you can get advice
-            without leaving home. It&apos;s not connected yet.
-          </Text>
-          <Text style={styles.bodyStrong}>
-            For urgent symptoms, call your vet or emergency clinic.
-          </Text>
-        </View>
-
-        {/* Real, working actions */}
-        <Card style={{ gap: 12, marginTop: Space.lg }}>
-          <Text style={styles.cardTitle}>Right now you can</Text>
-          <PrimaryButton
-            label="Find emergency vets nearby"
-            icon={<MapPin size={18} color="#fff" />}
-            variant="primary"
-            onPress={findEmergency}
-          />
-          <PrimaryButton
-            label="Find a holistic / integrative vet"
-            icon={<Leaf size={18} color={Colors.teal800} />}
-            variant="outline"
-            onPress={findHolistic}
-          />
-          <PrimaryButton
-            label="Build a vet-ready report"
-            icon={<Stethoscope size={18} color={Colors.teal800} />}
-            variant="outline"
-            onPress={() => router.replace("/vet-report")}
-          />
-          <Pressable
-            onPress={onNotify}
-            style={({ pressed }) => [styles.notify, pressed && { opacity: 0.8 }]}
-            accessibilityRole="button"
-            accessibilityLabel="Notify me when telehealth is live"
-          >
-            <Bell size={16} color={Colors.teal700} />
-            <Text style={styles.notifyText}>
-              {notified ? "Thanks — we'll let you know when it's live" : "Notify me when telehealth is live"}
-            </Text>
-          </Pressable>
-        </Card>
-
-        {/* Preferred vet (saved locally) */}
-        <Card style={{ gap: 12, marginTop: Space.md }}>
-          <Text style={styles.cardTitle}>Your preferred vet</Text>
-          {vet ? (
-            <>
-              <View style={styles.savedVet}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.savedVetName}>{vet.name || "Saved contact"}</Text>
-                  {vet.phone ? <Text style={styles.savedVetPhone}>{vet.phone}</Text> : null}
+            {!live ? (
+              <Card style={styles.heroCard}>
+                <View style={styles.heroIcon}>
+                  <Video size={26} color={Colors.teal700} />
                 </View>
-                {vet.phone ? (
-                  <Pressable onPress={callVet} style={styles.callBtn} accessibilityRole="button" accessibilityLabel={`Call ${vet.name || "your vet"}`}>
-                    <PhoneCall size={16} color="#fff" />
-                    <Text style={styles.callText}>Call</Text>
+                <View style={styles.soonPill}>
+                  <Text style={styles.soonPillText}>COMING SOON</Text>
+                </View>
+                <Text style={styles.heroTitle}>Talk to a vet from home</Text>
+                <Text style={styles.body}>{TELEHEALTH_COMING_SOON_BLURB}</Text>
+                {onWaitlist ? (
+                  <View style={styles.joinedBox}>
+                    <Text style={styles.joinedText}>
+                      You&apos;re on the list — we&apos;ll let you know the moment booking opens.
+                    </Text>
+                  </View>
+                ) : (
+                  <Pressable
+                    onPress={() => void joinWaitlist()}
+                    disabled={busy}
+                    accessibilityRole="button"
+                    style={[styles.primaryBtn, busy && { opacity: 0.6 }]}
+                  >
+                    <CalendarPlus size={16} color="#fff" />
+                    <Text style={styles.primaryBtnText}>Notify me when booking opens</Text>
                   </Pressable>
-                ) : null}
-              </View>
-              <Pressable onPress={() => setVet(null)} accessibilityRole="button" accessibilityLabel="Edit preferred vet">
-                <Text style={styles.editLink}>Edit contact</Text>
-              </Pressable>
-            </>
-          ) : (
-            <>
-              <Text style={styles.hint}>Save your vet&apos;s details for one-tap calling — kept on this device.</Text>
-              <TextInput
-                value={vetName}
-                onChangeText={setVetName}
-                placeholder="Vet or clinic name"
-                placeholderTextColor={Colors.inkFaint}
-                style={styles.input}
-              />
-              <TextInput
-                value={vetPhone}
-                onChangeText={setVetPhone}
-                placeholder="Phone number"
-                placeholderTextColor={Colors.inkFaint}
-                keyboardType="phone-pad"
-                style={styles.input}
-              />
-              <PrimaryButton
-                label="Save preferred vet"
-                icon={<Check size={18} color="#fff" />}
-                variant="primary"
-                onPress={saveVet}
-              />
-            </>
-          )}
-        </Card>
+                )}
+              </Card>
+            ) : (
+              <>
+                {practitioners.map((vet) => (
+                  <Card key={vet.id} style={styles.vetCard}>
+                    <Text style={styles.vetName}>
+                      {vet.displayName}
+                      {vet.credentials ? <Text style={styles.vetCreds}>{`  ${vet.credentials}`}</Text> : null}
+                    </Text>
+                    {vet.specialties.length ? (
+                      <View style={styles.chipRow}>
+                        {vet.specialties.map((s) => (
+                          <View key={s} style={styles.chip}>
+                            <Text style={styles.chipText}>{s}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    ) : null}
+                    {vet.bio ? <Text style={styles.body}>{vet.bio}</Text> : null}
+                    <Pressable
+                      onPress={() => book(vet)}
+                      accessibilityRole="button"
+                      style={styles.primaryBtn}
+                    >
+                      {vet.bookingUrl ? <ExternalLink size={15} color="#fff" /> : <CalendarPlus size={15} color="#fff" />}
+                      <Text style={styles.primaryBtnText}>
+                        {vet.bookingUrl ? `Book with ${vet.displayName}` : "Request an appointment"}
+                      </Text>
+                    </Pressable>
+                  </Card>
+                ))}
 
-        <Text style={styles.disclaimer}>
-          Petwell guidance is informational and not a diagnosis. In an emergency, contact a veterinary
-          professional immediately.
-        </Text>
+                {composerFor ? (
+                  <Card style={styles.vetCard}>
+                    <Text style={styles.vetName}>Request with {composerFor.displayName}</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder={`What's going on with ${selectedPet?.name ?? "your pet"}? (brief)`}
+                      placeholderTextColor={Colors.inkFaint}
+                      value={reason}
+                      onChangeText={setReason}
+                      multiline
+                    />
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Times that work for you (e.g. weekday evenings)"
+                      placeholderTextColor={Colors.inkFaint}
+                      value={preferredTimes}
+                      onChangeText={setPreferredTimes}
+                    />
+                    <Pressable
+                      onPress={() => void submitRequest()}
+                      disabled={busy}
+                      accessibilityRole="button"
+                      style={[styles.primaryBtn, busy && { opacity: 0.6 }]}
+                    >
+                      <Text style={styles.primaryBtnText}>Send request</Text>
+                    </Pressable>
+                    <Text style={styles.tiny}>
+                      You&apos;ll get a confirmation with the visit time and video link.
+                    </Text>
+                  </Card>
+                ) : null}
+              </>
+            )}
+
+            {appointments.length ? (
+              <Card style={styles.vetCard}>
+                <Text style={styles.sectionTitle}>Your requests</Text>
+                {appointments.map((r) => (
+                  <View key={r.id} style={styles.reqRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.reqLabel}>{REQUEST_STATUS_LABELS[r.status]}</Text>
+                      {r.scheduledAt ? (
+                        <Text style={styles.tiny}>{new Date(r.scheduledAt).toLocaleString()}</Text>
+                      ) : (
+                        <Text style={styles.tiny}>{new Date(r.createdAt).toLocaleDateString()}</Text>
+                      )}
+                    </View>
+                    {r.status === "scheduled" && r.meetingUrl ? (
+                      <Pressable
+                        onPress={() => void Linking.openURL(r.meetingUrl as string).catch(() => {})}
+                        accessibilityRole="link"
+                        style={styles.smallBtn}
+                      >
+                        <Video size={13} color={Colors.teal700} />
+                        <Text style={styles.smallBtnText}>Join</Text>
+                      </Pressable>
+                    ) : null}
+                    {canCancelRequest(r.status) ? (
+                      <Pressable
+                        onPress={() => void cancel(r.id)}
+                        disabled={busy}
+                        accessibilityRole="button"
+                        style={styles.smallBtn}
+                      >
+                        <XCircle size={13} color={Colors.inkFaint} />
+                        <Text style={[styles.smallBtnText, { color: Colors.inkFaint }]}>Cancel</Text>
+                      </Pressable>
+                    ) : null}
+                  </View>
+                ))}
+              </Card>
+            ) : null}
+          </>
+        )}
+
+        <Card style={styles.redFlagCard}>
+          <AlertTriangle size={16} color={Colors.amber600} />
+          <Text style={styles.redFlagText}>{TELEHEALTH_NOT_EMERGENCY_LINE}</Text>
+        </Card>
+        <EmergencyContacts showCallToAction={false} />
+        <View style={{ marginTop: Space.sm }}>
+          <InfoNote>{TELEHEALTH_SCOPE_NOTE}</InfoNote>
+        </View>
       </ScrollView>
     </View>
   );
@@ -214,80 +285,81 @@ export default function TelehealthScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.cream },
-  topbar: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: Space.md,
-    paddingVertical: Space.sm,
-  },
-  iconBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: Colors.surface,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  urgentCard: {
-    flexDirection: "row",
-    gap: 10,
-    alignItems: "center",
-    backgroundColor: Colors.red100,
-    borderRadius: Radius.md,
-    padding: Space.md,
-    marginBottom: Space.md,
-  },
-  urgentText: { ...Fonts.small, color: Colors.red600, flex: 1, lineHeight: 19, fontWeight: "600" },
-  holisticCard: {
-    flexDirection: "row",
-    gap: 10,
-    alignItems: "flex-start",
-    backgroundColor: Colors.teal50,
-    borderRadius: Radius.md,
-    padding: Space.md,
-    marginBottom: Space.md,
-  },
-  holisticText: { ...Fonts.small, color: Colors.teal800, flex: 1, lineHeight: 19 },
-  hero: { alignItems: "center", paddingTop: Space.lg },
+  body: { ...Fonts.small, color: Colors.inkSoft, lineHeight: 19 },
+  tiny: { ...Fonts.tiny, color: Colors.inkFaint, marginTop: 4 },
+  errorCard: { backgroundColor: Colors.amber100, marginBottom: Space.sm },
+  errorText: { ...Fonts.small, color: Colors.amber600, fontWeight: "700" },
+  heroCard: { alignItems: "flex-start", gap: 8 },
   heroIcon: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     backgroundColor: Colors.teal50,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: Space.md,
   },
-  title: { ...Fonts.title, fontSize: 23, textAlign: "center" },
-  body: { ...Fonts.bodySoft, textAlign: "center", marginTop: 10, lineHeight: 22 },
-  bodyStrong: { ...Fonts.body, color: Colors.ink, textAlign: "center", marginTop: 12, fontWeight: "700", lineHeight: 21 },
-  cardTitle: { ...Fonts.h3 },
-  hint: { ...Fonts.small, color: Colors.inkFaint, lineHeight: 18 },
-  input: {
-    backgroundColor: Colors.cream,
-    borderRadius: Radius.md,
-    padding: Space.md,
-    fontSize: 15,
-    color: Colors.ink,
-    borderWidth: 1,
-    borderColor: Colors.hairline,
+  soonPill: {
+    backgroundColor: Colors.teal100,
+    borderRadius: Radius.pill,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
   },
-  savedVet: { flexDirection: "row", alignItems: "center", gap: 12 },
-  savedVetName: { ...Fonts.h3, fontSize: 15 },
-  savedVetPhone: { ...Fonts.small, color: Colors.inkSoft, marginTop: 2 },
-  callBtn: {
+  soonPillText: { fontSize: 10.5, fontWeight: "800", color: Colors.teal800, letterSpacing: 0.6 },
+  heroTitle: { ...Fonts.h3 },
+  joinedBox: { backgroundColor: Colors.teal50, borderRadius: Radius.sm, padding: 10, alignSelf: "stretch" },
+  joinedText: { ...Fonts.small, color: Colors.teal900, fontWeight: "700" },
+  primaryBtn: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    backgroundColor: Colors.teal700,
+    gap: 7,
+    backgroundColor: Colors.teal800,
+    borderRadius: Radius.pill,
     paddingHorizontal: 16,
     paddingVertical: 10,
-    borderRadius: Radius.pill,
+    alignSelf: "flex-start",
+    marginTop: 4,
   },
-  callText: { color: "#fff", fontWeight: "800", fontSize: 14 },
-  editLink: { ...Fonts.small, color: Colors.teal700, fontWeight: "700", textAlign: "center", paddingVertical: 4 },
-  notify: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 8 },
-  notifyText: { ...Fonts.small, color: Colors.teal700 },
-  disclaimer: { ...Fonts.small, color: Colors.inkFaint, textAlign: "center", marginTop: Space.lg, lineHeight: 18 },
+  primaryBtnText: { ...Fonts.small, color: "#fff", fontWeight: "800" },
+  vetCard: { gap: 8, marginTop: Space.sm },
+  vetName: { ...Fonts.h3, fontSize: 15 },
+  vetCreds: { ...Fonts.small, color: Colors.teal700, fontWeight: "700" },
+  chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  chip: {
+    backgroundColor: Colors.teal50,
+    borderRadius: Radius.pill,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+  },
+  chipText: { fontSize: 11, fontWeight: "700", color: Colors.teal700 },
+  input: {
+    borderWidth: 1,
+    borderColor: Colors.hairline,
+    borderRadius: Radius.sm,
+    padding: 10,
+    ...Fonts.small,
+    color: Colors.ink,
+    backgroundColor: Colors.surface,
+  },
+  sectionTitle: { ...Fonts.tiny, color: Colors.inkFaint, letterSpacing: 0.5 },
+  reqRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  reqLabel: { ...Fonts.small, fontWeight: "700", color: Colors.ink },
+  smallBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: Colors.teal50,
+    borderRadius: Radius.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  smallBtnText: { ...Fonts.tiny, color: Colors.teal700, fontWeight: "800" },
+  redFlagCard: {
+    flexDirection: "row",
+    gap: 8,
+    alignItems: "flex-start",
+    backgroundColor: Colors.amber100,
+    marginTop: Space.md,
+    marginBottom: Space.sm,
+  },
+  redFlagText: { ...Fonts.small, color: Colors.amber600, fontWeight: "700", flex: 1, lineHeight: 18 },
 });

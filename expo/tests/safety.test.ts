@@ -8,6 +8,9 @@
  * pancreatitis low-fat plan warnings, pet input clamping, OCR text normalization,
  * and privacy export table coverage.
  */
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { buildReview } from "../lib/food/engine";
 import { puritySummary } from "../lib/food/evidence";
 import { normalizeOcrText, parseLabelText } from "../lib/food/ocr";
@@ -19,6 +22,12 @@ import { selectMealPlan } from "../lib/integrative/meals";
 import { NON_DEMO_PRODUCT_FILTER } from "../lib/food/productVisibility";
 import { clampAge, clampWeight } from "../lib/petValidation";
 import { OWNED_TABLES } from "../services/ownedTables";
+import {
+  TELEHEALTH_NOT_EMERGENCY_LINE,
+  TELEHEALTH_SCOPE_NOTE,
+  canCancelRequest,
+  isTelehealthLive,
+} from "../lib/telehealth";
 import {
   applyAnswer,
   computeUrgency,
@@ -210,6 +219,7 @@ const REQUIRED_NEW = [
   "program_logs",
   "product_recommendations",
   "protocol_recommendations",
+  "telehealth_requests",
 ];
 const missing = REQUIRED_NEW.filter((t) => !OWNED_TABLES.includes(t as any));
 ck("8 privacy OWNED_TABLES includes all newer tables", missing.length === 0, missing.length ? `missing: ${missing.join(", ")}` : "");
@@ -237,6 +247,33 @@ ck(
   "9 demo marketplace rows hidden by the same null-safe filter as food",
   NON_DEMO_PRODUCT_FILTER.includes("evidence_status.is.null") && NON_DEMO_PRODUCT_FILTER.includes("neq.demo_seed"),
 );
+
+// ── 10. Telehealth: data-flagged launch, honest scope, owner-only requests ───
+ck("10 telehealth is coming-soon with zero active vets", !isTelehealthLive(0) && isTelehealthLive(1));
+ck("10 owners can only cancel un-actioned requests", canCancelRequest("pending") && !canCancelRequest("scheduled") && !canCancelRequest("completed"));
+ck(
+  "10 not-for-emergencies line names the red flags and says act now",
+  /not for emergencies/i.test(TELEHEALTH_NOT_EMERGENCY_LINE) &&
+    /breathing|collapse|seizure/i.test(TELEHEALTH_NOT_EMERGENCY_LINE) &&
+    /right now/i.test(TELEHEALTH_NOT_EMERGENCY_LINE),
+);
+ck("10 scope note never oversells (can't replace hands-on care)", /can't replace/i.test(TELEHEALTH_SCOPE_NOTE));
+const telehealthMigration = readFileSync(
+  join(__dirname, "..", "..", "supabase", "migrations", "0031_telehealth.sql"),
+  "utf8",
+);
+ck(
+  "10 requests are owner-scoped with an admin lane, RLS enabled",
+  telehealthMigration.includes("alter table public.telehealth_requests enable row level security") &&
+    telehealthMigration.includes("user_id = auth.uid()") &&
+    telehealthMigration.includes("private.is_admin()"),
+);
+ck(
+  "10 requests never get a Care Circle member-read policy",
+  !telehealthMigration.includes("telehealth_requests_member_read"),
+);
+ck("10 one standing waitlist entry per account", telehealthMigration.includes("where kind = 'waitlist'"));
+ck("10 practitioner directory is world-readable only when active", telehealthMigration.includes("using (active or private.is_admin())"));
 
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);

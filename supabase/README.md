@@ -59,6 +59,8 @@ Applied in order (`supabase/migrations/`):
 | `0027_holistic_library_seed.sql` | holistic library: herbs 4→29, remedies 3→27 (new kinds: topical/physical/environment/behavior/lifestyle), supplements 6→41, contraindications 8→45 (new item_kind `remedy`), interactions 6→43 |
 | `0028_marketplace_supplements_seed.sql` | 30 researched supplement products (2026-09 brand & affiliate research; NASC seal + program terms) |
 | `0029_recall_dedup_full_unique.sql` | recall_events dedup index partial→full unique so PostgREST `on_conflict=dedup_key` upserts work |
+| `0030_standard_process_line_seed.sql` | full Standard Process pet line in the marketplace (owner holds a practitioner account) |
+| `0031_telehealth.sql` | telehealth: `vet_practitioners` directory + owner-scoped `telehealth_requests` (waitlist + appointments); coming-soon until a practitioner row is activated |
 
 ## Data operations (not migrations)
 

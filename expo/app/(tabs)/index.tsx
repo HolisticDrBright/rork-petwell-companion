@@ -22,6 +22,7 @@ import {
   Pill,
   Plus,
   ShoppingBag,
+  Video,
   Sparkles,
   Syringe,
   Utensils,
@@ -70,6 +71,7 @@ const HUB_ITEMS: HubEntry[] = [
   { label: "Home check", sub: "Environment", route: "/environment", Icon: HomeIcon },
   { label: "Programs", sub: "7/14/30-day", route: "/programs", Icon: CalendarCheck },
   { label: "Trusted picks", sub: "No pay-to-rank", route: "/marketplace", Icon: ShoppingBag },
+  { label: "Vet telehealth", sub: "Coming soon", route: "/telehealth", Icon: Video },
 ];
 
 const CareRow = memo(function CareRow({
