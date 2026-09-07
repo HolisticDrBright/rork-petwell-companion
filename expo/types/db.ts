@@ -1634,44 +1634,68 @@ export type Database = {
       }
       marketplace_products: {
         Row: {
+          affiliate_commission: string | null
+          affiliate_program: string | null
+          affiliate_url: string | null
           blurb: string | null
+          brand: string | null
           category: string
           evidence: string
+          evidence_status: Database["public"]["Enums"]["evidence_status"] | null
           fit_tags: string[]
           id: string
           ingredient_quality: number
           lab_tested: boolean
           name: string
+          nasc_seal: boolean | null
+          product_url: string | null
           reported_outcomes: number
           slug: string
+          source_notes: string | null
           species: string
           transparency: number
         }
         Insert: {
+          affiliate_commission?: string | null
+          affiliate_program?: string | null
+          affiliate_url?: string | null
           blurb?: string | null
+          brand?: string | null
           category: string
           evidence?: string
+          evidence_status?: Database["public"]["Enums"]["evidence_status"] | null
           fit_tags?: string[]
           id?: string
           ingredient_quality?: number
           lab_tested?: boolean
           name: string
+          nasc_seal?: boolean | null
+          product_url?: string | null
           reported_outcomes?: number
           slug: string
+          source_notes?: string | null
           species?: string
           transparency?: number
         }
         Update: {
+          affiliate_commission?: string | null
+          affiliate_program?: string | null
+          affiliate_url?: string | null
           blurb?: string | null
+          brand?: string | null
           category?: string
           evidence?: string
+          evidence_status?: Database["public"]["Enums"]["evidence_status"] | null
           fit_tags?: string[]
           id?: string
           ingredient_quality?: number
           lab_tested?: boolean
           name?: string
+          nasc_seal?: boolean | null
+          product_url?: string | null
           reported_outcomes?: number
           slug?: string
+          source_notes?: string | null
           species?: string
           transparency?: number
         }

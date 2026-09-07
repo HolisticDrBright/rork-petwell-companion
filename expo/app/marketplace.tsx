@@ -1,25 +1,52 @@
 import { Stack } from "expo-router";
-import { BadgeCheck, FlaskConical, Scale, ShieldCheck, ShoppingBag } from "lucide-react-native";
-import React, { useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { BadgeCheck, ExternalLink, FlaskConical, Scale, ShieldCheck, ShoppingBag } from "lucide-react-native";
+import React, { useEffect, useMemo, useState } from "react";
+import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { Card } from "@/components/ui";
 import { NoPetSelected } from "@/components/NoPetSelected";
 import { EvidenceBadge, InfoNote, ScreenHeader } from "@/components/integrative";
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
+import { getMode } from "@/lib/backend";
 import {
   AFFILIATE_DISCLOSURE,
   MARKETPLACE_STATUS,
+  MARKETPLACE_STATUS_LIVE,
   PRODUCT_CATEGORIES,
   rankProducts,
+  type MarketplaceProduct,
   type ProductCategory,
 } from "@/lib/integrative/marketplace";
+import { isSupabaseConfigured } from "@/lib/supabase";
+import { marketplaceService } from "@/services/marketplaceService";
 import { usePets } from "@/providers/PetProvider";
 
 export default function MarketplaceScreen() {
   const { selectedPet } = usePets();
   const [category, setCategory] = useState<ProductCategory>("food");
-  const ranked = useMemo(() => (selectedPet ? rankProducts(category, selectedPet) : []), [category, selectedPet]);
+  const [liveCatalog, setLiveCatalog] = useState<MarketplaceProduct[] | null>(null);
+
+  // Load the researched catalog in remote mode; the bundled research preview
+  // stays as the offline/demo fallback so the screen never goes blank.
+  useEffect(() => {
+    if (!(isSupabaseConfigured && getMode() === "remote")) return;
+    let alive = true;
+    marketplaceService
+      .listCatalog()
+      .then((products) => {
+        if (alive && products.length > 0) setLiveCatalog(products);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const isLive = (liveCatalog?.length ?? 0) > 0;
+  const ranked = useMemo(
+    () => (selectedPet ? rankProducts(category, selectedPet, liveCatalog ?? undefined) : []),
+    [category, selectedPet, liveCatalog],
+  );
 
   if (!selectedPet) return <NoPetSelected />;
 
@@ -33,7 +60,7 @@ export default function MarketplaceScreen() {
           <ShieldCheck size={18} color={Colors.teal700} />
           <View style={{ flex: 1 }}>
             <View style={styles.previewPill}>
-              <Text style={styles.previewPillText}>{MARKETPLACE_STATUS}</Text>
+              <Text style={styles.previewPillText}>{isLive ? MARKETPLACE_STATUS_LIVE : MARKETPLACE_STATUS}</Text>
             </View>
             <Text style={styles.trustText}>
               These are the most transparent foods based on public evidence — ranked on pet fit, species safety, recalls,
@@ -88,6 +115,12 @@ export default function MarketplaceScreen() {
                   <Text style={styles.labText}>Lab tested</Text>
                 </View>
               ) : null}
+              {r.product.nascSeal ? (
+                <View style={styles.labBadge}>
+                  <ShieldCheck size={11} color={Colors.teal700} />
+                  <Text style={styles.labText}>NASC seal</Text>
+                </View>
+              ) : null}
               {r.product.transparency >= 5 ? (
                 <View style={styles.labBadge}>
                   <BadgeCheck size={11} color={Colors.teal700} />
@@ -124,16 +157,40 @@ export default function MarketplaceScreen() {
                 </View>
               ))}
             </View>
+
+            {(() => {
+              const link = r.product.affiliateUrl ?? r.product.productUrl;
+              if (!link) return null;
+              const isAffiliate = !!r.product.affiliateUrl;
+              return (
+                <Pressable
+                  onPress={() => Linking.openURL(link).catch(() => {})}
+                  accessibilityRole="link"
+                  style={styles.linkBtn}
+                >
+                  <ExternalLink size={13} color={Colors.teal700} />
+                  <Text style={styles.linkBtnText}>View at {r.product.brand}</Text>
+                  {isAffiliate ? <Text style={styles.affiliateTag}>affiliate link</Text> : null}
+                </Pressable>
+              );
+            })()}
           </Card>
         ))}
 
-        {/* Placeholder + disclosure */}
+        {ranked.length === 0 ? (
+          <Card style={{ marginTop: Space.sm }}>
+            <Text style={styles.placeholderText}>No reviewed products in this category yet.</Text>
+          </Card>
+        ) : null}
+
+        {/* Buying context + affiliate disclosure */}
         <View style={{ marginTop: Space.md, gap: Space.sm }}>
           <View style={styles.placeholderRow}>
             <ShoppingBag size={15} color={Colors.inkFaint} />
             <Text style={styles.placeholderText}>
-              Shopping isn&apos;t connected — this is a research preview of ranking criteria, not endorsements or buy
-              links. Ask your vet about any category before buying.
+              {isLive
+                ? "Links open the brand's own site — Petwell doesn't sell or fulfill anything. Reviewed picks are not endorsements; ask your vet about any category before buying."
+                : "Shopping isn't connected — this is a research preview of ranking criteria, not endorsements or buy links. Ask your vet about any category before buying."}
             </Text>
           </View>
           <InfoNote>{AFFILIATE_DISCLOSURE}</InfoNote>
@@ -188,4 +245,16 @@ const styles = StyleSheet.create({
   whyText: { ...Fonts.small, color: Colors.inkSoft, flex: 1, lineHeight: 18 },
   placeholderRow: { flexDirection: "row", gap: 8, alignItems: "center" },
   placeholderText: { ...Fonts.small, color: Colors.inkFaint, flex: 1, lineHeight: 18 },
+  linkBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    alignSelf: "flex-start",
+    backgroundColor: Colors.teal50,
+    borderRadius: Radius.pill,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  linkBtnText: { ...Fonts.small, color: Colors.teal700, fontWeight: "800" },
+  affiliateTag: { fontSize: 10, fontWeight: "700", color: Colors.inkFaint, fontStyle: "italic" },
 });

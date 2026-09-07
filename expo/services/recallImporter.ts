@@ -35,12 +35,14 @@ export interface ImportResult {
 // BIAS the search toward pet terms to surface more genuine pet recalls within the
 // limit (most food recalls are human food). `isPetFoodRecall` remains the
 // authoritative conservative filter; the bias is only about what we fetch.
-const PET_BIAS_SEARCH =
-  'search=' +
-  encodeURIComponent(
-    'product_description:(dog OR cat OR pet OR puppy OR kitten OR canine OR feline OR kibble) ' +
-      'OR reason_for_recall:(dog OR cat OR pet OR animal)'
-  );
+//
+// One field per query: openFDA silently misparses a top-level OR spanning two
+// fields (verified live 2026-09-07: the combined query matched 20 records, the
+// per-field ones 136+). Terms use `+` separators, parens percent-encoded.
+const PET_BIAS_SEARCHES = [
+  'product_description%3A%28dog+OR+cat+OR+pet+OR+puppy+OR+kitten+OR+canine+OR+feline+OR+kibble%29',
+  'reason_for_recall%3A%28dog+OR+cat+OR+pet+OR+animal%29',
+];
 
 async function fetchJson(url: string): Promise<OpenFdaRecall[]> {
   const res = await fetch(url);
@@ -51,14 +53,17 @@ async function fetchJson(url: string): Promise<OpenFdaRecall[]> {
 
 async function fetchRecentFoodRecalls(limit: number): Promise<OpenFdaRecall[]> {
   const capped = Math.min(1000, limit);
-  // Best-effort pet-biased query; fall back to the broad date-sorted fetch so a
+  // Best-effort pet-biased queries; fall back to the broad date-sorted fetch so a
   // search-syntax issue or an empty result degrades to prior behavior, never breaks.
-  try {
-    const biased = await fetchJson(`${OPENFDA_URL}?${PET_BIAS_SEARCH}&sort=recall_initiation_date:desc&limit=${capped}`);
-    if (biased.length > 0) return biased;
-  } catch {
-    // ignore and fall through to the broad fetch
+  let biased: OpenFdaRecall[] = [];
+  for (const search of PET_BIAS_SEARCHES) {
+    try {
+      biased = biased.concat(await fetchJson(`${OPENFDA_URL}?search=${search}&limit=${capped}`));
+    } catch {
+      // ignore and try the next field / fall through to the broad fetch
+    }
   }
+  if (biased.length > 0) return biased;
   return fetchJson(`${OPENFDA_URL}?sort=recall_initiation_date:desc&limit=${capped}`);
 }
 

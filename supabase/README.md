@@ -49,6 +49,29 @@ Applied in order (`supabase/migrations/`):
 | `0017_secure_is_admin.sql` | hardened `is_admin()` |
 | `0018_ai_layer.sql` | server-side AI layer (`ai_generations`, chat threads) — gated, opt-in |
 | `0019_demo_seed_provenance.sql` | backfill: mark 0006/0010 fictional products/recalls/lab rows `evidence_status = 'demo_seed'` so production hides them |
+| `0020_food_match_rpc.sql` | `match_food_products` RPC (trigram product matching) |
+| `0021_symptom_kb.sql` | `symptom_kb_entries` + starter seed (7 of the 43 bundled entries) |
+| `0022_symptom_vision_logging.sql` | symptom-vision AI logging |
+| `0023_timeline_photos.sql` | photo attachments on timeline events |
+| `0024_shared_care.sql` | Care Circle: pet_members/pet_invites/care_task_events/pet_access_log, section-gated RLS, invite/claim/revoke/check-off RPCs, realtime |
+| `0025_admin_bootstrap.sql` | `is_admin` lockdown (client sessions can never set it — closes a profiles_self escalation) + owner auto-admin from the **auth** email + profile-on-signup trigger |
+| `0026_marketplace_affiliate.sql` | marketplace_products brand/affiliate/practitioner columns; "(example)" rows flagged `demo_seed` |
+| `0027_holistic_library_seed.sql` | holistic library: herbs 4→29, remedies 3→27 (new kinds: topical/physical/environment/behavior/lifestyle), supplements 6→41, contraindications 8→45 (new item_kind `remedy`), interactions 6→43 |
+| `0028_marketplace_supplements_seed.sql` | 30 researched supplement products (2026-09 brand & affiliate research; NASC seal + program terms) |
+| `0029_recall_dedup_full_unique.sql` | recall_events dedup index partial→full unique so PostgREST `on_conflict=dedup_key` upserts work |
+
+## Data operations (not migrations)
+
+Reference/catalog data lands through the **`bulk-import` edge function**
+(`supabase/functions/bulk-import/`, deployed with `verify_jwt=false` but inert
+until the `IMPORT_SECRET` function secret is set; every call needs the matching
+`x-import-secret` header). `?job=opff` pulls the full Open Pet Food Facts CSV
+into food_brands/food_products (`open_database`); `?job=recalls` pulls openFDA
+food-enforcement records into recall_events (`verified_official`). Runs and
+counts are logged to `data_import_runs` — that table is the provenance record
+(June 2026 `manual_compact`, the 2026-09 project port, `opff_bulk`,
+`openfda_recalls`). The 43-entry symptom KB seed loads via the admin screen or
+the `data_seed_symptom_kb_full` statement (mirrors `importSeed()`).
 
 Apply with the Supabase CLI:
 

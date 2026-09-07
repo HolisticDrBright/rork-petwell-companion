@@ -14,7 +14,9 @@ import { normalizeOcrText, parseLabelText } from "../lib/food/ocr";
 import type { LabTest, PetContext, ProductBundle } from "../lib/food/types";
 import { checkItemSafety } from "../lib/integrative/safety";
 import { catalogById } from "../lib/integrative/catalog";
+import { AFFILIATE_DISCLOSURE, mapMarketplaceRow } from "../lib/integrative/marketplace";
 import { selectMealPlan } from "../lib/integrative/meals";
+import { NON_DEMO_PRODUCT_FILTER } from "../lib/food/productVisibility";
 import { clampAge, clampWeight } from "../lib/petValidation";
 import { OWNED_TABLES } from "../services/ownedTables";
 import {
@@ -212,6 +214,29 @@ const REQUIRED_NEW = [
 const missing = REQUIRED_NEW.filter((t) => !OWNED_TABLES.includes(t as any));
 ck("8 privacy OWNED_TABLES includes all newer tables", missing.length === 0, missing.length ? `missing: ${missing.join(", ")}` : "");
 ck("8 catalog/reference tables are NOT exported as user data", !OWNED_TABLES.includes("meal_plans" as any) && !OWNED_TABLES.includes("marketplace_products" as any));
+
+// ── 9. Marketplace: FTC disclosure + live-catalog row mapping ────────────────
+ck(
+  "9 affiliate disclosure names commissions and rules out pay-to-rank",
+  /affiliate/i.test(AFFILIATE_DISCLOSURE) &&
+    /commission/i.test(AFFILIATE_DISCLOSURE) &&
+    /never influenced/i.test(AFFILIATE_DISCLOSURE),
+);
+const mkRow = {
+  slug: "test_prod", category: "supplements", name: "Test", species: "both", evidence: "B",
+  transparency: 5, ingredient_quality: 4, lab_tested: true, reported_outcomes: 4,
+  fit_tags: ["joint"], blurb: "b", brand: "Brand", product_url: "https://brand.example",
+  affiliate_url: "", affiliate_program: null, nasc_seal: true,
+};
+const mapped = mapMarketplaceRow(mkRow);
+ck("9 db row maps onto the marketplace shape", mapped?.id === "test_prod" && mapped.nascSeal === true && mapped.evidence === "B");
+ck("9 empty-string affiliate URL normalizes to null (fallback = product page)", mapped?.affiliateUrl === null && mapped?.productUrl === "https://brand.example");
+ck("9 unknown category rows are dropped, not misfiled", mapMarketplaceRow({ ...mkRow, category: "billing" }) === null);
+ck("9 unknown evidence letter degrades to D (never inflates)", mapMarketplaceRow({ ...mkRow, evidence: "Z" })?.evidence === "D");
+ck(
+  "9 demo marketplace rows hidden by the same null-safe filter as food",
+  NON_DEMO_PRODUCT_FILTER.includes("evidence_status.is.null") && NON_DEMO_PRODUCT_FILTER.includes("neq.demo_seed"),
+);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);

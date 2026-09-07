@@ -55,15 +55,36 @@ export interface MarketplaceProduct {
   blurb: string;
   /** When these criteria were last reviewed (YYYY-MM). */
   lastReviewed: string;
+  /** Brand product page, or null when the brand has no direct page on file. */
+  productUrl: string | null;
+  /** Affiliate/program link — MUST be labeled in the UI when used (FTC). */
+  affiliateUrl: string | null;
+  /** Which affiliate/practitioner program the link belongs to, if any. */
+  affiliateProgram: string | null;
+  /** NASC Quality Seal shown on the live NASC member list at review time. */
+  nascSeal: boolean;
 }
 
 /** This catalog is a research preview — illustrative criteria, not endorsements. */
 export const MARKETPLACE_STATUS = "Research preview";
+/** Label when the screen is showing the live, researched supplement catalog. */
+export const MARKETPLACE_STATUS_LIVE = "Reviewed catalog";
 const REVIEWED = "2026-06";
 /** Shared defaults so every product carries the trust fields. */
-const META = { sourceUrl: null as string | null, recallNote: null as string | null, lastReviewed: REVIEWED };
+const META = {
+  sourceUrl: null as string | null,
+  recallNote: null as string | null,
+  lastReviewed: REVIEWED,
+  productUrl: null as string | null,
+  affiliateUrl: null as string | null,
+  affiliateProgram: null as string | null,
+  nascSeal: false,
+};
 
-type RawProduct = Omit<MarketplaceProduct, "brand" | "sourceUrl" | "recallNote" | "lastReviewed">;
+type RawProduct = Omit<
+  MarketplaceProduct,
+  "brand" | "sourceUrl" | "recallNote" | "lastReviewed" | "productUrl" | "affiliateUrl" | "affiliateProgram" | "nascSeal"
+>;
 
 /** Illustrative example brands per product (research preview, not endorsements). */
 const BRANDS: Record<string, string> = {
@@ -120,7 +141,62 @@ export const MARKETPLACE_PRODUCTS: MarketplaceProduct[] = RAW.map((p) => ({
 }));
 
 export const AFFILIATE_DISCLOSURE =
-  "Petwell does not take payment for rankings. No affiliate links are active. If any are added in future, they'll be clearly labeled here.";
+  "Some outbound product links are affiliate links — if you buy through one, Petwell may earn a commission at no extra cost to you. Rankings are scored on evidence, safety, and transparency alone and are never influenced by commissions, payment, or sponsorship.";
+
+/**
+ * Map a `marketplace_products` database row (0026/0028 schema) onto the shared
+ * MarketplaceProduct shape the ranking + UI use. Pure so tests can pin it.
+ * Returns null for rows the UI can't place (unknown category).
+ */
+export function mapMarketplaceRow(row: {
+  slug: string;
+  category: string;
+  name: string;
+  species: string;
+  evidence: string;
+  transparency: number;
+  ingredient_quality: number;
+  lab_tested: boolean;
+  reported_outcomes: number;
+  fit_tags: string[] | null;
+  blurb: string | null;
+  brand: string | null;
+  product_url: string | null;
+  affiliate_url: string | null;
+  affiliate_program: string | null;
+  nasc_seal: boolean | null;
+}): MarketplaceProduct | null {
+  const category = PRODUCT_CATEGORIES.find((c) => c.id === row.category)?.id;
+  if (!category) return null;
+  const species = row.species === "dog" || row.species === "cat" ? row.species : "both";
+  const evidence: EvidenceGrade =
+    row.evidence === "A" || row.evidence === "B" || row.evidence === "C" || row.evidence === "D" ? row.evidence : "D";
+  const clean = (s: string | null) => {
+    const t = (s ?? "").trim();
+    return t.length > 0 ? t : null;
+  };
+  return {
+    id: row.slug,
+    category,
+    name: row.name,
+    brand: clean(row.brand) ?? "Brand not stated",
+    species,
+    evidence,
+    transparency: row.transparency,
+    ingredientQuality: row.ingredient_quality,
+    labTested: row.lab_tested,
+    sourceUrl: null,
+    recallNote: null,
+    reportedOutcomes: row.reported_outcomes,
+    fitTags: row.fit_tags ?? [],
+    blurb: clean(row.blurb) ?? "",
+    lastReviewed: "2026-09",
+    productUrl: clean(row.product_url),
+    affiliateUrl: clean(row.affiliate_url),
+    affiliateProgram: clean(row.affiliate_program),
+    nascSeal: row.nasc_seal === true,
+  };
+}
 
 export interface RankedProduct {
   product: MarketplaceProduct;
@@ -147,11 +223,16 @@ function petFitTags(pet: Pet): string[] {
 
 /**
  * Rank a category for a specific pet. Transparent composite, species-safety
- * gated, fit-boosted — and explicitly never influenced by payment.
+ * gated, fit-boosted — and explicitly never influenced by payment. Ranks the
+ * bundled preview catalog by default; pass the live catalog when loaded.
  */
-export function rankProducts(category: ProductCategory, pet: Pet): RankedProduct[] {
+export function rankProducts(
+  category: ProductCategory,
+  pet: Pet,
+  products: MarketplaceProduct[] = MARKETPLACE_PRODUCTS,
+): RankedProduct[] {
   const petTags = new Set(petFitTags(pet));
-  return MARKETPLACE_PRODUCTS.filter((p) => p.category === category)
+  return products.filter((p) => p.category === category)
     .map((p) => {
       const speciesSafe = p.species === "both" || p.species === pet.species;
       const fitMatches = p.fitTags.filter((t) => petTags.has(t));
