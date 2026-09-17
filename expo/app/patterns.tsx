@@ -3,7 +3,7 @@ import { AlertCircle, ArrowRight, Eye, HelpCircle, Leaf, ShieldAlert } from "luc
 import React, { memo, useEffect, useMemo, useRef } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { Card, EmptyState } from "@/components/ui";
+import { Card, EmptyState, LoadFailed } from "@/components/ui";
 import { NoPetSelected } from "@/components/NoPetSelected";
 import { Bullet, InfoNote, ScreenHeader } from "@/components/integrative";
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
@@ -110,7 +110,7 @@ const PatternCard = memo(function PatternCard({
 
 export default function PatternsScreen() {
   const router = useRouter();
-  const { selectedPet, timeline, mode } = usePets();
+  const { selectedPet, timeline, mode, timelineFailed, retryTimeline } = usePets();
   const patterns = useMemo(
     () => (selectedPet ? detectPatterns(selectedPet, timeline) : []),
     [selectedPet, timeline],
@@ -139,7 +139,17 @@ export default function PatternsScreen() {
 
         <View style={{ height: Space.md }} />
 
-        {patterns.length === 0 ? (
+        {timelineFailed ? (
+          // "No clear patterns" is a finding. Never report it when the logs
+          // behind it failed to load.
+          <Card>
+            <LoadFailed
+              title="Couldn't load the logs"
+              subtitle={`Patterns are built from ${selectedPet.name}'s logs, and those didn't load. Try again.`}
+              onRetry={retryTimeline}
+            />
+          </Card>
+        ) : patterns.length === 0 ? (
           <Card>
             <EmptyState
               icon={<Eye size={22} color={Colors.teal700} />}

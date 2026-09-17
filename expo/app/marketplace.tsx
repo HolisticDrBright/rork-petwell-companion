@@ -3,7 +3,7 @@ import { BadgeCheck, ExternalLink, FlaskConical, Scale, ShieldCheck, ShoppingBag
 import React, { useEffect, useMemo, useState } from "react";
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { Card } from "@/components/ui";
+import { Card, LoadFailed } from "@/components/ui";
 import { NoPetSelected } from "@/components/NoPetSelected";
 import { EvidenceBadge, ScreenHeader } from "@/components/integrative";
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
@@ -25,22 +25,30 @@ export default function MarketplaceScreen() {
   const { selectedPet } = usePets();
   const [category, setCategory] = useState<ProductCategory>("food");
   const [liveCatalog, setLiveCatalog] = useState<MarketplaceProduct[] | null>(null);
+  const [catalogFailed, setCatalogFailed] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   // Load the researched catalog in remote mode; the bundled research preview
-  // stays as the offline/demo fallback so the screen never goes blank.
+  // stays as the offline/demo fallback so the screen never goes blank. A failed
+  // fetch is tracked separately — without it, "couldn't reach the catalog" and
+  // "this build has no live catalog" render the same way and the user is told
+  // the list is a research preview when it's really just stale.
   useEffect(() => {
     if (!(isSupabaseConfigured && getMode() === "remote")) return;
     let alive = true;
+    setCatalogFailed(false);
     marketplaceService
       .listCatalog()
       .then((products) => {
         if (alive && products.length > 0) setLiveCatalog(products);
       })
-      .catch(() => {});
+      .catch(() => {
+        if (alive) setCatalogFailed(true);
+      });
     return () => {
       alive = false;
     };
-  }, []);
+  }, [reloadKey]);
 
   const isLive = (liveCatalog?.length ?? 0) > 0;
   const ranked = useMemo(
@@ -177,7 +185,15 @@ export default function MarketplaceScreen() {
           </Card>
         ))}
 
-        {ranked.length === 0 ? (
+        {catalogFailed ? (
+          <Card style={{ marginTop: Space.sm }}>
+            <LoadFailed
+              title="Couldn't load the latest picks"
+              subtitle="You're seeing the bundled research list, which may be out of date. Retry to pull the current one."
+              onRetry={() => setReloadKey((k) => k + 1)}
+            />
+          </Card>
+        ) : ranked.length === 0 ? (
           <Card style={{ marginTop: Space.sm }}>
             <Text style={styles.placeholderText}>No reviewed products in this category yet.</Text>
           </Card>
@@ -190,7 +206,9 @@ export default function MarketplaceScreen() {
             <Text style={styles.placeholderText}>
               {isLive
                 ? "Links open the brand's own site — Petwell doesn't sell or fulfill anything. Reviewed picks are not endorsements; ask your vet about any category before buying."
-                : "Shopping isn't connected — this is a research preview of ranking criteria, not endorsements or buy links. Ask your vet about any category before buying."}
+                : catalogFailed
+                  ? "We couldn't reach the reviewed catalog, so these are the bundled research picks and may be out of date. Not endorsements; ask your vet about any category before buying."
+                  : "Shopping isn't connected — this is a research preview of ranking criteria, not endorsements or buy links. Ask your vet about any category before buying."}
             </Text>
           </View>
           <AffiliateDisclosure />

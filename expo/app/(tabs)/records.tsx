@@ -26,7 +26,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { NoPetSelected } from "@/components/NoPetSelected";
 import { PetSwitcher } from "@/components/PetSwitcher";
-import { Card, PrimaryButton } from "@/components/ui";
+import { Card, EmptyState, PrimaryButton } from "@/components/ui";
 import Colors, { Fonts, Radius, Space, cardShadow } from "@/constants/colors";
 import { RECORDS } from "@/constants/mockData";
 import { usePets } from "@/providers/PetProvider";
@@ -347,6 +347,13 @@ export default function RecordsScreen() {
               style={{ marginTop: 10, alignSelf: "center" }}
             />
           </View>
+        ) : Object.keys(sections).length === 0 ? (
+          // Offline/local mode has no category scaffold to fall back on, so
+          // without this the screen is simply blank space.
+          <EmptyState
+            title="No records yet"
+            subtitle={`Add ${selectedPet.name}'s vaccines, labs, medications and vet visits here — or upload a document and it's kept on this device until you sign in.`}
+          />
         ) : (
           Object.entries(sections).map(([title, items]) => (
             <Section key={title} title={title} items={items} onAdd={setAddCategory} />

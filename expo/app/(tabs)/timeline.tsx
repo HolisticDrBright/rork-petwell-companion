@@ -22,7 +22,7 @@ import { AttachedPhoto } from "@/components/AttachedPhoto";
 import { NoPetSelected } from "@/components/NoPetSelected";
 import { PetSwitcher } from "@/components/PetSwitcher";
 import { HealthScoreChip, PatternsPreview } from "@/components/longevitySurfaces";
-import { Card, EmptyState } from "@/components/ui";
+import { Card, EmptyState, LoadFailed } from "@/components/ui";
 import Colors, { Fonts, Radius, Space, cardShadow } from "@/constants/colors";
 import { TODAY_ISO } from "@/constants/mockData";
 import { shouldShowDemoData } from "@/lib/dataMode";
@@ -117,7 +117,7 @@ const EntryRow = memo(function EntryRow({ entry, isLast }: { entry: TimelineEntr
 export default function TimelineScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { selectedPet, timeline, insightCards, trends } = usePets();
+  const { selectedPet, timeline, insightCards, trends, timelineFailed, retryTimeline } = usePets();
   const [filter, setFilter] = useState<LogCategory | "all">("all");
 
   const patterns = useMemo(
@@ -156,6 +156,33 @@ export default function TimelineScreen() {
   );
 
   if (!selectedPet) return <NoPetSelected />;
+
+  // Everything below — the health score, the trend charts, the detected
+  // patterns — is derived from the timeline. If the timeline never arrived,
+  // rendering them from an empty array would state findings about this pet
+  // that no data supports, and "No logs yet" would read as records lost.
+  if (timelineFailed) {
+    return (
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: 120 }}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.header}>
+          <PetSwitcher onAddPet={() => router.push("/add-pet")} />
+        </View>
+        <View style={styles.titleRow}>
+          <Text style={styles.title}>{selectedPet.name}&apos;s timeline</Text>
+        </View>
+        <LoadFailed
+          title="Couldn't load the timeline"
+          subtitle={`${selectedPet.name}'s logs are safe — this looks like a connection problem.`}
+          onRetry={retryTimeline}
+        />
+      </ScrollView>
+    );
+  }
+
   const healthScore = computeHealthScore(selectedPet, timeline, trends);
 
   return (

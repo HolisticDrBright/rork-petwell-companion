@@ -11,6 +11,10 @@
  *  - treat audit blocks core toxins; environment toxins are present + flagged
  *  - the two poison-control hotline numbers are exactly correct
  */
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+
 import { auditTreat } from "../lib/integrative/treats";
 import {
   EMERGENCY_CONTACTS,
@@ -159,6 +163,35 @@ ck("11 environment toxins (lily, sago, antifreeze, rodenticide, oil) present + f
 // ── 12. Species scoping never hides relevant entries; pending-review accounting
 ck("12 lily appears for both cats and dogs (scope=both, severity differs)", toxinsForSpecies("cat").some((t) => t.slug === "lily-true") && toxinsForSpecies("dog").some((t) => t.slug === "lily-true"));
 ck("12 all seed entries are pending vet review", pendingVetReview().length === TOXINS.length);
+
+// ── 13. The whole toxin path works with no network ──────────────────────────
+// A suspected poisoning is exactly when someone is in a basement, a car, or on
+// bad signal. The data is bundled, the search is pure, and the hotline numbers
+// are literal tel: links — nothing here may depend on a request succeeding.
+const TOXIN_ROOT = join(fileURLToPath(new URL(".", import.meta.url).href), "..");
+const readSrc = (rel: string): string => readFileSync(join(TOXIN_ROOT, rel), "utf8");
+const NETWORK = /@\/lib\/supabase|from "@\/services|\bfetch\(|axios|XMLHttpRequest/;
+const toxinLib = readdirSync(join(TOXIN_ROOT, "lib", "toxins")).filter((f) => f.endsWith(".ts"));
+ck("13 the toxin library has real content to check", toxinLib.length >= 5, toxinLib.join(", "));
+const networked = toxinLib.filter((f) => NETWORK.test(readSrc(join("lib", "toxins", f))));
+ck("13 no part of the toxin library touches the network", networked.length === 0, networked.join(", "));
+const toxinScreens = ["app/toxins.tsx", "app/toxin-detail.tsx"];
+const networkedScreens = toxinScreens.filter((f) => NETWORK.test(readSrc(f)));
+ck("13 the toxin screens fetch nothing — the lookup is offline", networkedScreens.length === 0, networkedScreens.join(", "));
+ck("13 every entry resolves from the bundle by slug", TOXINS.every((t) => getToxinBySlug(t.slug)?.slug === t.slug));
+ck("13 search runs against the bundled data", searchToxins("chocolate", "dog").length > 0 && searchToxins("xylitol", "dog").length > 0);
+ck("13 a no-match search still says 'not found' is not 'safe'", /not.*safe|doesn't mean/i.test(NOT_FOUND_NOT_SAFE));
+// Hotlines: literal numbers, one-tap dialable, no lookup of any kind.
+ck("13 both hotlines are hardcoded E.164 tel: links", EMERGENCY_CONTACTS.length === 2 && EMERGENCY_CONTACTS.every((c) => /^tel:\+1\d{10}$/.test(c.tel)));
+ck("13 the ASPCA and Pet Poison Helpline numbers are exact", EMERGENCY_CONTACTS.map((c) => c.tel).join("|") === "tel:+18884264435|tel:+18557647661");
+const contactsUi = readSrc("components/EmergencyContacts.tsx");
+ck("13 call buttons dial directly, with a spoken label", /Linking\.openURL\(c\.tel\)/.test(contactsUi) && /accessibilityLabel=\{`Call \$\{c\.name\}/.test(contactsUi));
+ck("13 a failed dial never crashes the screen", /Linking\.openURL\(c\.tel\)\.catch/.test(contactsUi));
+// The error path keeps the hotline: a broken/unknown entry must not strand someone.
+const detailSrc = readSrc("app/toxin-detail.tsx");
+ck("13 an unknown toxin still shows the hotline card, never a blank screen", /if \(!toxin \|\| !action\) \{[\s\S]{0,400}<EmergencyContacts \/>/.test(detailSrc));
+ck("13 the unknown-toxin screen repeats that no match is not safety", /if \(!toxin \|\| !action\) \{[\s\S]{0,600}NOT_FOUND_NOT_SAFE/.test(detailSrc));
+ck("13 the lookup screen carries the hotline too", /<EmergencyContacts/.test(readSrc("app/toxins.tsx")));
 
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);

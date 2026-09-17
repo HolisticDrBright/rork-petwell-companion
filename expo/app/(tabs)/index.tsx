@@ -130,8 +130,20 @@ const UpcomingRow = memo(function UpcomingRow({ item }: { item: UpcomingItem }) 
 export default function TodayScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { selectedPet, pets, careItems, toggleCareItem, smartInsight, trends, timeline, upcoming, onboarded, isLoading, todayIso } =
-    usePets();
+  const {
+    selectedPet,
+    pets,
+    careItems,
+    toggleCareItem,
+    smartInsight,
+    trends,
+    timeline,
+    upcoming,
+    onboarded,
+    isLoading,
+    todayIso,
+    timelineFailed,
+  } = usePets();
   const [fabOpen, setFabOpen] = useState<boolean>(false);
 
   const patterns = useMemo(
@@ -221,7 +233,13 @@ export default function TodayScreen() {
               <Text style={Fonts.tiny}>HEALTH STATUS · TAP FOR SCORE</Text>
               <Text style={styles.statusBig}>{selectedPet.statusNote}</Text>
             </View>
-            <HealthScoreBadge overall={healthScore.overall} band={healthScore.band} />
+            {/* With no logs loaded the score would be computed from nothing —
+                show its absence rather than a number we can't stand behind. */}
+            {timelineFailed ? (
+              <Text style={styles.scoreUnavailable}>Score unavailable</Text>
+            ) : (
+              <HealthScoreBadge overall={healthScore.overall} band={healthScore.band} />
+            )}
             <ChevronRight size={20} color={Colors.inkFaint} />
           </Pressable>
           <View style={styles.statusDivider} />
@@ -375,7 +393,12 @@ export default function TodayScreen() {
 
       {/* Floating quick-action button */}
       {fabOpen ? (
-        <Pressable style={styles.fabBackdrop} onPress={() => setFabOpen(false)}>
+        <Pressable
+          style={styles.fabBackdrop}
+          onPress={() => setFabOpen(false)}
+          accessibilityRole="button"
+          accessibilityLabel="Close quick actions"
+        >
           <View style={[styles.fabMenu, { bottom: insets.bottom + 150 }]}>
             <FabItem label="Log" icon={<Bone size={18} color={Colors.teal700} />} onPress={() => fabAction("/log")} />
             <FabItem label="Scan" icon={<Camera size={18} color={Colors.teal700} />} onPress={() => fabAction("/scan")} />
@@ -456,7 +479,12 @@ const FabItem = memo(function FabItem({
   onPress: () => void;
 }) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.fabItem, pressed && { opacity: 0.85 }]}>
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      style={({ pressed }) => [styles.fabItem, pressed && { opacity: 0.85 }]}
+    >
       <Text style={styles.fabItemLabel}>{label}</Text>
       <View style={styles.fabItemIcon}>{icon}</View>
     </Pressable>
@@ -507,6 +535,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   statusBig: { ...Fonts.title, color: Colors.green600 },
+  scoreUnavailable: { ...Fonts.tiny, color: Colors.inkFaint, maxWidth: 64, textAlign: "right" },
   statusDivider: { height: 1, backgroundColor: Colors.hairline, marginVertical: 2 },
   statusItem: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
   statusDot: { width: 8, height: 8, borderRadius: 4, marginTop: 6 },

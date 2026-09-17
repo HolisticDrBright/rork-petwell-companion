@@ -13,6 +13,7 @@ import { ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { Card } from "@/components/ui";
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
 import { DEVICES } from "@/constants/mockData";
+import { shouldShowDemoData } from "@/lib/dataMode";
 
 const DATA_TYPES = [
   { label: "Activity", icon: Activity },
@@ -25,6 +26,22 @@ const DATA_TYPES = [
 
 export default function DevicesScreen() {
   const [connected, setConnected] = useState<Record<string, boolean>>({});
+
+  // Wearable syncing isn't built. In production this screen has nothing real to
+  // show, so it says so plainly instead of presenting sample devices and
+  // toggles that connect to nothing — including when reached by deep link.
+  if (!shouldShowDemoData) {
+    return (
+      <ScrollView style={styles.container} contentContainerStyle={{ padding: Space.md }}>
+        <Stack.Screen options={{ title: "Connected devices" }} />
+        <Text style={styles.title}>Connected devices</Text>
+        <Text style={styles.subtitle}>
+          Wearable syncing isn&apos;t available yet. When it is, a linked collar or tracker will bring activity, sleep,
+          and vitals into {"\n"}your pet&apos;s timeline.
+        </Text>
+      </ScrollView>
+    );
+  }
 
   return (
     <ScrollView

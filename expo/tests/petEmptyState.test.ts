@@ -8,6 +8,10 @@
  *
  * Run: bun tests/petEmptyState.test.ts
  */
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+
 import { computeDataMode } from "../lib/dataMode";
 import { puritySummary } from "../lib/food/evidence";
 import { countsAsProductLevelPurity } from "../lib/food/provenance";
@@ -112,6 +116,50 @@ ck("6 a product with only demo labs is never 'supported'", demoOnly.confidence !
 ck("6 demo-only purity is flagged demoOnly", demoOnly.demoOnly === true);
 const forbidden = /\b(cleanest|purest|safest|verified clean|contaminant-free)\b/i;
 ck("6 demo purity text makes no clean/pure/safe claim", !forbidden.test(demoOnly.text));
+
+// ── 7. "Nothing here" vs "couldn't load" are never the same screen ──────────
+// An empty timeline reads as "you haven't logged anything". Showing that to
+// someone who is merely offline tells them something false about their pet's
+// records — and a health score computed from an empty array is a confident
+// claim backed by no data at all. Every screen derived from a fetch must be
+// able to tell the two apart, and must offer a way back.
+const ROOT = join(fileURLToPath(new URL(".", import.meta.url).href), "..");
+const file = (rel: string): string => readFileSync(join(ROOT, rel), "utf8");
+
+const providerSource = file("providers/PetProvider.tsx");
+ck("7 the provider exposes the pet-list failure, not just its data", /petsFailed: remoteMode && petsQuery\.isError/.test(providerSource) && /retryPets/.test(providerSource));
+ck("7 the provider exposes the timeline failure, not just its data", /timelineFailed: remoteMode && timelineQuery\.isError/.test(providerSource) && /retryTimeline/.test(providerSource));
+
+ck("7 the shared load-failure state exists with a retry", /export const LoadFailed/.test(file("components/ui.tsx")) && /onRetry/.test(file("components/ui.tsx")));
+
+// Screens built on the timeline must branch on the failure BEFORE they render
+// derived findings.
+for (const [screen, label] of [
+  ["app/(tabs)/timeline.tsx", "timeline"],
+  ["app/patterns.tsx", "patterns"],
+  ["app/health-score.tsx", "health score"],
+] as const) {
+  const s = file(screen);
+  ck(`7 ${label} distinguishes a failed load from an empty one`, /timelineFailed/.test(s) && /<LoadFailed/.test(s));
+  ck(`7 ${label} offers a retry`, /onRetry=\{retryTimeline\}/.test(s));
+}
+ck("7 the health score refuses to score on data that didn't load", /if \(timelineFailed\) \{[\s\S]{0,700}Can't score right now/.test(file("app/health-score.tsx")));
+ck("7 patterns never reports 'no patterns' when the logs failed", /timelineFailed \?[\s\S]{0,800}No clear patterns yet/.test(file("app/patterns.tsx")));
+ck("7 Today hides the score rather than computing it from nothing", /timelineFailed \?[\s\S]{0,200}Score unavailable/.test(file("app/(tabs)/index.tsx")));
+
+// The tab shell must not spin forever when the pet list can't be fetched.
+const tabLayout = file("app/(tabs)/_layout.tsx");
+ck("7 the tab shell surfaces a pet-list failure instead of spinning", /if \(petsFailed\)/.test(tabLayout) && /<LoadFailed/.test(tabLayout));
+ck("7 that failure state offers a retry", /onRetry=\{retryPets\}/.test(tabLayout));
+
+// Records + marketplace: their own load paths, same rule.
+const recordsSrc = file("app/(tabs)/records.tsx");
+ck("7 records separates loading, failure and empty", /remoteLoading \?/.test(recordsSrc) && /remoteError \?/.test(recordsSrc) && /Object\.keys\(sections\)\.length === 0/.test(recordsSrc));
+ck("7 records offers a retry on failure", /recordsQuery\.refetch\(\)/.test(recordsSrc));
+const marketSrc = file("app/marketplace.tsx");
+ck("7 the marketplace records a failed catalog fetch instead of swallowing it", /setCatalogFailed\(true\)/.test(marketSrc));
+ck("7 a failed catalog is labelled as stale data, not a 'research preview'", /catalogFailed[\s\S]{0,400}couldn't reach the reviewed catalog/i.test(marketSrc));
+ck("7 the marketplace offers a retry", /onRetry=\{\(\) => setReloadKey/.test(marketSrc));
 
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);

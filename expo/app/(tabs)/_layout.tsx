@@ -4,11 +4,27 @@ import React from "react";
 import { ActivityIndicator, Platform, View } from "react-native";
 
 import { FirstPetGate } from "@/components/FirstPetGate";
+import { LoadFailed } from "@/components/ui";
 import Colors from "@/constants/colors";
 import { usePets } from "@/providers/PetProvider";
 
 export default function TabLayout() {
-  const { isLoading, backendReady, onboarded, hasPets } = usePets();
+  const { isLoading, backendReady, onboarded, hasPets, petsFailed, retryPets } = usePets();
+
+  // If the pet list couldn't be fetched at all (offline, backend down), say so
+  // and offer a retry. Without this the app sits on a spinner forever with no
+  // explanation and no way out.
+  if (petsFailed) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", padding: 24, backgroundColor: Colors.cream }}>
+        <LoadFailed
+          title="Can't reach your pets right now"
+          subtitle="You're offline or Petwell can't be reached. Your data is safe — try again in a moment."
+          onRetry={retryPets}
+        />
+      </View>
+    );
+  }
 
   // Hold the tab screens until the pet source has settled — they assume a
   // selected pet, and mounting them with a null pet would crash. Once settled,

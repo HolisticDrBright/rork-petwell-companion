@@ -3,7 +3,7 @@ import { Activity, Bone, Brain, Droplets, HeartPulse, Scale, Smile, Sparkles, St
 import React, { memo, useEffect, useRef } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { Card } from "@/components/ui";
+import { Card, LoadFailed } from "@/components/ui";
 import { NoPetSelected } from "@/components/NoPetSelected";
 import { InfoNote, ScreenHeader } from "@/components/integrative";
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
@@ -74,7 +74,7 @@ const SubScoreCard = memo(function SubScoreCard({ s }: { s: SystemSubScore }) {
 
 export default function HealthScoreScreen() {
   const router = useRouter();
-  const { selectedPet, timeline, trends, mode } = usePets();
+  const { selectedPet, timeline, trends, mode, timelineFailed, retryTimeline } = usePets();
 
   // Best-effort: snapshot the score once per pet in remote mode (no-op locally).
   const savedRef = useRef<string | null>(null);
@@ -88,6 +88,27 @@ export default function HealthScoreScreen() {
   }, [mode, selectedPet, timeline, trends]);
 
   if (!selectedPet) return <NoPetSelected />;
+
+  // The score is computed from the logs. With none loaded it would still
+  // render a number and a headline — "doing great across the board" — about a
+  // pet we know nothing about right now. Refuse to score instead.
+  if (timelineFailed) {
+    return (
+      <View style={styles.container}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <ScreenHeader title="Petwell Health Score" subtitle={selectedPet.name} />
+        <ScrollView contentContainerStyle={{ padding: Space.md }}>
+          <Card>
+            <LoadFailed
+              title="Can't score right now"
+              subtitle={`The score is built from ${selectedPet.name}'s logs, and those didn't load. We'd rather show nothing than a score based on missing data.`}
+              onRetry={retryTimeline}
+            />
+          </Card>
+        </ScrollView>
+      </View>
+    );
+  }
 
   const score = computeHealthScore(selectedPet, timeline, trends);
   const color = BAND_COLOR[score.band];

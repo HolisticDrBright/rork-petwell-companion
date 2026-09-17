@@ -29,6 +29,7 @@ import { Card } from "@/components/ui";
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
 import { isCurrentUserAdmin } from "@/lib/backend";
 import { config } from "@/lib/config";
+import { shouldShowDemoData } from "@/lib/dataMode";
 import { AI_DATA_NOTICE, DEFAULT_AI_PREFS, getAiPreferences, setAiPreferences, type AiPreferences } from "@/lib/ai/config";
 import { exportJson } from "@/lib/report/export";
 import { usePets } from "@/providers/PetProvider";
@@ -371,8 +372,15 @@ export default function SettingsScreen() {
           <ActionRow icon={Video} label="Vet telehealth (coming soon)" onPress={() => router.push("/telehealth")} />
           <View style={styles.divider} />
           <ActionRow icon={Bell} label="Reminders" onPress={() => router.push("/reminders")} />
-          <View style={styles.divider} />
-          <ActionRow icon={Bluetooth} label="Connected devices" onPress={() => router.push("/devices")} />
+          {/* Wearable syncing isn't built yet — the devices screen is a mock
+              preview, so it stays out of production builds rather than leading
+              someone to toggles that connect to nothing. */}
+          {shouldShowDemoData ? (
+            <>
+              <View style={styles.divider} />
+              <ActionRow icon={Bluetooth} label="Connected devices (preview)" onPress={() => router.push("/devices")} />
+            </>
+          ) : null}
         </Card>
       </View>
 

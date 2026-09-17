@@ -1,4 +1,5 @@
 import * as Haptics from "expo-haptics";
+import { CloudOff, RefreshCw } from "lucide-react-native";
 import React, { memo, useCallback } from "react";
 import {
   Platform,
@@ -158,6 +159,42 @@ export const EmptyState = memo(function EmptyState({
       {icon ? <View style={styles.emptyIcon}>{icon}</View> : null}
       <Text style={styles.emptyTitle}>{title}</Text>
       {subtitle ? <Text style={styles.emptySub}>{subtitle}</Text> : null}
+    </View>
+  );
+});
+
+/**
+ * "We couldn't load this" — the state a screen shows when a request FAILED, as
+ * opposed to succeeding with nothing in it. Keeping the two apart matters here:
+ * an empty timeline reads as "you haven't logged anything", and showing that to
+ * someone who is simply offline tells them something untrue about their pet's
+ * records. Always offer the retry.
+ */
+export const LoadFailed = memo(function LoadFailed({
+  title = "Couldn't load this",
+  subtitle = "Check your connection and try again — nothing was lost.",
+  onRetry,
+}: {
+  title?: string;
+  subtitle?: string;
+  onRetry?: () => void;
+}) {
+  return (
+    <View style={styles.empty} accessibilityRole="text" accessibilityLabel={`${title}. ${subtitle}`}>
+      <View style={styles.emptyIcon}>
+        <CloudOff size={22} color={Colors.inkSoft} />
+      </View>
+      <Text style={styles.emptyTitle}>{title}</Text>
+      <Text style={styles.emptySub}>{subtitle}</Text>
+      {onRetry ? (
+        <PrimaryButton
+          label="Retry"
+          variant="outline"
+          onPress={onRetry}
+          icon={<RefreshCw size={16} color={Colors.teal800} />}
+          style={{ marginTop: Space.sm, alignSelf: "center" }}
+        />
+      ) : null}
     </View>
   );
 });

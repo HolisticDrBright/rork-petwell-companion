@@ -475,6 +475,19 @@ export const [PetProvider, usePets] = createContextHook(() => {
       // "still loading" apart from "genuinely no pets".
       backendReady,
       hasPets,
+      // The pet list itself failed to load (usually: no connection). Distinct
+      // from "still loading" so the tab shell can offer a retry instead of
+      // spinning forever.
+      petsFailed: remoteMode && petsQuery.isError,
+      retryPets: () => void petsQuery.refetch(),
+      // The timeline failed to load. Screens derived from it (timeline,
+      // patterns, health score) MUST check this: an empty array from a failed
+      // request looks exactly like a pet with no logs, and saying "no patterns"
+      // or scoring a pet on data we never received is a false statement about
+      // their animal's health.
+      timelineFailed: remoteMode && timelineQuery.isError,
+      timelineLoading: remoteMode && timelineQuery.isPending && petQueriesEnabled,
+      retryTimeline: () => void timelineQuery.refetch(),
       mode: remoteMode ? ("remote" as const) : ("local" as const),
       onboarded: onboardQuery.data ?? false,
       pets,
@@ -510,6 +523,9 @@ export const [PetProvider, usePets] = createContextHook(() => {
       loaded,
       backendReady,
       hasPets,
+      petsQuery,
+      timelineQuery,
+      petQueriesEnabled,
       onboardQuery.isLoading,
       onboardQuery.data,
       pets,

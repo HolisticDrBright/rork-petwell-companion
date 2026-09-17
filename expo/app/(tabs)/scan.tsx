@@ -47,6 +47,8 @@ const ScanCard = memo(function ScanCard({
   return (
     <Pressable
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${label}. ${hint}`}
       style={({ pressed }) => [styles.card, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
     >
       <View style={styles.cardIcon}>
@@ -96,6 +98,8 @@ export default function ScanScreen() {
       {/* Food Intelligence hero */}
       <Pressable
         onPress={() => router.push("/food-scan")}
+        accessibilityRole="button"
+        accessibilityLabel={`Food Intelligence. Scan a barcode, search, or read a label for a review tailored to ${selectedPet.name}.`}
         style={({ pressed }) => [styles.foodHero, pressed && { opacity: 0.9, transform: [{ scale: 0.99 }] }]}
       >
         <View style={styles.foodHeroIcon}>
