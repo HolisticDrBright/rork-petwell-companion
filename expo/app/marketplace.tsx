@@ -5,11 +5,11 @@ import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-na
 
 import { Card } from "@/components/ui";
 import { NoPetSelected } from "@/components/NoPetSelected";
-import { EvidenceBadge, InfoNote, ScreenHeader } from "@/components/integrative";
+import { EvidenceBadge, ScreenHeader } from "@/components/integrative";
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
 import { getMode } from "@/lib/backend";
+import { AffiliateDisclosure } from "@/components/AffiliateDisclosure";
 import {
-  AFFILIATE_DISCLOSURE,
   MARKETPLACE_STATUS,
   MARKETPLACE_STATUS_LIVE,
   PRODUCT_CATEGORIES,
@@ -159,7 +159,7 @@ export default function MarketplaceScreen() {
             </View>
 
             {(() => {
-              const link = r.product.affiliateUrl ?? r.product.productUrl;
+              const link = r.product.affiliateUrl ?? r.product.productUrl ?? r.product.retailerFallbackUrl;
               if (!link) return null;
               const isAffiliate = !!r.product.affiliateUrl;
               return (
@@ -193,7 +193,7 @@ export default function MarketplaceScreen() {
                 : "Shopping isn't connected — this is a research preview of ranking criteria, not endorsements or buy links. Ask your vet about any category before buying."}
             </Text>
           </View>
-          <InfoNote>{AFFILIATE_DISCLOSURE}</InfoNote>
+          <AffiliateDisclosure />
         </View>
       </ScrollView>
     </View>

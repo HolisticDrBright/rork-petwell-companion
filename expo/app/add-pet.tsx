@@ -2,12 +2,14 @@ import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { Stack, useRouter } from "expo-router";
 import { Camera, Cat, Dog, PawPrint } from "lucide-react-native";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { PrimaryButton } from "@/components/ui";
 import Colors, { Fonts, Radius, Space, cardShadow } from "@/constants/colors";
+import { BREED_FIT_GUIDANCE_LABEL, type BreedFitRow } from "@/lib/food/breedFit";
 import { usePets } from "@/providers/PetProvider";
+import { breedFitService } from "@/services/breedFitService";
 
 function Field({
   label,
@@ -56,6 +58,24 @@ export default function AddPetScreen() {
   const [photo, setPhoto] = useState<string>("");
   const [touched, setTouched] = useState<boolean>(false);
   const [saving, setSaving] = useState<boolean>(false);
+  const [breedFit, setBreedFit] = useState<BreedFitRow | null>(null);
+
+  // Breed-aware nutrition context (WSAVA general guidance), debounced as they type.
+  useEffect(() => {
+    let alive = true;
+    const handle = setTimeout(() => {
+      breedFitService
+        .getBreedFit(breed, species)
+        .then((row) => {
+          if (alive) setBreedFit(row);
+        })
+        .catch(() => {});
+    }, 400);
+    return () => {
+      alive = false;
+      clearTimeout(handle);
+    };
+  }, [breed, species]);
 
   const nameError = touched && name.trim().length === 0;
   const canSave = name.trim().length > 0 && !saving;
@@ -149,6 +169,18 @@ export default function AddPetScreen() {
         error={nameError ? "Please enter a name" : undefined}
       />
       <Field label="Breed / mix" placeholder="e.g. Golden Retriever" value={breed} onChange={setBreed} />
+      {breedFit ? (
+        <View style={styles.breedFitCard} accessibilityRole="text">
+          <Text style={styles.breedFitTitle}>Breed nutrition notes — {breedFit.breed}</Text>
+          {breedFit.nutritionConsiderations ? (
+            <Text style={styles.breedFitLine}>{breedFit.nutritionConsiderations}</Text>
+          ) : null}
+          {breedFit.nutrientsToDiscuss ? (
+            <Text style={styles.breedFitLine}>Worth discussing with your vet: {breedFit.nutrientsToDiscuss}</Text>
+          ) : null}
+          <Text style={styles.breedFitLabel}>{BREED_FIT_GUIDANCE_LABEL}</Text>
+        </View>
+      ) : null}
       <View style={styles.row}>
         <View style={{ flex: 1 }}>
           <Field label="Age (years)" placeholder="5" value={age} onChange={setAge} keyboard="numeric" />
@@ -182,6 +214,17 @@ export default function AddPetScreen() {
 }
 
 const styles = StyleSheet.create({
+  breedFitCard: {
+    backgroundColor: Colors.teal50,
+    borderRadius: Radius.md,
+    padding: Space.sm,
+    gap: 4,
+    marginTop: -6,
+    marginBottom: Space.sm,
+  },
+  breedFitTitle: { ...Fonts.small, fontWeight: "800", color: Colors.teal800 },
+  breedFitLine: { ...Fonts.small, color: Colors.teal900, lineHeight: 18 },
+  breedFitLabel: { ...Fonts.tiny, color: Colors.inkFaint, lineHeight: 15, marginTop: 2 },
   container: { flex: 1, backgroundColor: Colors.cream },
   photoPick: { alignItems: "center", gap: 8, marginBottom: Space.lg },
   photoCircle: {

@@ -23,6 +23,10 @@ export interface BrandInfo {
   recallCount: number;
   transparencyScore: number | null;
   notes: string | null;
+  /** Brand affiliate/program link — the UI must label + disclose it (FTC). */
+  affiliateUrl: string | null;
+  /** Retailer listing (e.g. Chewy) when the brand has no program link. */
+  retailerFallbackUrl: string | null;
 }
 
 export interface IngredientFlagInfo {

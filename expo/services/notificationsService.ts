@@ -1,5 +1,5 @@
 import * as Notifications from "expo-notifications";
-import { Platform } from "react-native";
+import { Linking, Platform } from "react-native";
 
 import type { Reminder } from "@/types/pet";
 
@@ -26,6 +26,22 @@ if (!isWeb) {
       shouldSetBadge: false,
     }),
   });
+}
+
+/**
+ * Open a notification's deep link when tapped (recall alerts carry the FDA
+ * notice URL in data.url). Registered once from the root layout; returns an
+ * unsubscribe. No-op on web.
+ */
+export function initNotificationLinkHandler(): () => void {
+  if (isWeb) return () => {};
+  const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+    const url = response.notification.request.content.data?.url;
+    if (typeof url === "string" && /^https:\/\//.test(url)) {
+      Linking.openURL(url).catch(() => {});
+    }
+  });
+  return () => sub.remove();
 }
 
 /** Parse a time label like "8:00a", "8:00 AM", "8a", or "20:00" into 24h parts. */

@@ -17,9 +17,26 @@ function startOfUtcDayIso(): string {
   return d.toISOString();
 }
 
+function startOfUtcMonthIso(): string {
+  const d = new Date();
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)).toISOString();
+}
+
+async function spentCentsSince(svc: SupabaseClient, sinceIso: string): Promise<number> {
+  const { data } = await svc.from("ai_generations").select("estimated_cost_cents").gte("created_at", sinceIso);
+  return (data ?? []).reduce(
+    (s: number, r: { estimated_cost_cents: number | null }) => s + Number(r.estimated_cost_cents ?? 0),
+    0,
+  );
+}
+
 /**
- * Returns ok=false when the global daily cents budget or a per-user daily call
- * cap is exceeded. Both are optional (0/unset = no limit).
+ * AI spend guardrails, all enforced server-side before any model call:
+ *  - per-user daily call cap        AI_USER_DAILY_LIMIT      (default 100/day)
+ *  - global daily cents budget      AI_DAILY_BUDGET_CENTS    (0/unset = off)
+ *  - global monthly cents budget    AI_MONTHLY_BUDGET_CENTS  (default 5000 = $50/mo)
+ * Returns ok=false with a friendly, user-facing reason — the client renders it
+ * as the graceful "AI is unavailable" state, never an error.
  */
 export async function checkBudget(
   svc: SupabaseClient,
@@ -27,17 +44,18 @@ export async function checkBudget(
 ): Promise<{ ok: boolean; reason?: string }> {
   const since = startOfUtcDayIso();
   const capCents = Number(Deno.env.get("AI_DAILY_BUDGET_CENTS") ?? "0");
+  const monthlyCapCents = Number(Deno.env.get("AI_MONTHLY_BUDGET_CENTS") ?? "5000");
   const userCap = Number(Deno.env.get("AI_USER_DAILY_LIMIT") ?? "100");
 
+  if (monthlyCapCents > 0) {
+    const spentThisMonth = await spentCentsSince(svc, startOfUtcMonthIso());
+    if (spentThisMonth >= monthlyCapCents) {
+      return { ok: false, reason: "Petwell's monthly AI budget has been reached. AI features will return next month." };
+    }
+  }
+
   if (capCents > 0) {
-    const { data } = await svc
-      .from("ai_generations")
-      .select("estimated_cost_cents")
-      .gte("created_at", since);
-    const spent = (data ?? []).reduce(
-      (s: number, r: { estimated_cost_cents: number | null }) => s + Number(r.estimated_cost_cents ?? 0),
-      0,
-    );
+    const spent = await spentCentsSince(svc, since);
     if (spent >= capCents) {
       return { ok: false, reason: "Petwell's daily AI budget has been reached. Please try again tomorrow." };
     }

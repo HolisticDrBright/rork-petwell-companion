@@ -63,6 +63,8 @@ export interface MarketplaceProduct {
   affiliateProgram: string | null;
   /** NASC Quality Seal shown on the live NASC member list at review time. */
   nascSeal: boolean;
+  /** Retailer listing (e.g. Chewy) used when the brand has no program/page. */
+  retailerFallbackUrl: string | null;
 }
 
 /** This catalog is a research preview — illustrative criteria, not endorsements. */
@@ -79,11 +81,12 @@ const META = {
   affiliateUrl: null as string | null,
   affiliateProgram: null as string | null,
   nascSeal: false,
+  retailerFallbackUrl: null as string | null,
 };
 
 type RawProduct = Omit<
   MarketplaceProduct,
-  "brand" | "sourceUrl" | "recallNote" | "lastReviewed" | "productUrl" | "affiliateUrl" | "affiliateProgram" | "nascSeal"
+  "brand" | "sourceUrl" | "recallNote" | "lastReviewed" | "productUrl" | "affiliateUrl" | "affiliateProgram" | "nascSeal" | "retailerFallbackUrl"
 >;
 
 /** Illustrative example brands per product (research preview, not endorsements). */
@@ -165,6 +168,7 @@ export function mapMarketplaceRow(row: {
   affiliate_url: string | null;
   affiliate_program: string | null;
   nasc_seal: boolean | null;
+  retailer_fallback_url?: string | null;
 }): MarketplaceProduct | null {
   const category = PRODUCT_CATEGORIES.find((c) => c.id === row.category)?.id;
   if (!category) return null;
@@ -195,6 +199,7 @@ export function mapMarketplaceRow(row: {
     affiliateUrl: clean(row.affiliate_url),
     affiliateProgram: clean(row.affiliate_program),
     nascSeal: row.nasc_seal === true,
+    retailerFallbackUrl: clean(row.retailer_fallback_url ?? null),
   };
 }
 

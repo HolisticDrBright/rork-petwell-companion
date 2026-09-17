@@ -11,6 +11,7 @@ import Colors from "@/constants/colors";
 import { isBackendRequiredButMissing } from "@/lib/supabaseConfig";
 import { initSentry } from "@/lib/sentry";
 import { PetProvider } from "@/providers/PetProvider";
+import { initNotificationLinkHandler } from "@/services/notificationsService";
 import { SubscriptionProvider } from "@/providers/SubscriptionProvider";
 
 // Start crash/error reporting as early as possible (no-op without a DSN).
@@ -43,7 +44,6 @@ function RootLayoutNav() {
       <Stack.Screen name="food-scan" options={{ title: "Food Intelligence", presentation: "card" }} />
       <Stack.Screen name="food-result" options={{ headerShown: false, presentation: "card" }} />
       <Stack.Screen name="food-trust" options={{ title: "How we score food", presentation: "card" }} />
-      <Stack.Screen name="telehealth" options={{ headerShown: false, presentation: "card" }} />
       <Stack.Screen name="vet-report" options={{ title: "Vet-ready summary", presentation: "modal" }} />
       <Stack.Screen name="ai-assistant" options={{ title: "Pet assistant", presentation: "card" }} />
       <Stack.Screen name="reminders" options={{ title: "Reminders", presentation: "card" }} />
@@ -79,6 +79,8 @@ function RootLayoutNav() {
 export default function RootLayout() {
   useEffect(() => {
     SplashScreen.hideAsync();
+    // Recall alerts carry the FDA notice URL — open it when the user taps one.
+    return initNotificationLinkHandler();
   }, []);
 
   // Production builds must not silently fall back to demo/local data when the

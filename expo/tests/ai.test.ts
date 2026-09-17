@@ -239,5 +239,26 @@ const mig0021 = has("../../supabase/migrations/0021_symptom_kb.sql") ? read("../
 ck("16 post-0017 migrations use private.is_admin(), never public.is_admin()", !/public\.is_admin\(\)/.test(mig0018) && !/public\.is_admin\(\)/.test(mig0021) && /private\.is_admin\(\)/.test(mig0018) && /private\.is_admin\(\)/.test(mig0021));
 ck("16 symptom function logs the feature the constraint allows", /feature: "symptom_vision"/.test(symFnSrc));
 
+// ── 17. AI spend guardrails degrade gracefully, never error ─────────────────
+// Three independent caps, all server-side: per-user daily calls, a global daily
+// cent budget, and a global monthly cent budget. Hitting one returns a friendly
+// "AI is unavailable" envelope — never a 500 and never a silent failure.
+const budgetSrc = has("../../supabase/functions/_shared/budget.ts") ? read("../../supabase/functions/_shared/budget.ts") : "";
+ck("17 budget guard exists", budgetSrc.length > 0);
+ck("17 per-user daily call cap (default 100)", /AI_USER_DAILY_LIMIT/.test(budgetSrc) && /\?\? "100"/.test(budgetSrc));
+ck("17 global daily cents budget is configurable (off by default)", /AI_DAILY_BUDGET_CENTS/.test(budgetSrc) && /AI_DAILY_BUDGET_CENTS"\) \?\? "0"/.test(budgetSrc));
+ck("17 global MONTHLY cents budget is on by default", /AI_MONTHLY_BUDGET_CENTS/.test(budgetSrc) && /AI_MONTHLY_BUDGET_CENTS"\) \?\? "5000"/.test(budgetSrc));
+ck("17 monthly spend is measured from the first of the UTC month", /startOfUtcMonthIso/.test(budgetSrc) && /Date\.UTC\(d\.getUTCFullYear\(\), d\.getUTCMonth\(\), 1\)/.test(budgetSrc));
+ck("17 daily spend is measured from UTC midnight", /startOfUtcDayIso/.test(budgetSrc) && /setUTCHours\(0, 0, 0, 0\)/.test(budgetSrc));
+ck("17 every cap has a friendly, user-facing reason", (budgetSrc.match(/reason: "/g) ?? []).length >= 3);
+ck("17 monthly cap message tells the user when AI returns", /monthly AI budget has been reached[\s\S]{0,60}next month/i.test(budgetSrc));
+ck("17 daily cap messages say try again tomorrow", /daily AI budget has been reached[\s\S]{0,40}tomorrow/i.test(budgetSrc) && /today's AI usage limit[\s\S]{0,40}tomorrow/i.test(budgetSrc));
+ck("17 no cap message blames the user or leaks internals", !/error|quota exceeded|forbidden|cost|cents/i.test((budgetSrc.match(/reason: "[^"]+"/g) ?? []).join(" ")));
+ck("17 spend is summed from logged generations (what the budget counts)", /from\("ai_generations"\)[\s\S]{0,120}estimated_cost_cents/.test(budgetSrc));
+const runtimeSrc = has("../../supabase/functions/_shared/runtime.ts") ? read("../../supabase/functions/_shared/runtime.ts") : "";
+ck("17 the budget is checked before any model call", /checkBudget\(svc, caller\.userId\)/.test(runtimeSrc));
+ck("17 over-budget returns a disabled envelope, not an error", /budget\.ok/.test(runtimeSrc) && /disabled: true, disabledReason: budget\.reason/.test(runtimeSrc));
+ck("17 the client renders disabledReason as a graceful state", /disabledReason/.test(aiServiceSrc));
+
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);

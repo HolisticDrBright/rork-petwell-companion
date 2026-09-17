@@ -251,6 +251,57 @@ export type Database = {
         }
         Relationships: []
       }
+      breed_food_fit: {
+        Row: {
+          avoid_monitor_notes: string | null
+          breed: string
+          caution_flags: string | null
+          created_at: string
+          health_predispositions: string | null
+          id: string
+          notes: string | null
+          nutrients_to_discuss: string | null
+          nutrition_considerations: string | null
+          preferred_food_traits: string | null
+          review_status: string
+          size_class: string | null
+          source_url: string | null
+          species: string
+        }
+        Insert: {
+          avoid_monitor_notes?: string | null
+          breed: string
+          caution_flags?: string | null
+          created_at?: string
+          health_predispositions?: string | null
+          id?: string
+          notes?: string | null
+          nutrients_to_discuss?: string | null
+          nutrition_considerations?: string | null
+          preferred_food_traits?: string | null
+          review_status?: string
+          size_class?: string | null
+          source_url?: string | null
+          species: string
+        }
+        Update: {
+          avoid_monitor_notes?: string | null
+          breed?: string
+          caution_flags?: string | null
+          created_at?: string
+          health_predispositions?: string | null
+          id?: string
+          notes?: string | null
+          nutrients_to_discuss?: string | null
+          nutrition_considerations?: string | null
+          preferred_food_traits?: string | null
+          review_status?: string
+          size_class?: string | null
+          source_url?: string | null
+          species?: string
+        }
+        Relationships: []
+      }
       care_task_events: {
         Row: {
           client_completed_at: string | null
@@ -813,25 +864,37 @@ export type Database = {
       }
       food_brands: {
         Row: {
+          affiliate_commission: string | null
+          affiliate_program: string | null
+          affiliate_url: string | null
           country: string | null
           created_at: string
           id: string
           manufacturer: string | null
           name: string
+          retailer_fallback_url: string | null
         }
         Insert: {
+          affiliate_commission?: string | null
+          affiliate_program?: string | null
+          affiliate_url?: string | null
           country?: string | null
           created_at?: string
           id?: string
           manufacturer?: string | null
           name: string
+          retailer_fallback_url?: string | null
         }
         Update: {
+          affiliate_commission?: string | null
+          affiliate_program?: string | null
+          affiliate_url?: string | null
           country?: string | null
           created_at?: string
           id?: string
           manufacturer?: string | null
           name?: string
+          retailer_fallback_url?: string | null
         }
         Relationships: []
       }
@@ -1650,6 +1713,7 @@ export type Database = {
           nasc_seal: boolean | null
           product_url: string | null
           reported_outcomes: number
+          retailer_fallback_url: string | null
           slug: string
           source_notes: string | null
           species: string
@@ -1672,6 +1736,7 @@ export type Database = {
           nasc_seal?: boolean | null
           product_url?: string | null
           reported_outcomes?: number
+          retailer_fallback_url?: string | null
           slug: string
           source_notes?: string | null
           species?: string
@@ -1694,6 +1759,7 @@ export type Database = {
           nasc_seal?: boolean | null
           product_url?: string | null
           reported_outcomes?: number
+          retailer_fallback_url?: string | null
           slug?: string
           source_notes?: string | null
           species?: string

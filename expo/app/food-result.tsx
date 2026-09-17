@@ -19,6 +19,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { AffiliateDisclosure } from "@/components/AffiliateDisclosure";
 import { Card, Disclaimer, PrimaryButton } from "@/components/ui";
 import Colors, { Fonts, Radius, Space, softShadow } from "@/constants/colors";
 import { PHOTO_LIMITATION } from "@/lib/food/evidence";
@@ -28,7 +29,9 @@ import { EVIDENCE_COPY, evidenceBasis } from "@/lib/food/provenance";
 import { buildReview, type AlternativeItem } from "@/lib/food/engine";
 import type { FoodReview, PetContext, ProductBundle, Severity } from "@/lib/food/types";
 import { tcmForIngredients, thermalSummary } from "@/lib/integrative/engine";
+import { BREED_FIT_GUIDANCE_LABEL, type BreedFitRow } from "@/lib/food/breedFit";
 import { usePets } from "@/providers/PetProvider";
+import { breedFitService } from "@/services/breedFitService";
 import { foodService, labelSubmissionService } from "@/services";
 
 const TONE = {
@@ -121,6 +124,21 @@ export default function FoodResultScreen() {
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<boolean>(false);
   const [reviewSubmitted, setReviewSubmitted] = useState<boolean>(false);
+  const [breedFit, setBreedFit] = useState<BreedFitRow | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    if (!selectedPet?.breed) return;
+    breedFitService
+      .getBreedFit(selectedPet.breed, selectedPet.species)
+      .then((row) => {
+        if (alive) setBreedFit(row);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [selectedPet?.breed, selectedPet?.species]);
 
   const onSubmitForReview = useCallback(async () => {
     if (!raw || reviewSubmitted) return;
@@ -593,6 +611,52 @@ export default function FoodResultScreen() {
         </Card>
 
         {/* Sources */}
+        {/* Breed nutrition context — WSAVA-sourced general guidance (0034). */}
+        {breedFit ? (
+          <>
+            <Text style={styles.sectionTitle}>For {selectedPet.breed || selectedPet.name}</Text>
+            <Card style={{ gap: 6, marginTop: 8 }}>
+              {breedFit.preferredFoodTraits ? (
+                <Text style={styles.breedFitText}>
+                  <Text style={{ fontWeight: "700" }}>Often a good fit: </Text>
+                  {breedFit.preferredFoodTraits}
+                </Text>
+              ) : null}
+              {breedFit.nutritionConsiderations ? (
+                <Text style={styles.breedFitText}>
+                  <Text style={{ fontWeight: "700" }}>Breed considerations: </Text>
+                  {breedFit.nutritionConsiderations}
+                </Text>
+              ) : null}
+              <Text style={Fonts.tiny}>{BREED_FIT_GUIDANCE_LABEL}</Text>
+            </Card>
+          </>
+        ) : null}
+
+        {/* Outbound purchase link (brand program or retailer fallback) + FTC disclosure. */}
+        {(() => {
+          const buyUrl = bundle.brand?.affiliateUrl ?? bundle.brand?.retailerFallbackUrl ?? null;
+          if (!buyUrl || !bundle.brand) return null;
+          const isAffiliate = !!bundle.brand.affiliateUrl;
+          return (
+            <>
+              <Pressable
+                style={styles.correctRow}
+                onPress={() => Linking.openURL(buyUrl).catch(() => {})}
+                accessibilityRole="link"
+                accessibilityLabel={`Find ${bundle.brand.name} at a retailer`}
+              >
+                <ExternalLink size={15} color={Colors.teal700} />
+                <Text style={styles.correctText}>
+                  Find {bundle.brand.name} at a retailer
+                  {isAffiliate ? <Text style={Fonts.tiny}> · affiliate link</Text> : null}
+                </Text>
+              </Pressable>
+              <AffiliateDisclosure />
+            </>
+          );
+        })()}
+
         <Text style={styles.sectionTitle}>Sources</Text>
         <Card style={{ gap: 0, marginTop: 8 }}>
           {review.sources.map((s, i) => (
@@ -823,6 +887,7 @@ const styles = StyleSheet.create({
   sourceRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 12 },
   sourceTitle: { ...Fonts.body, fontWeight: "700", fontSize: 14 },
   correctRow: { flexDirection: "row", alignItems: "center", gap: 8, justifyContent: "center", marginTop: Space.lg },
+  breedFitText: { ...Fonts.small, color: Colors.inkSoft, lineHeight: 19 },
   correctText: { ...Fonts.small, color: Colors.teal700 },
   actions: { flexDirection: "row", gap: 10, marginTop: Space.md },
 });

@@ -21,6 +21,9 @@ export function initSentry(): void {
   try {
     Sentry.init({
       dsn: DSN,
+      // Release/dist default to the native bundle id + version + build number
+      // (EAS autoIncrement), so events group per store build automatically.
+      environment: process.env.EXPO_PUBLIC_APP_ENV || (__DEV__ ? "development" : "production"),
       // Light performance sampling; errors are always captured.
       tracesSampleRate: 0.1,
       // Keep crash reports free of pet/owner data.

@@ -139,7 +139,7 @@ const bundle = (labTests: LabTest[]): ProductBundle => ({
   barcode: null,
   lifeStage: "adult",
   aafcoStatement: "Complete and balanced for adult maintenance.",
-  brand: { id: "b1", name: "BrandCo", ownsFacilities: true, recallCount: 0, transparencyScore: 4, notes: null },
+  brand: { id: "b1", name: "BrandCo", ownsFacilities: true, recallCount: 0, transparencyScore: 4, notes: null, affiliateUrl: null, retailerFallbackUrl: null },
   ingredients: [
     { name: "Chicken", category: "protein", position: 1, isCommonAllergen: true, flags: [] },
     { name: "Rice", category: "carb", position: 2, isCommonAllergen: false, flags: [] },
@@ -274,6 +274,24 @@ ck(
 );
 ck("10 one standing waitlist entry per account", telehealthMigration.includes("where kind = 'waitlist'"));
 ck("10 practitioner directory is world-readable only when active", telehealthMigration.includes("using (active or private.is_admin())"));
+
+// ── 11. Crash reporting: opt-in by DSN, and scrubbed of pet/owner data ───────
+// A pet-health app must not ship medical notes, photos, prompts, or emails to a
+// third-party error service. Sentry stays off unless a DSN is configured, and
+// everything that could carry user content is stripped before an event leaves.
+const sentrySrc = readFileSync(join(__dirname, "..", "lib", "sentry.ts"), "utf8");
+ck("11 the DSN comes from the environment, never hardcoded", /process\.env\.EXPO_PUBLIC_SENTRY_DSN/.test(sentrySrc) && !/https:\/\/[a-z0-9]+@o\d+\.ingest/i.test(sentrySrc));
+ck("11 Sentry initializes only when a DSN is set (and only once)", /if \(started \|\| !DSN\) return/.test(sentrySrc));
+ck("11 captureError is a no-op without a DSN", /if \(!DSN\) return/.test(sentrySrc));
+ck("11 PII is never sent by default", /sendDefaultPii: false/.test(sentrySrc));
+ck("11 request bodies/headers and user identity are dropped", /delete event\.request/.test(sentrySrc) && /delete event\.user/.test(sentrySrc));
+ck("11 breadcrumbs (which can carry typed text) are stripped", /event\.breadcrumbs = undefined/.test(sentrySrc));
+ck("11 extras that could carry prompts/records/pet data are scrubbed", /prompt\|message\|content\|record\|ocr\|label\|pet\|email/.test(sentrySrc));
+ck("11 events are tagged with the app environment for release triage", /environment: process\.env\.EXPO_PUBLIC_APP_ENV/.test(sentrySrc));
+ck("11 telemetry setup can never break app startup", /catch \{[\s\S]{0,120}Never let telemetry setup break app startup/.test(sentrySrc));
+ck("11 scrubbing itself can never throw", /catch \{[\s\S]{0,80}never let scrubbing throw/i.test(sentrySrc));
+ck("11 the global error boundary reports caught errors", /captureError\(error, \{ componentStack/.test(readFileSync(join(__dirname, "..", "components", "ErrorBoundary.tsx"), "utf8")));
+ck("11 crash reporting starts at app root", /initSentry\(\)/.test(readFileSync(join(__dirname, "..", "app", "_layout.tsx"), "utf8")));
 
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);

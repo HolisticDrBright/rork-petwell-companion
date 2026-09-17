@@ -111,13 +111,12 @@ export const foodService = {
    * candidate ids (`.in(...)`) rather than blindly pulling the whole join table.
    * That keeps the JS-side match cheap as the catalog grows.
    *
-   * TODO(scale): when the catalog outgrows {@link CATALOG_PRODUCT_CAP}, replace
-   * the in-JS match with a Postgres RPC: `match_food_products(name_hint, tokens,
-   * species, barcode)` doing barcode exact-match + trigram/ILIKE name match +
-   * token overlap server-side (indexes: `food_products(barcode)`,
-   * `gin (name gin_trgm_ops)`, `food_product_ingredients(product_id)`), returning
-   * only the top-N candidates with their ingredient names. Callers already pass a
-   * `species`/`nameHint`, so the signature is forward-compatible.
+   * Scale: this is the FALLBACK path only. Scanning narrows candidates
+   * server-side through the `match_food_products` RPC (migration 0020: barcode
+   * exact-match + trigram-indexed name search, species-narrowed, demo-aware) —
+   * see {@link getMatchCandidates}, which every scan path calls. This function
+   * runs only when that RPC is unavailable, so the cap is a safety ceiling on a
+   * degraded path rather than a limit on real search.
    */
   async getCatalogItems(
     opts: { species?: "dog" | "cat"; limit?: number } = {},
@@ -211,7 +210,7 @@ export const foodService = {
         .from("food_products")
         .select(
           `id, name, product_type, species, form, calorie_density, barcode, life_stage, aafco_statement, brand_id,
-         food_brands ( id, name, manufacturer_quality_profiles ( owns_facilities, recall_count, transparency_score, notes ) ),
+         food_brands ( id, name, affiliate_url, retailer_fallback_url, manufacturer_quality_profiles ( owns_facilities, recall_count, transparency_score, notes ) ),
          nutrition_profiles ( protein_pct, fat_pct, fiber_pct, moisture_pct, kcal_per_100g )`
         ),
     );
@@ -389,7 +388,7 @@ export const foodService = {
     }
 
     return products.map((p) => {
-      const brandRow = one(p.food_brands as { id: string; name: string; manufacturer_quality_profiles: { owns_facilities: boolean | null; recall_count: number | null; transparency_score: number | null; notes: string | null } | { owns_facilities: boolean | null; recall_count: number | null; transparency_score: number | null; notes: string | null }[] | null } | null);
+      const brandRow = one(p.food_brands as { id: string; name: string; affiliate_url: string | null; retailer_fallback_url: string | null; manufacturer_quality_profiles: { owns_facilities: boolean | null; recall_count: number | null; transparency_score: number | null; notes: string | null } | { owns_facilities: boolean | null; recall_count: number | null; transparency_score: number | null; notes: string | null }[] | null } | null);
       const mqp = brandRow ? one(brandRow.manufacturer_quality_profiles) : null;
       const nut = one(p.nutrition_profiles as { protein_pct: number | null; fat_pct: number | null; fiber_pct: number | null; moisture_pct: number | null; kcal_per_100g: number | null } | null);
       const brandId = p.brand_id as string | null;
@@ -411,6 +410,8 @@ export const foodService = {
               recallCount: mqp?.recall_count ?? 0,
               transparencyScore: mqp?.transparency_score ?? null,
               notes: mqp?.notes ?? null,
+              affiliateUrl: brandRow.affiliate_url ?? null,
+              retailerFallbackUrl: brandRow.retailer_fallback_url ?? null,
             }
           : null,
         ingredients: ingByProduct.get(p.id) ?? [],
