@@ -14,6 +14,40 @@ import { SEVERITY_LABEL } from "../lib/toxins/safety";
 
 const pending = TOXINS.filter((t) => t.reviewedBy === null);
 
+// --csv: reviewer-friendly spreadsheet with approve/edit columns. The filled
+// sheet is read back by scripts/apply-toxin-review.ts, which flips
+// evidenceStatus/reviewedBy for approved rows (via lib/toxins/reviewStatus.ts).
+if (process.argv.includes("--csv")) {
+  const esc = (s: string) => `"${s.replace(/"/g, '""')}"`;
+  const rows = [
+    [
+      "slug", "name", "category", "species_scope", "dog_severity", "cat_severity",
+      "summary", "clinical_signs", "common_sources", "dose_warning",
+      "source_publisher", "source_url", "hotline_routing",
+      "approve (yes/no)", "reviewer_name_credentials", "review_date (YYYY-MM-DD)", "requested_edits",
+    ].join(","),
+  ];
+  for (const t of TOXINS) {
+    rows.push(
+      [
+        t.slug, t.name, t.category, t.speciesScope,
+        SEVERITY_LABEL[t.dogSeverity], SEVERITY_LABEL[t.catSeverity],
+        t.summary, t.clinicalSigns.join("; "), t.commonSources, t.doseWarning ?? "",
+        t.source.publisher, t.source.url,
+        // Emergency/severe entries route to the poison hotlines + vet in-app.
+        t.dogSeverity === "emergency" || t.catSeverity === "emergency"
+          ? "poison hotline + emergency vet"
+          : "vet guidance",
+        "", "", "", "",
+      ]
+        .map((v) => esc(String(v)))
+        .join(","),
+    );
+  }
+  console.log(rows.join("\n"));
+  process.exit(0);
+}
+
 const lines: string[] = [];
 lines.push("# Petwell toxin database — veterinary review checklist");
 lines.push("");

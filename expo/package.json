@@ -21,7 +21,12 @@
     "import:opff": "bun scripts/import-opff.ts",
     "toxins:export-review": "bun scripts/export-toxin-review.ts",
     "test:insights": "bun tests/insights.test.ts",
-    "test:sharedcare": "bun tests/sharedCare.test.ts"
+    "test:sharedcare": "bun tests/sharedCare.test.ts",
+    "verify-env": "bun scripts/verify-env.ts",
+    "eas-build-post-install": "bun scripts/verify-env.ts",
+    "export:legal": "bun scripts/export-legal-pages.ts",
+    "review:export-toxins": "bun scripts/export-toxin-review.ts --csv",
+    "review:export-kb": "bun scripts/export-symptom-kb-review.ts"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
