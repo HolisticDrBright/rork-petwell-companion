@@ -27,7 +27,7 @@ real keys/partners**. Don't advertise anything past the rung it has actually rea
 | Backend hardening (RLS, advisors) | 5 on the demo project | run checklist on YOUR project |
 
 ## Next 10 (do these to launch)
-1. Stand up your **own Supabase project**, `db push` migrations 0001–0017, run the **RLS verification
+1. Stand up your **own Supabase project**, `db push` migrations 0001–0036, run the **RLS verification
    checklist** (PRODUCTION_SETUP §4) until Advisors shows 0 lints.
 2. Set production **env/EAS secrets** (Supabase URL/anon, Sentry DSN) — no demo opt-in.
 3. Bundle IDs + slug are set (`com.holisticdrbright.petwell`, `petwell-companion`); replace **icon/splash** art in `app.json` if rebranding.

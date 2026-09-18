@@ -9,7 +9,7 @@ dashboard). Each section marks the split.
 
 The app does **not** point at a shared backend by default — with no env vars it runs in local mode, and the
 shared demo project is used **only** if you explicitly set `EXPO_PUBLIC_USE_DEMO_SUPABASE=1` (dev only). The
-schema is fully reproducible from `supabase/migrations/` (**0001–0017**, sequential and verified).
+schema is fully reproducible from `supabase/migrations/` (**0001–0036**, sequential and verified).
 
 ### 1a. Create the project — **you (dashboard + billing)**
 1. supabase.com → New project. Pick a region near your users. Choose at least the **Pro** plan if you
@@ -21,7 +21,7 @@ Option A (recommended, Supabase CLI):
 ```bash
 cd supabase
 supabase link --project-ref <your-project-ref>
-supabase db push        # applies migrations 0001–0017 in order
+supabase db push        # applies migrations 0001–0036 in order
 ```
 Option B (no CLI): open the SQL editor and run each file in `supabase/migrations/` in numeric order.
 
@@ -246,7 +246,7 @@ bun scripts/export-toxin-review.ts > ../docs/toxin-review-checklist.md
 |---|---|---|
 | iOS bundle ID | ✅ `com.holisticdrbright.petwell` | `app.json` → `ios.bundleIdentifier` |
 | Android package | ✅ `com.holisticdrbright.petwell` | `app.json` → `android.package` |
-| App slug / name | ⚠️ slug is a generated id | set a real `slug`/`name` (also used by the `start` scripts) |
+| App slug / name | ✅ `petwell-companion` / `Petwell` | — |
 | App icon / splash | ⚠️ verify defaults replaced | provide production icon + splash assets |
 | Native permissions | ✅ camera/photos (image-picker), notifications declared in `app.json` | confirm usage strings read well in the store |
 | RevenueCat keys | ⚠️ env, placeholder value locally | set EAS secrets (per-store keys) |

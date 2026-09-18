@@ -30,7 +30,9 @@
     "e2e:build": "EXPO_PUBLIC_APP_ENV=development npx expo export --platform web --output-dir dist-web",
     "e2e": "bun run e2e:build && playwright test",
     "e2e:run": "playwright test",
-    "screenshots": "node scripts/store-screenshots.mjs"
+    "screenshots": "node scripts/store-screenshots.mjs",
+    "review:apply-toxins": "bun scripts/apply-toxin-review.ts",
+    "review:apply-kb": "bun scripts/apply-symptom-kb-review.ts"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
