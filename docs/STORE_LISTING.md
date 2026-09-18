@@ -127,12 +127,49 @@ pet health,dog,cat,pet care,symptom,vet records,reminders,pet food,wellness,heal
 - **Secondary (App Store allows two): Health & Fitness** (or *Lifestyle*).
 - **If Medical feels too clinical for a pet-owner audience,** Health & Fitness is a defensible primary. Pick one and keep the "informational guidance, not a diagnosis, not a medical device" framing consistent with the review notes (§9). Do not select a category that implies professional/clinical veterinary services.
 
-### 4b. Age & content rating guidance
+### 4b. Age & content rating — target **4+ (Apple) / Everyone (Play)**
 
-- **Apple age rating:** request **17+** if you complete the App Privacy/age questionnaire conservatively for a health-information app, or **12+** at minimum. The app is intended for adults and includes infrequent/mild references to medical and health topics. It contains **no** user-generated social feeds, no gambling, no objectionable content.
-- **Google Play / IARC questionnaire:** complete it honestly — expect **Everyone** or **Teen** depending on how you answer the medical-information questions. Answer "yes" to references to medical topics; "no" to violence, sexual content, gambling, and user-to-user communication.
-- **Target audience:** adults (pet owners). State **not directed at children under 13** (matches the in-app privacy policy). Do not opt into Play's "Designed for Families" program.
-- Declare the app's **disclaimers** (not veterinary advice, not for emergencies) in the description and in review notes so reviewers see the positioning immediately.
+**Why the lowest rating is the honest answer here.** The age questionnaires ask
+about content that could harm a minor who sees it. Petwell has none of it: no
+violence, no sexual content, no profanity, no gambling or simulated gambling, no
+user-to-user messaging or social feed, no unrestricted web access, no alcohol,
+tobacco or drug references, and no user-generated content visible to anyone else.
+
+The one question that gives people pause is **medical/treatment information**.
+Petwell's health content is about **animals**, it never names a diagnosis, and it
+never gives a dose — the app refuses both by design, and the unit suites enforce
+it. There's no human-medical instruction a minor could act on. Answer that
+question per its exact wording on the day (Apple has revised the questionnaire),
+and if it asks whether the app contains medical or treatment information, answer
+**yes, infrequent/mild** rather than none — Petwell does discuss symptoms. That
+answer is compatible with a low rating on both stores; what it must never be is
+an unanswered or overstated claim.
+
+**Answers to give (record what you actually submitted):**
+
+| Question area | Answer | Note |
+| --- | --- | --- |
+| Violence (cartoon, realistic, prolonged) | None | |
+| Sexual content / nudity | None | |
+| Profanity or crude humor | None | |
+| Alcohol, tobacco, drug use or references | None | Pet medications are logged by the owner, never recommended or dosed |
+| Horror / fear themes | None | |
+| Gambling or contests | None | |
+| Medical or treatment information | Infrequent/Mild | Animal health guidance; never a diagnosis, never a dose |
+| Unrestricted web access | No | Outbound links open specific vetted URLs (FDA notices, brand pages, hotlines) |
+| User-generated content / social features | No | Care Circle shares one owner's records with people they invite; there is no feed, no public content, no messaging between strangers |
+| In-app purchases | Yes | Petwell Pro — monthly / yearly / lifetime |
+| Data collected | Yes | See §5 |
+
+- **Target audience (Play):** adults. Select an adult age band; state the app is
+  **not directed at children under 13** (matches the in-app privacy policy) and do
+  **not** opt into Play's "Designed for Families" programme. A low content rating
+  and an adult target audience are different questions — answer both as written.
+- **If a reviewer challenges the rating**, the review notes (§8) already lead with
+  "informational guidance, not a diagnosis, not a medical device, not for
+  emergencies". That framing is what the rating rests on.
+- Declare the app's **disclaimers** (not veterinary advice, not for emergencies) in
+  the description and in review notes so reviewers see the positioning immediately.
 
 ---
 
@@ -148,6 +185,56 @@ Use this to fill Apple's **App Privacy** questionnaire and Google Play's **Data 
 | **Crash & diagnostics** (Sentry) | Yes (if enabled) | **No** — PII is not sent (`sendDefaultPii: false`, PII scrubbed) | **No** | Stability & bug fixing |
 | **AI inputs** (only if you opt in: a chat message, report, or uploaded record/label) | Only on use, opt-in | Linked to account; deletable in Settings | **No** | Generate the requested AI result; not used to train models |
 
+### 5a. Apple — App Privacy questionnaire, answer by answer
+
+App Store Connect asks, per data type: *do you collect it*, *is it linked to the
+user's identity*, *is it used for tracking*, and *what for*. These are the answers
+for the shipped build. **"Tracking" is None for every row** — Petwell has no ad
+SDK, no advertising identifier, and no third-party analytics.
+
+| Apple data category | Collect | Linked | Tracking | Purposes | What it actually is |
+| --- | --- | --- | --- | --- | --- |
+| Contact Info → **Email Address** | Yes | Yes | No | App Functionality | Only when the user creates an account (Supabase Auth) |
+| User Content → **Photos or Videos** | Yes | Yes | No | App Functionality | Label/symptom photos the user chooses to attach; deletable in Settings |
+| User Content → **Other User Content** | Yes | Yes | No | App Functionality | Pet profiles, logs, records, triage answers, notes — the health timeline |
+| Purchases → **Purchase History** | Yes | Yes | No | App Functionality | Petwell Pro entitlement via the store / RevenueCat |
+| Diagnostics → **Crash Data** | Yes | **No** | No | App Functionality | Sentry, with `sendDefaultPii: false`, user/request/breadcrumbs stripped |
+
+Not collected, and answer **No** if asked: precise or coarse **Location**,
+Contacts, Browsing History, Search History, Identifiers (advertising or device),
+Health & Fitness (that category is *human* health data — Petwell stores animal
+health data, which Apple has no dedicated category for; it is declared above as
+User Content), Financial Info, Sensitive Info, Audio Data, Gameplay Content.
+
+The same declarations ship **in the binary** as an iOS privacy manifest
+(`ios.privacyManifests` in `expo/app.json`), covering the collected data types
+plus the required-reason APIs the app relies on (UserDefaults `CA92.1`, file
+timestamp `C617.1`, disk space `E174.1`). Keep the two in sync — if you change an
+answer here, change it there.
+
+### 5b. Google Play — Data safety form, answer by answer
+
+| Play question | Answer |
+| --- | --- |
+| Does your app collect or share any of the required user data types? | **Yes** |
+| Is all of the user data collected by your app encrypted in transit? | **Yes** (HTTPS/TLS to Supabase and the store) |
+| Do you provide a way for users to request that their data be deleted? | **Yes** — in-app: Settings → **Delete account & data**; also give the deletion URL in §6 |
+
+Per data type — **none is shared with third parties for their own use, and none is used for advertising or tracking**:
+
+| Data type | Collected | Shared | Optional? | Purpose |
+| --- | --- | --- | --- | --- |
+| Personal info → **Email address** | Yes | No | Optional (only with an account) | Account management |
+| Photos and videos → **Photos** | Yes | No | Optional | App functionality |
+| Health and fitness → **Health info** | Yes | No | Optional | App functionality — *your pet's* health records, not the user's |
+| Financial info → **Purchase history** | Yes | No | Required for Pro | App functionality |
+| App activity → **Other user-generated content** | Yes | No | Optional | App functionality |
+| App info and performance → **Crash logs** | Yes | No | Optional | Crash reporting and diagnostics |
+
+If the form's "Health info" definition reads as human health data, declare it
+anyway under App activity → other user-generated content and explain in the
+review notes. Over-declaring is safe; under-declaring is a policy violation.
+
 Key declarations:
 - **Data is NOT used to track you across apps/websites, and is NOT sold or used for third-party advertising.** (Apple "Tracking": **None**.)
 - **No advertising identifiers, no ad SDKs, no pay-to-rank.**
@@ -160,6 +247,13 @@ Key declarations:
 ## 6. URLs & contact
 
 Replace placeholders before submission. The in-app support/privacy contact is `support@petwell.app`.
+
+**The pages themselves already exist.** `bun run export:legal` (from `expo/`)
+generates `web-legal/privacy.html`, `terms.html`, `support.html` and
+`delete-account.html` from the same source the in-app screens render
+(`expo/lib/legal/content.ts`), so the hosted pages and the app can't drift.
+Host that folder anywhere static — the only human step is choosing the domain
+and re-running the export whenever the policy changes.
 
 - **Support URL:** `https://<your-domain>/support` *(placeholder)*
 - **Support email:** `support@petwell.app`
@@ -214,11 +308,47 @@ Paste into App Store Connect "App Review Information → Notes" and Play Console
 
 ---
 
-## 9. Pre-submission checklist (metadata)
+## 9. Assets
+
+### 9a. Screenshots
+
+Generated from the running app — `cd expo && bun run screenshots`. See
+`docs/store-screenshots/README.md` for the full command and what it checks. The
+generator fails on superlatives, diagnosis claims and demo scaffolding, so a
+screenshot can't make a claim the app itself refuses to make.
+
+It produces eight sizes. **You only need the phone sets today:** the build has
+`ios.supportsTablet: false`, so Apple won't ask for iPad screenshots and
+shouldn't be given them. The iPad and Android-tablet sets are generated anyway so
+they're ready if tablet layouts ship later (a post-launch item).
+
+Curate before uploading — the floating "Log / Scan / Ask" button overlaps the
+care checklist on the Today shot, and Apple shows the first three in search
+results, so lead with the strongest.
+
+### 9b. Icon & splash
+
+| Asset | File | Current | Needed |
+| --- | --- | --- | --- |
+| App icon | `expo/assets/images/icon.png` | 1024×1024 | ✅ correct |
+| Android adaptive icon | `expo/assets/images/adaptive-icon.png` | — | foreground art with the safe zone respected (the outer ~18% gets masked) |
+| Splash | `expo/assets/images/splash-icon.png` | **512×512** | ⚠️ ask the designer for a **1024×1024** export |
+
+The splash asset is the one real gap. At `resizeMode: "contain"` a 512px image is
+upscaled on large phones, so it can look soft next to the crisp 1024px app icon.
+It won't fail review — it's a polish item, and the only one in this table.
+
+---
+
+## 10. Pre-submission checklist (metadata)
 
 - [ ] Replace all `<placeholder>` URLs, copyright, and demo credentials.
+- [ ] Host `web-legal/` and point the privacy, terms, support and account-deletion URLs at it (§6).
 - [ ] Subtitle ≤30, promo text ≤170, App Store keywords ≤100, Play short description ≤80, full descriptions ≤4,000.
-- [ ] App Privacy (Apple) and Data safety (Play) answers match §5 **and the shipped build**; "Tracking = None."
+- [ ] App Privacy (Apple) and Data safety (Play) answers match §5a/§5b **and the shipped build**; "Tracking = None."
+- [ ] The iOS privacy manifest in `expo/app.json` still matches §5a.
 - [ ] Terms/EULA URL present (Apple subscription requirement); account-deletion path present (Play requirement).
-- [ ] Screenshots show real, non-demo UI states and contain no "clean/cleanest/purest/safest/lab-verified" or diagnosis language.
-- [ ] Category and age rating set per §4; disclaimers visible in the description.
+- [ ] Screenshots regenerated from the current build (§9a) and curated; no "clean/cleanest/purest/safest/lab-verified" or diagnosis language.
+- [ ] Splash asset re-exported at 1024×1024 (§9b).
+- [ ] Category and age rating set per §4; record the answers you gave in §4b.
+- [ ] Disclaimers visible in the description.
