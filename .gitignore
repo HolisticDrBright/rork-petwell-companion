@@ -9,3 +9,8 @@ expo/data/vision-golden-set/report-*.json
 
 # graphify knowledge-graph output (generated)
 graphify-out/
+
+# store screenshots are generated from the app (bun run screenshots) — the
+# generator is tracked, the ~14MB of PNGs it produces are not
+docs/store-screenshots/*/
+docs/store-screenshots/MANIFEST.txt

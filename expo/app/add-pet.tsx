@@ -202,6 +202,7 @@ export default function AddPetScreen() {
       />
 
       <PrimaryButton
+        testID="add-pet-save"
         label={saving ? "Saving…" : "Save pet"}
         variant="coral"
         onPress={handleSave}

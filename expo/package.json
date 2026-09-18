@@ -26,7 +26,11 @@
     "eas-build-post-install": "bun scripts/verify-env.ts",
     "export:legal": "bun scripts/export-legal-pages.ts",
     "review:export-toxins": "bun scripts/export-toxin-review.ts --csv",
-    "review:export-kb": "bun scripts/export-symptom-kb-review.ts"
+    "review:export-kb": "bun scripts/export-symptom-kb-review.ts",
+    "e2e:build": "EXPO_PUBLIC_APP_ENV=development npx expo export --platform web --output-dir dist-web",
+    "e2e": "bun run e2e:build && playwright test",
+    "e2e:run": "playwright test",
+    "screenshots": "node scripts/store-screenshots.mjs"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
@@ -73,12 +77,15 @@
   "devDependencies": {
     "@babel/core": "^7.25.2",
     "@expo/ngrok": "^4.1.0",
+    "@playwright/test": "^1.63.0",
     "@types/react": "~19.1.10",
     "eslint": "^9.31.0",
     "eslint-config-expo": "~10.0.0",
     "typescript": "~5.9.2"
   },
   "overrides": {
-    "axios": "1.13.2"
+    "axios": "1.13.2",
+    "nanoid": "^3.3.16",
+    "@babel/runtime": "^7.26.10"
   }
 }

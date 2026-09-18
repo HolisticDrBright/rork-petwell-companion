@@ -34,6 +34,9 @@ export const PetSwitcher = memo(function PetSwitcher({
   return (
     <>
       <Pressable
+        testID="pet-switcher"
+        accessibilityRole="button"
+        accessibilityLabel={`Switch pet. Currently ${selectedPet.name}`}
         onPress={() => setOpen(true)}
         style={({ pressed }) => [styles.switcher, pressed && { opacity: 0.9 }]}
       >
@@ -102,6 +105,9 @@ export const PetSwitcher = memo(function PetSwitcher({
               );
             })}
             <Pressable
+              testID="pet-switcher-add"
+              accessibilityRole="button"
+              accessibilityLabel="Add a pet"
               onPress={() => {
                 setOpen(false);
                 onAddPet?.();

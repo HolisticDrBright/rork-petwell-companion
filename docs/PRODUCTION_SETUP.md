@@ -274,9 +274,40 @@ on-device OCR **cannot** be tested in Expo Go / web — they need a dev build.
 
 ---
 
-## 8. Dependency audit (as of this writing)
+## 8. Dependency audit
 
-`bun audit` reports advisories only in **transitive build/dev tooling** — `tar`/`@xmldom/xmldom` (Expo CLI &
-prebuild), `@babel/helpers` (transpile), `ajv` (ESLint), `brace-expansion`/`minimatch` (build globbing).
-**None ship in the runtime app bundle.** Do **not** run `audit fix --force` — it would risk breaking the Expo
-toolchain. These clear as Expo SDK / ESLint / Babel are updated. Re-check with `bun audit` before each release.
+**Last run: 2026-09-17 (`cd expo && bun audit`) — 112 advisories: 2 critical, 69 high, 33 moderate, 8 low.**
+
+Those totals look alarming and are almost entirely build/dev tooling. Every advisory was traced to the
+dependency chain that pulls it in; the classification below is what matters, not the count.
+
+**Patched here, via `overrides` in `expo/package.json`** (these three shipped in the app bundle):
+
+| Package | Was | Now | Why |
+| --- | --- | --- | --- |
+| `nanoid` | 3.3.11 | ^3.3.16 | 3 high advisories; reached at runtime through `expo-router › @react-navigation/core` |
+| `@babel/runtime` | 7.26.7 | ^7.26.10 | ReDoS in generated `.replace` helpers; these helpers ship in the bundle |
+| `axios` | — | 1.13.2 | pre-existing pin |
+
+**Not patched, deliberately — one runtime-reachable advisory remains:**
+
+- `decode-uri-component` (moderate, GHSA-vcc3-ghjq-m6fr — slow decoding of malformed percent-encoded input),
+  reached through `expo-router › query-string@7`. The fixed line is `0.5.0`, which **breaks deep linking**:
+  `query-string@7` does `require('decode-uri-component')` expecting a function, and 0.5.0 no longer exports
+  one, so every deep link throws `TypeError: decodeComponent is not a function`. Verified directly before
+  reverting the override — do not re-apply it. It clears when Expo Router moves to `query-string@8+`.
+  Exposure is bounded: a hostile deep link with malformed `%` escapes can make URL parsing slow. No data is
+  exposed.
+
+**Everything else is build-time or development-only** and never reaches a release binary: `tar`,
+`@xmldom/xmldom`, `uuid`, `picomatch`, `brace-expansion`/`minimatch`, `image-size`, `js-yaml` (Expo CLI,
+prebuild, config plugins, Metro bundling), `ws` and `shell-quote` (the React Native dev server and React
+DevTools — not linked into a production build), `ajv`, `flatted`, `@eslint/*` (linting). Both "critical"
+findings are in that group: `tar` (Expo CLI extraction) and `shell-quote` (`react-devtools-core`).
+
+Do **not** run `bun update --latest` or `audit fix --force` to clear these — it breaks the Expo toolchain, and
+the `decode-uri-component` case above is a concrete example of a "fix" that ships a crash. They clear as the
+Expo SDK, ESLint and Babel are updated.
+
+**Re-run `bun audit` before each release** and re-do the classification: the question is never the total, it's
+whether any chain reaches the app bundle without passing through a build/dev tool.

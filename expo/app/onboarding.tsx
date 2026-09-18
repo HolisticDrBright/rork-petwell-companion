@@ -12,7 +12,7 @@ import {
   Stethoscope,
   Weight,
 } from "lucide-react-native";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -40,9 +40,16 @@ const LAST_STEP = 2;
 export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { completeOnboarding } = usePets();
+  const { completeOnboarding, onboarded, isLoading } = usePets();
   const [step, setStep] = useState<number>(0);
   const [goals, setGoals] = useState<string[]>(["itch", "digest"]);
+
+  // Never strand someone who has already finished. If this screen is ever
+  // reached (or bounced back to) once onboarding is done, send them into the
+  // app instead of restarting the tour.
+  useEffect(() => {
+    if (!isLoading && onboarded) router.replace("/(tabs)");
+  }, [isLoading, onboarded, router]);
 
   // Finish onboarding and enter the app. We do NOT fabricate a pet here — a
   // brand-new account has zero pets and lands on the first-pet gate (which routes
@@ -143,6 +150,7 @@ export default function OnboardingScreen() {
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
         <PrimaryButton
+          testID="onboarding-cta"
           label={step === 0 ? "Get started" : step === LAST_STEP ? "Add my first pet" : "Continue"}
           variant="coral"
           icon={<ArrowRight size={18} color="#fff" />}

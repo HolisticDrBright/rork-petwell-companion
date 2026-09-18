@@ -89,6 +89,7 @@ export const PrimaryButton = memo(function PrimaryButton({
   disabled = false,
   accessibilityHint,
   haptic = true,
+  testID,
 }: {
   label: string;
   onPress?: () => void;
@@ -98,6 +99,8 @@ export const PrimaryButton = memo(function PrimaryButton({
   disabled?: boolean;
   accessibilityHint?: string;
   haptic?: boolean;
+  /** Stable hook for the e2e smoke test; labels here are often dynamic. */
+  testID?: string;
 }) {
   const isGhost = variant === "ghost";
   const isOutline = variant === "outline";
@@ -113,6 +116,7 @@ export const PrimaryButton = memo(function PrimaryButton({
 
   return (
     <Pressable
+      testID={testID}
       onPress={handlePress}
       disabled={disabled}
       accessibilityRole="button"

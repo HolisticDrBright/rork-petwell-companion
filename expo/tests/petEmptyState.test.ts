@@ -161,5 +161,27 @@ ck("7 the marketplace records a failed catalog fetch instead of swallowing it", 
 ck("7 a failed catalog is labelled as stale data, not a 'research preview'", /catalogFailed[\s\S]{0,400}couldn't reach the reviewed catalog/i.test(marketSrc));
 ck("7 the marketplace offers a retry", /onRetry=\{\(\) => setReloadKey/.test(marketSrc));
 
+// ── 8. Finishing onboarding actually gets you into the app ──────────────────
+// Regression: completeOnboarding() wrote the flag and then navigated, but the
+// provider hadn't re-rendered yet, so Today read onboarded=false and bounced
+// straight back — restarting the tour at step 1. Every new user hit it, and
+// only a full app restart escaped. Two independent guards now:
+//   1. the new value is published to the query cache SYNCHRONOUSLY, before any
+//      navigation, so the next render already knows;
+//   2. the onboarding screen redirects out if it is ever shown to someone who
+//      has already finished, so no timing bug can strand them again.
+ck(
+  "8 completeOnboarding publishes the flag synchronously before navigating",
+  /setQueryData\(\["petwell-onboarded"\], true\)/.test(providerSource) &&
+    providerSource.indexOf('setQueryData(["petwell-onboarded"], true)') <
+      providerSource.indexOf("await onboardQuery.refetch()"),
+);
+const onboardingSrc = file("app/onboarding.tsx");
+ck(
+  "8 onboarding sends an already-onboarded user into the app",
+  /if \(!isLoading && onboarded\) router\.replace\("\/\(tabs\)"\)/.test(onboardingSrc),
+);
+ck("8 the finish button still persists before it navigates", /await completeOnboarding\(\);\s*\n\s*router\.replace\("\/\(tabs\)"\)/.test(onboardingSrc));
+
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);

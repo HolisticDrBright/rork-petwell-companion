@@ -28,6 +28,11 @@ jobs:
       - name: Lint
         run: ./node_modules/.bin/eslint .
 
+      # Server secrets must never reach the app bundle. See docs/SECURITY.md.
+      - name: Secret hygiene
+        working-directory: .
+        run: ./scripts/check-secret-hygiene.sh
+
       - name: Safety tests
         run: bun tests/safety.test.ts
 
@@ -51,3 +56,41 @@ jobs:
 
       - name: Weekly insights tests
         run: bun tests/insights.test.ts
+
+      - name: Shared care (Care Circle) tests
+        run: bun tests/sharedCare.test.ts
+
+  e2e:
+    # Proves the app actually boots and the core journey advances in a browser —
+    # the unit suites can all pass on a build that white-screens on launch.
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: expo
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Install Chromium for Playwright
+        run: bunx playwright install --with-deps chromium
+
+      - name: Build the web export
+        run: bun run e2e:build
+
+      - name: Smoke test
+        run: bunx playwright test
+
+      - name: Upload failure traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: expo/test-results/
+          retention-days: 7

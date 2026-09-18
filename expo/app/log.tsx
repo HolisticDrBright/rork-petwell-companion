@@ -387,6 +387,7 @@ export default function LogScreen() {
       />
 
       <PrimaryButton
+        testID="log-save"
         label="Save to timeline"
         icon={<Check size={18} color="#fff" />}
         variant="coral"

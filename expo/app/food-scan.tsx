@@ -353,6 +353,7 @@ export default function FoodScanScreen() {
             style={styles.input}
           />
           <TextInput
+            testID="food-label-input"
             value={labelText}
             onChangeText={setLabelText}
             placeholder={"Ingredients: Deboned Chicken, Peas, ...\nGuaranteed Analysis\nCrude Protein (min) 26%"}
@@ -360,7 +361,7 @@ export default function FoodScanScreen() {
             multiline
             style={[styles.input, styles.multiline]}
           />
-          <PrimaryButton label="Analyze label" variant="primary" onPress={onAnalyze} />
+          <PrimaryButton testID="food-analyze" label="Analyze label" variant="primary" onPress={onAnalyze} />
         </Card>
       ) : null}
 
@@ -387,7 +388,11 @@ export default function FoodScanScreen() {
         </View>
       ) : null}
 
-      {status ? <Text style={styles.status}>{status}</Text> : null}
+      {status ? (
+        <Text testID="food-status" style={styles.status}>
+          {status}
+        </Text>
+      ) : null}
 
       {suggestions.length ? (
         <View style={{ marginTop: Space.md }}>
@@ -430,6 +435,7 @@ function ModeButton({
 }) {
   return (
     <Pressable
+      testID={`food-mode-${label.toLowerCase()}`}
       onPress={onPress}
       accessibilityRole="tab"
       accessibilityLabel={`${label} lookup`}

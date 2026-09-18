@@ -449,11 +449,17 @@ export const [PetProvider, usePets] = createContextHook(() => {
   const completeOnboarding = useCallback(async () => {
     try {
       await AsyncStorage.setItem(ONBOARD_KEY, "true");
+      // Publish the new value to the cache SYNCHRONOUSLY before anyone
+      // navigates. A refetch alone resolves a tick too late: the Today screen
+      // mounts, still reads onboarded=false, and redirects straight back to
+      // onboarding — which restarts it at step 1 and traps the user in a loop
+      // that only a full app restart escapes.
+      queryClient.setQueryData(["petwell-onboarded"], true);
       await onboardQuery.refetch();
     } catch {
       // ignore
     }
-  }, [onboardQuery]);
+  }, [onboardQuery, queryClient]);
 
   const derived = useMemo(
     () => ({
