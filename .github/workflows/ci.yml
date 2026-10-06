@@ -60,6 +60,9 @@ jobs:
       - name: Shared care (Care Circle) tests
         run: bun tests/sharedCare.test.ts
 
+      - name: Graded product catalogue + product safety rules
+        run: bun tests/products.test.ts
+
   e2e:
     # Proves the app actually boots and the core journey advances in a browser —
     # the unit suites can all pass on a build that white-screens on launch.

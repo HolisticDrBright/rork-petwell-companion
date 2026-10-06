@@ -18,12 +18,14 @@ import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { Card, PrimaryButton } from "@/components/ui";
 import { NoPetSelected } from "@/components/NoPetSelected";
 import { AskVetFlag, Bullet, EvidenceBadge, InfoNote, SafetyCaution, ScreenHeader, VetNote } from "@/components/integrative";
+import { ProductPicks } from "@/components/ProductPicks";
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
 import { catalogById, getSystem } from "@/lib/integrative/catalog";
 import { conditionById } from "@/lib/integrative/conditions";
 import { PROGRAM_TEMPLATES } from "@/lib/integrative/programs";
 import { checkItemSafety } from "@/lib/integrative/safety";
 import type { CatalogItem, ThermalNature } from "@/lib/integrative/types";
+import { productsForCondition } from "@/lib/protocols/productPicks";
 import { usePets } from "@/providers/PetProvider";
 
 const THERMAL: Record<ThermalNature, { color: string; bg: string; Icon: React.ComponentType<{ size?: number; color?: string }> }> = {
@@ -56,6 +58,21 @@ export default function ProtocolDetailScreen() {
     () => (template ? PROGRAM_TEMPLATES.find((p) => p.conditionId === template.id) : undefined),
     [template],
   );
+
+  // Graded commercial options for this condition. Each one is run through the
+  // product safety rules for THIS pet, so a cat never sees a tea-tree product
+  // and a blocked-cat emergency replaces the list entirely.
+  const products = useMemo(() => {
+    if (!template || !selectedPet) return { picks: [], notRecommended: [], emergency: null };
+    return productsForCondition(template.id, {
+      name: selectedPet.name,
+      species: selectedPet.species,
+      sex: selectedPet.sex,
+      ageYears: selectedPet.ageYears,
+      conditions: selectedPet.conditions,
+      currentSigns: [selectedPet.statusNote, selectedPet.recentChange, selectedPet.riskWatch].filter(Boolean),
+    });
+  }, [template, selectedPet]);
 
   if (!selectedPet) return <NoPetSelected />;
 
@@ -212,6 +229,9 @@ export default function ProtocolDetailScreen() {
             </Card>
           ))
         )}
+
+        {/* Graded commercial options, after the free food-first steps */}
+        <ProductPicks products={products} />
 
         {/* What to track */}
         <Text style={styles.section}>What to track</Text>

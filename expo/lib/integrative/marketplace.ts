@@ -1,5 +1,7 @@
 import type { Pet } from "@/types/pet";
 
+import type { ProductAction } from "@/lib/protocols/productSafety";
+
 import type { EvidenceGrade } from "./types";
 
 /**
@@ -21,7 +23,10 @@ export type ProductCategory =
   | "grooming"
   | "cleaning"
   | "bowls"
-  | "supplements";
+  | "supplements"
+  | "dental"
+  | "parasite"
+  | "home_test";
 
 export const PRODUCT_CATEGORIES: { id: ProductCategory; label: string }[] = [
   { id: "food", label: "Foods" },
@@ -30,6 +35,9 @@ export const PRODUCT_CATEGORIES: { id: ProductCategory; label: string }[] = [
   { id: "enzymes", label: "Digestive enzymes" },
   { id: "omega3", label: "Omega-3s" },
   { id: "supplements", label: "Supplements" },
+  { id: "dental", label: "Dental" },
+  { id: "parasite", label: "Fleas & ticks" },
+  { id: "home_test", label: "Home tests" },
   { id: "grooming", label: "Grooming" },
   { id: "cleaning", label: "Cleaning" },
   { id: "bowls", label: "Bowls" },
@@ -65,6 +73,14 @@ export interface MarketplaceProduct {
   nascSeal: boolean;
   /** Retailer listing (e.g. Chewy) used when the brand has no program/page. */
   retailerFallbackUrl: string | null;
+  /**
+   * What the app may do with this product (0037). `avoid` means Petwell argues
+   * against it — rankProducts() keeps those out of the ranked list entirely so
+   * they can never be presented as a pick.
+   */
+  appAction: ProductAction | null;
+  /** Ids into lib/protocols/productSafety.ts PRODUCT_SAFETY_RULES. */
+  safetyRuleIds: number[];
 }
 
 /** This catalog is a research preview — illustrative criteria, not endorsements. */
@@ -82,11 +98,13 @@ const META = {
   affiliateProgram: null as string | null,
   nascSeal: false,
   retailerFallbackUrl: null as string | null,
+  appAction: null as ProductAction | null,
+  safetyRuleIds: [] as number[],
 };
 
 type RawProduct = Omit<
   MarketplaceProduct,
-  "brand" | "sourceUrl" | "recallNote" | "lastReviewed" | "productUrl" | "affiliateUrl" | "affiliateProgram" | "nascSeal" | "retailerFallbackUrl"
+  "brand" | "sourceUrl" | "recallNote" | "lastReviewed" | "productUrl" | "affiliateUrl" | "affiliateProgram" | "nascSeal" | "retailerFallbackUrl" | "appAction" | "safetyRuleIds"
 >;
 
 /** Illustrative example brands per product (research preview, not endorsements). */
@@ -146,6 +164,8 @@ export const MARKETPLACE_PRODUCTS: MarketplaceProduct[] = RAW.map((p) => ({
 export const AFFILIATE_DISCLOSURE =
   "Some outbound product links are affiliate links — if you buy through one, Petwell may earn a commission at no extra cost to you. Rankings are scored on evidence, safety, and transparency alone and are never influenced by commissions, payment, or sponsorship.";
 
+const ACTIONS: ProductAction[] = ["recommend", "caution", "vet_only", "info_only", "avoid"];
+
 /**
  * Map a `marketplace_products` database row (0026/0028 schema) onto the shared
  * MarketplaceProduct shape the ranking + UI use. Pure so tests can pin it.
@@ -169,6 +189,8 @@ export function mapMarketplaceRow(row: {
   affiliate_program: string | null;
   nasc_seal: boolean | null;
   retailer_fallback_url?: string | null;
+  app_action?: string | null;
+  safety_rule_ids?: number[] | null;
 }): MarketplaceProduct | null {
   const category = PRODUCT_CATEGORIES.find((c) => c.id === row.category)?.id;
   if (!category) return null;
@@ -200,6 +222,8 @@ export function mapMarketplaceRow(row: {
     affiliateProgram: clean(row.affiliate_program),
     nascSeal: row.nasc_seal === true,
     retailerFallbackUrl: clean(row.retailer_fallback_url ?? null),
+    appAction: ACTIONS.includes(row.app_action as ProductAction) ? (row.app_action as ProductAction) : null,
+    safetyRuleIds: row.safety_rule_ids ?? [],
   };
 }
 
@@ -237,7 +261,12 @@ export function rankProducts(
   products: MarketplaceProduct[] = MARKETPLACE_PRODUCTS,
 ): RankedProduct[] {
   const petTags = new Set(petFitTags(pet));
-  return products.filter((p) => p.category === category)
+  return products
+    .filter((p) => p.category === category)
+    // A product Petwell argues against must never appear in a ranked list of
+    // picks, however well it scores on transparency or ingredient quality.
+    // notRecommendedIn() surfaces these separately, with the reason.
+    .filter((p) => p.appAction !== "avoid")
     .map((p) => {
       const speciesSafe = p.species === "both" || p.species === pet.species;
       const fitMatches = p.fitTags.filter((t) => petTags.has(t));
@@ -259,4 +288,18 @@ export function rankProducts(
       return { product: p, score, speciesSafe, fitBonus, whyRanked };
     })
     .sort((a, b) => b.score - a.score);
+}
+
+/**
+ * The products in a category that Petwell actively argues against. Shown under
+ * the picks, with the reason — someone searching for colloidal silver should
+ * find out why we don't recommend it, not find nothing and buy it anyway.
+ */
+export function notRecommendedIn(
+  category: ProductCategory,
+  products: MarketplaceProduct[] = MARKETPLACE_PRODUCTS,
+): MarketplaceProduct[] {
+  return products
+    .filter((p) => p.category === category && p.appAction === "avoid")
+    .sort((a, b) => a.name.localeCompare(b.name));
 }

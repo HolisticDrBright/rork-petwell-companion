@@ -7,6 +7,7 @@ import {
   type ConditionTemplate,
   type FoodFirstStep,
 } from "./conditions";
+import { checkItemSafety } from "./safety";
 import type {
   CatalogItem,
   IntegrativePlan,
@@ -28,28 +29,6 @@ function tierFor(urgency: UrgencyKey, redFlags: string[]): Tier {
   // Any red flag, even at a lower band, suppresses herbs/supplements.
   if (redFlags.length > 0) return "vet_first";
   return "support";
-}
-
-const GENERIC_ALLERGY = new Set(["protein", "seasonal", "sensitivity", "allergy", "the", "and"]);
-
-/** Conservative: when unsure, exclude (over-exclusion is safe for suggestions). */
-function contraindicated(item: CatalogItem, pet: PetLite): boolean {
-  const conditions = pet.conditions.map((c) => c.toLowerCase());
-  for (const c of item.contraindications) {
-    const key = c.toLowerCase();
-    if (
-      conditions.some((pc) => pc.split(/[^a-z]+/).some((w) => w.length > 3 && key.includes(w)))
-    ) {
-      return true;
-    }
-  }
-  // Allergy: exclude any item whose name contains a (non-generic) allergen word.
-  const allergenWords = pet.allergies
-    .flatMap((a) => a.toLowerCase().split(/[^a-z]+/))
-    .filter((t) => t.length > 3 && !GENERIC_ALLERGY.has(t));
-  const itemWords = item.name.toLowerCase().split(/[^a-z]+/);
-  if (allergenWords.some((t) => itemWords.some((w) => w === t || w.startsWith(t)))) return true;
-  return false;
 }
 
 function recFromItem(item: CatalogItem, pet: PetLite): Recommendation {
@@ -247,18 +226,23 @@ export function buildPlan(input: PlanInput): IntegrativePlan {
     });
   } else {
     // support tier — optional species-safe supplements/herbs.
+    //
+    // Everything here goes through checkItemSafety(), the same gate the protocol
+    // screen uses. It previously used a weaker local copy of the rules, which
+    // meant a plan could suggest something the protocol screen would have
+    // withheld — notably the allergy hard-block and the "not enough species
+    // data" gate for traditional-use items. One gate, one answer.
     const candidateIds = template?.considerItems ?? itemsForSystem(system.id).map((c) => c.id);
     const items = candidateIds
       .map((id) => CATALOG.find((c) => c.id === id))
       .filter((c): c is CatalogItem => !!c)
-      .filter((c) => c.kind === "food" || c.kind === "supplement" || c.kind === "herb")
-      .filter((c) => c.speciesSafety[pet.species] !== "avoid")
-      .filter((c) => !contraindicated(c, pet))
-      // food items already covered by food-first; surface supplements/herbs here
-      .filter((c) => c.kind !== "food")
-      .sort((a, b) => Number(a.askVetFirst) - Number(b.askVetFirst))
+      // food items are already covered by food-first; surface supplements/herbs here
+      .filter((c) => c.kind === "supplement" || c.kind === "herb")
+      .map((item) => ({ item, verdict: checkItemSafety(item, pet) }))
+      .filter((x) => x.verdict.allowed)
+      .sort((a, b) => Number(a.verdict.askVetFirst) - Number(b.verdict.askVetFirst))
       .slice(0, 4);
-    for (const item of items) add(recFromItem(item, pet));
+    for (const { item } of items) add(recFromItem(item, pet));
   }
 
   const headline =

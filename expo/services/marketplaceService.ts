@@ -12,7 +12,7 @@ export const marketplaceService = {
     const query = supabase
       .from("marketplace_products")
       .select(
-        "slug, category, name, species, evidence, transparency, ingredient_quality, lab_tested, reported_outcomes, fit_tags, blurb, brand, product_url, affiliate_url, affiliate_program, nasc_seal, retailer_fallback_url",
+        "slug, category, name, species, evidence, transparency, ingredient_quality, lab_tested, reported_outcomes, fit_tags, blurb, brand, product_url, affiliate_url, affiliate_program, nasc_seal, retailer_fallback_url, app_action, safety_rule_ids",
       )
       .order("name", { ascending: true })
       .limit(500);

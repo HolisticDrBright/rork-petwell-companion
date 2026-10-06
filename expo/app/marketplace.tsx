@@ -1,5 +1,5 @@
 import { Stack } from "expo-router";
-import { BadgeCheck, ExternalLink, FlaskConical, Scale, ShieldCheck, ShoppingBag } from "lucide-react-native";
+import { BadgeCheck, ExternalLink, FlaskConical, Scale, ShieldAlert, ShieldCheck, ShoppingBag } from "lucide-react-native";
 import React, { useEffect, useMemo, useState } from "react";
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
@@ -9,10 +9,12 @@ import { EvidenceBadge, ScreenHeader } from "@/components/integrative";
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
 import { getMode } from "@/lib/backend";
 import { AffiliateDisclosure } from "@/components/AffiliateDisclosure";
+import { checkProductSafety } from "@/lib/protocols/productSafety";
 import {
   MARKETPLACE_STATUS,
   MARKETPLACE_STATUS_LIVE,
   PRODUCT_CATEGORIES,
+  notRecommendedIn,
   rankProducts,
   type MarketplaceProduct,
   type ProductCategory,
@@ -55,6 +57,46 @@ export default function MarketplaceScreen() {
     () => (selectedPet ? rankProducts(category, selectedPet, liveCatalog ?? undefined) : []),
     [category, selectedPet, liveCatalog],
   );
+  // Products Petwell argues against are kept OUT of the ranking and listed
+  // separately with the reason — someone looking for colloidal silver should
+  // find out why we don't recommend it rather than find nothing.
+  const notRecommended = useMemo(
+    () => notRecommendedIn(category, liveCatalog ?? undefined),
+    [category, liveCatalog],
+  );
+
+  // The ranking is about merit; this is about THIS pet. Every ranked product is
+  // run through the product safety rules, so a cat is never offered a tea-tree
+  // product here any more than it would be inside a protocol — and if a rule
+  // says the pet needs a vet now, that replaces the shelf.
+  const { safeRanked, emergency, notesById } = useMemo(() => {
+    const notes: Record<string, { ruleId: number; copy: string }[]> = {};
+    let emergencyCopy: string | null = null;
+    const kept = ranked.filter((r) => {
+      if (!selectedPet) return true;
+      const verdict = checkProductSafety(
+        {
+          name: r.product.name,
+          safetyRuleIds: r.product.safetyRuleIds,
+          ailments: r.product.fitTags,
+          species: r.product.species === "both" ? ["dog", "cat"] : [r.product.species],
+        },
+        r.product.appAction ?? "info_only",
+        {
+          name: selectedPet.name,
+          species: selectedPet.species,
+          sex: selectedPet.sex,
+          ageYears: selectedPet.ageYears,
+          conditions: selectedPet.conditions,
+          currentSigns: [selectedPet.statusNote, selectedPet.recentChange, selectedPet.riskWatch].filter(Boolean),
+        },
+      );
+      if (verdict.emergency && verdict.emergencyCopy) emergencyCopy = verdict.emergencyCopy;
+      if (verdict.notes.length) notes[r.product.id] = verdict.notes.map((n) => ({ ruleId: n.ruleId, copy: n.copy }));
+      return verdict.action !== "avoid";
+    });
+    return { safeRanked: kept, emergency: emergencyCopy, notesById: notes };
+  }, [ranked, selectedPet]);
 
   if (!selectedPet) return <NoPetSelected />;
 
@@ -102,7 +144,14 @@ export default function MarketplaceScreen() {
           })}
         </ScrollView>
 
-        {ranked.map((r, idx) => (
+        {emergency ? (
+          <View style={styles.emergencyBanner}>
+            <ShieldAlert size={20} color="#fff" />
+            <Text style={styles.emergencyBannerText}>{emergency}</Text>
+          </View>
+        ) : null}
+
+        {safeRanked.map((r, idx) => (
           <Card key={r.product.id} style={[styles.productCard, !r.speciesSafe && styles.dimCard]}>
             <View style={styles.prodHead}>
               <View style={styles.rankBadge}>
@@ -166,6 +215,12 @@ export default function MarketplaceScreen() {
               ))}
             </View>
 
+            {(notesById[r.product.id] ?? []).map((n) => (
+              <Text key={`${r.product.id}-${n.ruleId}`} style={styles.safetyNote}>
+                {n.copy}
+              </Text>
+            ))}
+
             {(() => {
               const link = r.product.affiliateUrl ?? r.product.productUrl ?? r.product.retailerFallbackUrl;
               if (!link) return null;
@@ -185,6 +240,19 @@ export default function MarketplaceScreen() {
           </Card>
         ))}
 
+        {notRecommended.length > 0 ? (
+          <View style={{ marginTop: Space.md, gap: Space.sm }}>
+            <Text style={styles.notRecHeading}>Sold for this, but we don&apos;t recommend it</Text>
+            {notRecommended.map((p) => (
+              <Card key={p.id} style={styles.notRecCard}>
+                <Text style={styles.notRecName}>{p.name}</Text>
+                <Text style={styles.notRecBrand}>{p.brand}</Text>
+                <Text style={styles.notRecWhy}>{p.blurb}</Text>
+              </Card>
+            ))}
+          </View>
+        ) : null}
+
         {catalogFailed ? (
           <Card style={{ marginTop: Space.sm }}>
             <LoadFailed
@@ -193,7 +261,7 @@ export default function MarketplaceScreen() {
               onRetry={() => setReloadKey((k) => k + 1)}
             />
           </Card>
-        ) : ranked.length === 0 ? (
+        ) : safeRanked.length === 0 ? (
           <Card style={{ marginTop: Space.sm }}>
             <Text style={styles.placeholderText}>No reviewed products in this category yet.</Text>
           </Card>
@@ -262,6 +330,22 @@ const styles = StyleSheet.create({
   whyRow: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
   whyText: { ...Fonts.small, color: Colors.inkSoft, flex: 1, lineHeight: 18 },
   placeholderRow: { flexDirection: "row", gap: 8, alignItems: "center" },
+  emergencyBanner: {
+    flexDirection: "row",
+    gap: 10,
+    alignItems: "flex-start",
+    backgroundColor: Colors.red600,
+    borderRadius: Radius.md,
+    padding: Space.md,
+    marginBottom: Space.sm,
+  },
+  emergencyBannerText: { ...Fonts.body, color: "#fff", fontWeight: "700", flex: 1, lineHeight: 21 },
+  safetyNote: { ...Fonts.small, color: Colors.amber600, lineHeight: 18, marginTop: 4 },
+  notRecHeading: { ...Fonts.h3, color: Colors.red600 },
+  notRecCard: { borderWidth: 1, borderColor: Colors.red100, gap: 4 },
+  notRecName: { ...Fonts.h3 },
+  notRecBrand: { ...Fonts.small, color: Colors.inkFaint },
+  notRecWhy: { ...Fonts.body, lineHeight: 21, marginTop: 2 },
   placeholderText: { ...Fonts.small, color: Colors.inkFaint, flex: 1, lineHeight: 18 },
   linkBtn: {
     flexDirection: "row",

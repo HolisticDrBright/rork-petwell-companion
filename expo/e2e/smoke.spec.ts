@@ -106,6 +106,34 @@ test.describe("core journey", () => {
     expect(errors, `uncaught page errors:\n${errors.join("\n")}`).toEqual([]);
   });
 
+  test("a protocol shows graded product picks, strongest evidence first", async ({ page }) => {
+    // The product section is new, and it renders inside a protocol rather than
+    // the marketplace. If it throws, the whole protocol screen goes with it.
+    const errors: string[] = [];
+    failOnPageError(page, errors);
+    await blockOffsiteRequests(page);
+    await page.addInitScript(() => {
+      try {
+        window.localStorage.setItem("petwell.onboarded.v1", "true");
+      } catch {
+        /* ignore */
+      }
+    });
+
+    await page.goto("/protocol-detail?id=arthritis");
+    await expect(page.getByText("Products people use for this")).toBeVisible({ timeout: 30_000 });
+    // The grade-A omega-3 should lead, and every card states what its grade means.
+    await expect(page.getByText(/Potent-Sea Omega-3|Sardine & Anchovy Oil/).first()).toBeVisible();
+    await expect(page.getByText(/Randomised trials or established veterinary consensus/).first()).toBeVisible();
+    // The affiliate disclosure travels with any product list.
+    await expect(page.getByText(/affiliate links/i).first()).toBeVisible();
+    // No purity or cure language anywhere on the page.
+    const body = await page.locator("body").innerText();
+    expect(body).not.toMatch(/\b(cleanest|purest|safest)\b/i);
+
+    expect(errors, `uncaught page errors:\n${errors.join("\n")}`).toEqual([]);
+  });
+
   test("the toxin lookup works and always shows a poison-control hotline", async ({ page }) => {
     // The one screen that matters most when someone is panicking. It must render
     // from bundled data, with the hotline in reach, with no backend at all.

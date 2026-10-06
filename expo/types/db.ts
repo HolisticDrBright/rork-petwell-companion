@@ -1697,6 +1697,12 @@ export type Database = {
       }
       marketplace_products: {
         Row: {
+          app_action: string | null
+          safety_rule_ids: number[]
+          price_usd: number | null
+          source_store: string | null
+          is_kit: boolean
+          catalog_pulled: string | null
           affiliate_commission: string | null
           affiliate_program: string | null
           affiliate_url: string | null
@@ -1720,6 +1726,12 @@ export type Database = {
           transparency: number
         }
         Insert: {
+          app_action?: string | null
+          safety_rule_ids?: number[]
+          price_usd?: number | null
+          source_store?: string | null
+          is_kit?: boolean
+          catalog_pulled?: string | null
           affiliate_commission?: string | null
           affiliate_program?: string | null
           affiliate_url?: string | null
@@ -1743,6 +1755,12 @@ export type Database = {
           transparency?: number
         }
         Update: {
+          app_action?: string | null
+          safety_rule_ids?: number[]
+          price_usd?: number | null
+          source_store?: string | null
+          is_kit?: boolean
+          catalog_pulled?: string | null
           affiliate_commission?: string | null
           affiliate_program?: string | null
           affiliate_url?: string | null
