@@ -268,6 +268,36 @@ they're the fastest route from "no public product-level COA found" to actual
 evidence in the app. The URLs are from June and could not be re-verified from the
 build environment; each task says to check the link first.
 
+### 15. The graded supplement catalogue
+
+60 products from the 2026-10-06 Adored Beast / Dr. Judy Morgan research are
+live, graded A–D, each with an app action and the safety rules that apply. They
+appear inside the relevant protocols and in the marketplace. Four things need a
+person:
+
+**Affiliate terms.** Neither store publishes a public affiliate programme, so
+none of these 60 rows carries an affiliate link — they link to the product page.
+That's the correct default, and it's queued in `admin_review_queue`. If you
+agree terms with either store, add the links and the FTC disclosure is already
+wired to render wherever one appears.
+
+**Prices go stale.** Every price is recorded as of the pull date and shown as
+"price when checked", never as live. Both stores run Shopify, so
+`/products.json` returns the live catalogue — worth re-pulling monthly. Nothing
+breaks if you don't; the figure just ages visibly.
+
+**Eleven ailments have products but no protocol.** Taurine is grade A and has
+nowhere to live, which makes a cardiac protocol the strongest candidate to write
+next. The full list, with what each protocol would have to cover, is in
+`expo/lib/protocols/ailmentMap.ts` (`UNMAPPED_AILMENTS`). These are vet-authored
+content, not a mapping exercise, which is why they weren't invented here.
+
+**The grades themselves deserve the same vet review as the toxins.** They were
+assigned from the published evidence, and the reasoning is in each product's
+summary, but a second clinical opinion before launch would be worth having —
+particularly on the seven `vet_only` items and the three Petwell argues against
+(colloidal silver, the FleasGone tag, and the hair/saliva allergy panel).
+
 ---
 
 ## Deliberately deferred (not blockers)
