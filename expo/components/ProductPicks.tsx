@@ -56,7 +56,10 @@ const KitContents = memo(function KitContents({ productId }: { productId: string
 const ProductCard = memo(function ProductCard({ pick }: { pick: ProductPick }) {
   const { product, verdict, action } = pick;
   const tone = ACTION_STYLE[action];
-  const price = product.priceUsd.toFixed(2);
+  const price =
+    product.priceUsd === null
+      ? "price via your vet"
+      : `$${product.priceUsd.toFixed(2)} when checked`;
 
   return (
     <Card style={styles.card}>
@@ -103,7 +106,7 @@ const ProductCard = memo(function ProductCard({ pick }: { pick: ProductPick }) {
       >
         <ExternalLink size={15} color={Colors.teal700} />
         <Text style={styles.linkText}>
-          View at {product.store} · ${price} when checked
+          View at {product.store} · {price}
         </Text>
       </Pressable>
     </Card>

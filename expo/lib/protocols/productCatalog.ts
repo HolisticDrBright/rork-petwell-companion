@@ -66,10 +66,14 @@ export interface GradedProduct {
   name: string;
   brand: string;
   /** Which store the price and link came from. */
-  store: "adoredbeast.com" | "drjudymorgan.com";
+  store: "adoredbeast.com" | "drjudymorgan.com" | "standardprocess.com";
   url: string;
-  /** USD, as of CATALOG_PULLED. Never shown as a live price. */
-  priceUsd: number;
+  /**
+   * USD as of CATALOG_PULLED, or null when there is no public price —
+   * Standard Process sells through Patient Direct, where pricing sits behind a
+   * practitioner account. Null means "we don't know", never "free".
+   */
+  priceUsd: number | null;
   /** "environment" = a yard/home product, not given to the pet. */
   species: ("dog" | "cat")[] | "environment";
   ailments: Ailment[];
@@ -1079,6 +1083,207 @@ export const GRADED_PRODUCTS: GradedProduct[] = [
     summary:
       "Liver Tonic, Phyto Synergy and a probiotic sold together for itch. Omega-3 and PEA have better evidence for itch than anything in this bundle, at lower cost.",
   },
+
+  // ── Standard Process Veterinary Formulas ───────────────────────────────────
+  // Seeded in September (migration 0030) but left outside the grading system
+  // until now, so they appeared in the marketplace ungraded and never inside a
+  // protocol. They are practitioner-channel only — you cannot buy them without
+  // a Patient Direct code — so `vet_only` is both the clinical and the literal
+  // answer.
+  //
+  // The app owner holds a Standard Process practitioner account. That is exactly
+  // why these stay at grade C: NASC member without the Quality Seal, no public
+  // COAs, whole-food concentrates with brand-level evidence. Nothing here is
+  // scored up because the owner can supply it.
+  {
+    id: "sp-canine-msk",
+    name: "Canine Musculoskeletal Support",
+    brand: "Standard Process Veterinary Formulas",
+    store: "standardprocess.com",
+    url: "https://www.standardprocess.com/products/canine-musculoskeletal-support",
+    priceUsd: null,
+    species: ["dog"],
+    ailments: ["joint"],
+    category: "supplements",
+    grade: "C",
+    action: "vet_only",
+    safetyRuleIds: [],
+    summary:
+      "A whole-food concentrate for joints and muscle, sold only through veterinary practices. Brand-level evidence rather than published trials, so it sits at C alongside the other joint options rather than above them.",
+  },
+  {
+    id: "sp-canine-renal",
+    name: "Canine Renal Support",
+    brand: "Standard Process Veterinary Formulas",
+    store: "standardprocess.com",
+    url: "https://www.standardprocess.com/brands/veterinary-supplements",
+    priceUsd: null,
+    species: ["dog"],
+    ailments: ["kidney"],
+    category: "supplements",
+    grade: "C",
+    action: "vet_only",
+    safetyRuleIds: [],
+    summary:
+      "Whole-food kidney support through the veterinary channel. Kidney disease is staged on bloodwork, and phosphorus control is the part with survival evidence behind it — this sits alongside that plan, not in place of it.",
+  },
+  {
+    id: "sp-feline-renal",
+    name: "Feline Renal Support",
+    brand: "Standard Process Veterinary Formulas",
+    store: "standardprocess.com",
+    url: "https://www.standardprocess.com/brands/veterinary-supplements",
+    priceUsd: null,
+    species: ["cat"],
+    ailments: ["kidney"],
+    category: "supplements",
+    grade: "C",
+    action: "vet_only",
+    safetyRuleIds: [],
+    summary:
+      "The feline version. Cats are the species where chronic kidney disease is most common, and where the diet and phosphorus plan does the heavy lifting — your vet should set this alongside it.",
+  },
+  {
+    id: "sp-canine-hepatic",
+    name: "Canine Hepatic Support",
+    brand: "Standard Process Veterinary Formulas",
+    store: "standardprocess.com",
+    url: "https://www.standardprocess.com/brands/veterinary-supplements",
+    priceUsd: null,
+    species: ["dog"],
+    ailments: ["liver"],
+    category: "supplements",
+    grade: "C",
+    action: "vet_only",
+    safetyRuleIds: [],
+    summary:
+      "Whole-food liver support through the veterinary channel. Liver disease needs a diagnosis and bloodwork first — the numbers decide what actually helps.",
+  },
+  {
+    id: "sp-feline-hepatic",
+    name: "Feline Hepatic Support",
+    brand: "Standard Process Veterinary Formulas",
+    store: "standardprocess.com",
+    url: "https://www.standardprocess.com/brands/veterinary-supplements",
+    priceUsd: null,
+    species: ["cat"],
+    ailments: ["liver"],
+    category: "supplements",
+    grade: "C",
+    action: "vet_only",
+    safetyRuleIds: [],
+    summary: "The feline version, same channel and same caveat: bloodwork before supplements.",
+  },
+  {
+    id: "sp-canine-enteric",
+    name: "Canine Enteric Support",
+    brand: "Standard Process Veterinary Formulas",
+    store: "standardprocess.com",
+    url: "https://www.standardprocess.com/brands/veterinary-supplements",
+    priceUsd: null,
+    species: ["dog"],
+    ailments: ["diarrhea", "digestion"],
+    category: "supplements",
+    grade: "C",
+    action: "vet_only",
+    safetyRuleIds: [],
+    summary:
+      "Whole-food gut support through the veterinary channel. For a short bout of loose stool a multi-strain probiotic has the better evidence; this is for a vet-managed plan.",
+  },
+  {
+    id: "sp-feline-enteric",
+    name: "Feline Enteric Support",
+    brand: "Standard Process Veterinary Formulas",
+    store: "standardprocess.com",
+    url: "https://www.standardprocess.com/brands/veterinary-supplements",
+    priceUsd: null,
+    species: ["cat"],
+    ailments: ["diarrhea", "digestion"],
+    category: "supplements",
+    grade: "C",
+    action: "vet_only",
+    safetyRuleIds: [],
+    summary: "The feline version of the same whole-food gut formula, same channel.",
+  },
+  {
+    id: "sp-feline-immune",
+    name: "Feline Immune System Support",
+    brand: "Standard Process Veterinary Formulas",
+    store: "standardprocess.com",
+    url: "https://www.standardprocess.com/brands/veterinary-supplements",
+    priceUsd: null,
+    species: ["cat"],
+    ailments: ["immune"],
+    category: "supplements",
+    grade: "C",
+    action: "vet_only",
+    safetyRuleIds: [],
+    summary:
+      "Whole-food immune support for cats, through the veterinary channel. \"Immune support\" is a vague target by nature — worth asking your vet what specifically it is meant to be doing for your cat before starting a course.",
+  },
+  {
+    id: "sp-canine-cognition",
+    name: "Canine Cognition Support",
+    brand: "Standard Process Veterinary Formulas",
+    store: "standardprocess.com",
+    url: "https://www.standardprocess.com/brands/veterinary-supplements",
+    priceUsd: null,
+    species: ["dog"],
+    ailments: ["cognition"],
+    category: "supplements",
+    grade: "C",
+    action: "vet_only",
+    safetyRuleIds: [],
+    summary:
+      "A 2026 addition to the veterinary line, aimed at ageing dogs. MCT oil has better trial support for canine cognitive dysfunction; rule out pain and thyroid disease first, since both imitate dementia.",
+  },
+  {
+    id: "sp-canine-whole-body",
+    name: "Canine Whole Body Support",
+    brand: "Standard Process Veterinary Formulas",
+    store: "standardprocess.com",
+    url: "https://www.standardprocess.com/brands/veterinary-supplements",
+    priceUsd: null,
+    species: ["dog"],
+    ailments: ["wellness"],
+    category: "supplements",
+    grade: "C",
+    action: "vet_only",
+    safetyRuleIds: [],
+    summary:
+      "A daily whole-food foundation formula. A dog on a complete, balanced diet does not need a multivitamin; this is for a vet who has a reason to add one.",
+  },
+  {
+    id: "sp-feline-whole-body",
+    name: "Feline Whole Body Support",
+    brand: "Standard Process Veterinary Formulas",
+    store: "standardprocess.com",
+    url: "https://www.standardprocess.com/brands/veterinary-supplements",
+    priceUsd: null,
+    species: ["cat"],
+    ailments: ["wellness"],
+    category: "supplements",
+    grade: "C",
+    action: "vet_only",
+    safetyRuleIds: [],
+    summary: "The feline daily foundation formula, with the same caveat about complete diets.",
+  },
+  {
+    id: "sp-vf-omega3",
+    name: "VF Omega-3 for Pets",
+    brand: "Standard Process Veterinary Formulas",
+    store: "standardprocess.com",
+    url: "https://www.standardprocess.com/brands/veterinary-supplements",
+    priceUsd: null,
+    species: ["dog", "cat"],
+    ailments: ["joint", "skin"],
+    category: "omega3",
+    grade: "C",
+    action: "vet_only",
+    safetyRuleIds: [8],
+    summary:
+      "The veterinary-channel omega-3. The evidence for EPA and DHA is strong, but it belongs to the ingredient rather than to any one brand — the grade-A fish oils in this catalogue are the same molecules without the practitioner gate.",
+  },
 ];
 
 /**
@@ -1140,6 +1345,6 @@ export const PRODUCTS_BY_ID = new Map(GRADED_PRODUCTS.map((p) => [p.id, p]));
 export function productsForAilment(ailment: Ailment): GradedProduct[] {
   const order: Record<EvidenceGrade, number> = { A: 0, B: 1, C: 2, D: 3 };
   return GRADED_PRODUCTS.filter((p) => p.ailments.includes(ailment)).sort(
-    (a, b) => order[a.grade] - order[b.grade] || a.priceUsd - b.priceUsd,
+    (a, b) => order[a.grade] - order[b.grade] || (a.priceUsd ?? Infinity) - (b.priceUsd ?? Infinity),
   );
 }

@@ -78,7 +78,7 @@ export function productsForCondition(conditionId: string, ctx: PetSafetyContext)
   const sort = (a: ProductPick, b: ProductPick) =>
     ACTION_ORDER[a.action] - ACTION_ORDER[b.action] ||
     GRADE_ORDER[a.product.grade] - GRADE_ORDER[b.product.grade] ||
-    a.product.priceUsd - b.product.priceUsd;
+    (a.product.priceUsd ?? Infinity) - (b.product.priceUsd ?? Infinity);
 
   picks.sort(sort);
   notRecommended.sort((a, b) => a.product.name.localeCompare(b.product.name));

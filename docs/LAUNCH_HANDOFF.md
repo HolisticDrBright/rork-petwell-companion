@@ -286,11 +286,27 @@ wired to render wherever one appears.
 `/products.json` returns the live catalogue — worth re-pulling monthly. Nothing
 breaks if you don't; the figure just ages visibly.
 
-**Eleven ailments have products but no protocol.** Taurine is grade A and has
+**Twelve ailments have products but no protocol.** Taurine is grade A and has
 nowhere to live, which makes a cardiac protocol the strongest candidate to write
 next. The full list, with what each protocol would have to cover, is in
 `expo/lib/protocols/ailmentMap.ts` (`UNMAPPED_AILMENTS`). These are vet-authored
 content, not a mapping exercise, which is why they weren't invented here.
+
+**The Standard Process line is now graded too.** The twelve formulas seeded in
+September sat outside the grading system for a month — visible in the
+marketplace, never inside a protocol, never checked by a safety rule. They're
+in now, all at grade C / ask-your-vet (Patient Direct is practitioner-only, so
+that's the literal truth as well as the clinical one), and they show up on the
+kidney, joint, gut and senior protocols. Nothing was scored up because you can
+supply it.
+
+**Confirm the full Standard Process line from Patient Direct.** The September
+seed captured twelve flagship SKUs, not the whole catalogue, and
+standardprocess.com can't be reached from the build environment. Three gaps to
+check with your practitioner login: a **cardiac** formula (would unblock the
+cardiac protocol), a **urinary/bladder** formula distinct from Renal Support,
+and **Canine** Immune System Support (only the feline one is seeded). It's queued
+in `admin_review_queue`.
 
 **The grades themselves deserve the same vet review as the toxins.** They were
 assigned from the published evidence, and the reasoning is in each product's

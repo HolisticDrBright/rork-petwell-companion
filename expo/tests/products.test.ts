@@ -68,18 +68,36 @@ const facts = (p: GradedProduct) => ({
 });
 
 // ── 1. The catalogue matches the research it came from ───────────────────────
-ck("1 all 60 researched products are present", GRADED_PRODUCTS.length === 60, `${GRADED_PRODUCTS.length}`);
-const grades = GRADED_PRODUCTS.reduce<Record<string, number>>((a, p) => ({ ...a, [p.grade]: (a[p.grade] ?? 0) + 1 }), {});
+const research = GRADED_PRODUCTS.filter((p) => p.store !== "standardprocess.com");
+const standardProcess = GRADED_PRODUCTS.filter((p) => p.store === "standardprocess.com");
+ck("1 all 60 researched products are present", research.length === 60, `${research.length}`);
+ck("1 the Standard Process line is graded alongside them", standardProcess.length === 12);
+ck("1 every Standard Process product is vet-gated (Patient Direct is practitioner-only)", standardProcess.every((p) => p.action === "vet_only"));
+ck("1 none is scored above C despite the owner's practitioner account", standardProcess.every((p) => p.grade === "C"));
+ck("1 a product with no public price says so rather than showing zero", standardProcess.every((p) => p.priceUsd === null) && /price via your vet/.test(src("components/ProductPicks.tsx")));
+const grades = research.reduce<Record<string, number>>((a, p) => ({ ...a, [p.grade]: (a[p.grade] ?? 0) + 1 }), {});
 ck("1 grade split matches the source (4 A, 7 B, 31 C, 18 D)", grades.A === 4 && grades.B === 7 && grades.C === 31 && grades.D === 18, JSON.stringify(grades));
-const actions = GRADED_PRODUCTS.reduce<Record<string, number>>((a, p) => ({ ...a, [p.action]: (a[p.action] ?? 0) + 1 }), {});
+const actions = research.reduce<Record<string, number>>((a, p) => ({ ...a, [p.action]: (a[p.action] ?? 0) + 1 }), {});
 ck("1 action split matches the source", actions.recommend === 23 && actions.caution === 13 && actions.info_only === 14 && actions.vet_only === 7 && actions.avoid === 3, JSON.stringify(actions));
-ck("1 ids are unique", new Set(GRADED_PRODUCTS.map((p) => p.id)).size === 60);
+ck("1 ids are unique", new Set(GRADED_PRODUCTS.map((p) => p.id)).size === GRADED_PRODUCTS.length);
 ck("1 every product has a real summary", GRADED_PRODUCTS.every((p) => p.summary.trim().length > 50));
 ck("1 every product links to its source page", GRADED_PRODUCTS.every((p) => /^https:\/\//.test(p.url)));
 ck("1 the pull date is recorded so prices can be aged", /^\d{4}-\d{2}-\d{2}$/.test(CATALOG_PULLED));
 ck("1 every rule id used by a product exists", GRADED_PRODUCTS.every((p) => p.safetyRuleIds.every((id) => PRODUCT_SAFETY_RULES.some((r) => r.id === id))));
 const jointByGrade = productsForAilment("joint");
 ck("1 products for an ailment come back strongest-evidence-first", jointByGrade.length > 0 && jointByGrade[0].grade === "A");
+
+// ── 1b. One product model, not two ──────────────────────────────────────────
+// Regression: the Standard Process rows were seeded a month before the grading
+// system existed, so they sat in the marketplace ungraded, never appeared in a
+// protocol, and no safety rule ever looked at them.
+ck("1b Standard Process products carry ailment tags so they reach protocols", standardProcess.every((p) => p.ailments.length > 0));
+ck("1b the kidney protocol now offers the practitioner-channel option too",
+  productsForCondition("kidney_hydration", dog()).picks.some((x) => x.product.id === "sp-canine-renal"));
+ck("1b the feline immune product exists even though immune has no protocol yet",
+  GRADED_PRODUCTS.some((p) => p.id === "sp-feline-immune" && p.ailments.includes("immune")));
+ck("1b the SP omega-3 carries the same fish-oil rule as every other fish oil",
+  PRODUCTS_BY_ID.get("sp-vf-omega3")!.safetyRuleIds.includes(8));
 
 // ── 2. Copy rules: our words, our claims ─────────────────────────────────────
 // The research doc is explicit that store copy is copyrighted AND makes disease
@@ -234,6 +252,11 @@ ck("12 the arthritis protocol surfaces products", arthritisDog.picks.length > 0)
 ck("12 the strongest evidence is offered first", arthritisDog.picks[0]?.product.grade === "A");
 ck("12 picks are ordered by action then grade, not by price", arthritisDog.picks.every((p, i, a) => i === 0 || a[i - 1].action !== "recommend" || p.action !== "recommend" || a[i - 1].product.grade <= p.product.grade));
 ck("12 an unknown condition returns nothing rather than guessing", productsForCondition("not_a_condition", dog()).picks.length === 0);
+// Pancreatitis is the pancreas. Liver supplements do not belong on a low-fat
+// pancreatitis plan, so that tag is unmapped rather than mapped to the nearest
+// hepatic-system template.
+ck("12 liver products are not offered on the pancreatitis protocol", productsForCondition("pancreatitis", dog()).picks.length === 0);
+ck("12 and liver is recorded as needing its own protocol", UNMAPPED_AILMENTS.some((u) => u.ailment === "liver"));
 ck("12 the protocol screen renders the product section", /ProductPicks/.test(src("app/protocol-detail.tsx")) && /productsForCondition/.test(src("app/protocol-detail.tsx")));
 ck("12 the FTC disclosure renders with the product list", /AffiliateDisclosure/.test(src("components/ProductPicks.tsx")));
 
