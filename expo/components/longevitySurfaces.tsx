@@ -14,6 +14,7 @@ import {
  *  on Today and the Timeline, without disturbing the existing layout. */
 
 const BAND_COLOR: Record<ScoreBand, string> = {
+  insufficient: Colors.inkFaint,
   great: Colors.green600,
   good: Colors.teal600,
   watch: Colors.amber600,
@@ -32,7 +33,7 @@ export const HealthScoreChip = memo(function HealthScoreChip({
   bandLabel,
   onPress,
 }: {
-  overall: number;
+  overall: number | null;
   band: ScoreBand;
   bandLabel: string;
   onPress: () => void;
@@ -42,11 +43,11 @@ export const HealthScoreChip = memo(function HealthScoreChip({
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`Petwell Health Score ${overall} of 100, ${bandLabel}`}
+      accessibilityLabel={overall === null ? "Petwell Health Score: not enough data" : `Petwell Health Score ${overall} of 100, ${bandLabel}`}
       style={({ pressed }) => [styles.chip, pressed && { opacity: 0.85 }]}
     >
       <View style={[styles.ring, { borderColor: color }]}>
-        <Text style={[styles.ringNum, { color }]}>{overall}</Text>
+        <Text style={[styles.ringNum, { color }]}>{overall ?? "—"}</Text>
       </View>
       <View style={{ flex: 1 }}>
         <Text style={styles.chipLabel}>Health Score</Text>
@@ -125,14 +126,14 @@ export const HealthScoreBadge = memo(function HealthScoreBadge({
   overall,
   band,
 }: {
-  overall: number;
+  overall: number | null;
   band: ScoreBand;
 }) {
   const color = BAND_COLOR[band];
   return (
     <View style={[styles.badge, { backgroundColor: color + "1A" }]}>
       <HeartPulse size={13} color={color} />
-      <Text style={[styles.badgeText, { color }]}>{overall}</Text>
+      <Text style={[styles.badgeText, { color }]}>{overall ?? "—"}</Text>
     </View>
   );
 });

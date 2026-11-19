@@ -27,7 +27,7 @@ import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Switch, 
 
 import { Card } from "@/components/ui";
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
-import { isCurrentUserAdmin } from "@/lib/backend";
+import { clearDeletedSession, isCurrentUserAdmin } from "@/lib/backend";
 import { config } from "@/lib/config";
 import { shouldShowDemoData } from "@/lib/dataMode";
 import { AI_DATA_NOTICE, DEFAULT_AI_PREFS, getAiPreferences, setAiPreferences, type AiPreferences } from "@/lib/ai/config";
@@ -52,11 +52,12 @@ const PERMISSIONS: Toggle[] = [
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const { selectedPet, timeline, mode, authEmail, isAuthenticated, canUseAuth, loadDemoProfile } = usePets();
+  const { selectedPet, timeline, mode, authEmail, isAuthenticated, canUseAuth, loadDemoProfile, clearDeviceData } = usePets();
   const { isPro, isSupported, manageSubscription, restore } = useSubscription();
 
   const [prefs, setPrefs] = useState<PrivacyPrefs>(DEFAULT_PRIVACY);
   const [status, setStatus] = useState<string | null>(null);
+  const [accountDeleted, setAccountDeleted] = useState(false);
   const [busy, setBusy] = useState<boolean>(false);
   const [confirm, setConfirm] = useState<"images" | "account" | "aiHistory" | null>(null);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
@@ -181,13 +182,18 @@ export default function SettingsScreen() {
     setConfirm(null);
     setBusy(true);
     try {
-      await privacyService.deleteAccountData();
+      if (mode === "remote" && !accountDeleted) {
+        await privacyService.deleteAccountData();
+        setAccountDeleted(true);
+      }
+      await clearDeletedSession();
+      await clearDeviceData();
       router.replace("/onboarding");
     } catch {
-      setStatus("Couldn't delete account data — please try again.");
+      setStatus("Deletion did not finish. Please retry to complete account and device cleanup.");
       setBusy(false);
     }
-  }, [router]);
+  }, [router, mode, accountDeleted, clearDeviceData]);
 
   return (
     <ScrollView
@@ -205,7 +211,7 @@ export default function SettingsScreen() {
         <View style={{ flex: 1 }}>
           <Text style={styles.premiumTitle}>{isPro ? "Petwell Pro active" : "Petwell Pro"}</Text>
           <Text style={styles.premiumSub}>
-            {isPro ? "Thanks for supporting Petwell" : "Unlimited scans, correlations & more"}
+            {isPro ? "Thanks for supporting Petwell" : "New Pro subscriptions are paused"}
           </Text>
         </View>
         <ChevronRight size={20} color="rgba(255,255,255,0.8)" />
@@ -419,13 +425,13 @@ export default function SettingsScreen() {
       {confirm === "account" ? (
         <View style={styles.deleteConfirm}>
           <Text style={styles.deleteConfirmText}>
-            This permanently deletes your pets, logs, scans, and reports. This can&apos;t be undone.
+            {mode === 'remote' ? 'This permanently deletes your account, pets, logs, scans, reports, and stored files.' : 'This permanently deletes Petwell data on this device.'} This cannot be undone. Store subscriptions must be canceled separately in Manage subscription.
           </Text>
           <View style={styles.confirmBtns}>
             <Pressable style={[styles.confirmBtn, styles.confirmCancel]} onPress={() => setConfirm(null)}>
               <Text style={styles.confirmCancelText}>Cancel</Text>
             </Pressable>
-            <Pressable style={[styles.confirmBtn, styles.confirmDelete]} onPress={onDeleteAccount}>
+            <Pressable style={[styles.confirmBtn, styles.confirmDelete]} onPress={onDeleteAccount} disabled={busy}>
               <Text style={styles.confirmDeleteText}>Delete everything</Text>
             </Pressable>
           </View>
@@ -433,7 +439,7 @@ export default function SettingsScreen() {
       ) : (
         <Pressable style={styles.deleteRow} onPress={() => setConfirm("account")}>
           <Trash2 size={18} color={Colors.red600} />
-          <Text style={styles.deleteText}>Delete account & data</Text>
+          <Text style={styles.deleteText}>{mode === "remote" ? "Delete account & data" : "Delete device data"}</Text>
         </Pressable>
       )}
 

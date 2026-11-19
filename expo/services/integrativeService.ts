@@ -32,6 +32,7 @@ export const integrativeService = {
 
   /** Persist a Petwell Health Score snapshot + its sub-scores (best-effort). */
   async saveHealthScore(petId: string, score: PetHealthScore): Promise<void> {
+    if (score.overall === null) return;
     const owner_id = getUserId();
     if (!owner_id) return;
     const { data, error } = await supabase
@@ -50,7 +51,7 @@ export const integrativeService = {
     if (error) throw error;
     const hsId = data?.id;
     if (hsId) {
-      const rows = score.systems.map((s) => ({
+      const rows = score.systems.filter(s => s.hasData).map((s) => ({
         health_score_id: hsId,
         owner_id,
         key: s.key,

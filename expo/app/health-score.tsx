@@ -12,6 +12,7 @@ import { usePets } from "@/providers/PetProvider";
 import { integrativeService } from "@/services";
 
 const BAND_COLOR: Record<ScoreBand, string> = {
+  insufficient: Colors.inkFaint,
   great: Colors.green600,
   good: Colors.teal600,
   watch: Colors.amber600,
@@ -45,7 +46,7 @@ const SubScoreCard = memo(function SubScoreCard({ s }: { s: SystemSubScore }) {
         <Text style={[styles.subScore, { color }]}>{s.hasData ? s.score : "—"}</Text>
       </View>
       <View style={styles.barTrack}>
-        <View style={[styles.barFill, { width: `${s.score}%`, backgroundColor: color }]} />
+        <View style={[styles.barFill, { width: `${s.hasData ? s.score : 0}%`, backgroundColor: color }]} />
       </View>
       <View style={styles.subBody}>
         <Text style={styles.kv}>
@@ -74,18 +75,19 @@ const SubScoreCard = memo(function SubScoreCard({ s }: { s: SystemSubScore }) {
 
 export default function HealthScoreScreen() {
   const router = useRouter();
-  const { selectedPet, timeline, trends, mode, timelineFailed, retryTimeline } = usePets();
+  const { selectedPet, timeline, trends, mode, timelineFailed, timelineLoading, todayIso, retryTimeline } = usePets();
 
   // Best-effort: snapshot the score once per pet in remote mode (no-op locally).
   const savedRef = useRef<string | null>(null);
   useEffect(() => {
     if (!selectedPet) return;
-    if (mode !== "remote") return;
+    if (mode !== "remote" || timelineFailed || timelineLoading) return;
     if (savedRef.current === selectedPet.id) return;
+    const s = computeHealthScore(selectedPet, timeline, trends, todayIso);
+    if (s.overall === null) return;
     savedRef.current = selectedPet.id;
-    const s = computeHealthScore(selectedPet, timeline, trends);
     integrativeService.saveHealthScore(selectedPet.id, s).catch(() => {});
-  }, [mode, selectedPet, timeline, trends]);
+  }, [mode, selectedPet, timeline, trends, todayIso, timelineFailed, timelineLoading]);
 
   if (!selectedPet) return <NoPetSelected />;
 
@@ -110,7 +112,7 @@ export default function HealthScoreScreen() {
     );
   }
 
-  const score = computeHealthScore(selectedPet, timeline, trends);
+  const score = computeHealthScore(selectedPet, timeline, trends, todayIso);
   const color = BAND_COLOR[score.band];
 
   return (
@@ -121,8 +123,8 @@ export default function HealthScoreScreen() {
         {/* Overall ring */}
         <Card style={styles.overallCard}>
           <View style={[styles.ring, { borderColor: color }]}>
-            <Text style={[styles.ringScore, { color }]}>{score.overall}</Text>
-            <Text style={styles.ringOf}>/ 100</Text>
+            <Text style={[styles.ringScore, { color }]}>{score.overall ?? "—"}</Text>
+            {score.overall !== null ? <Text style={styles.ringOf}>/ 100</Text> : null}
           </View>
           <View style={{ flex: 1 }}>
             <View style={[styles.bandPill, { backgroundColor: color + "22" }]}>

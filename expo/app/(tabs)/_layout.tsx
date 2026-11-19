@@ -4,12 +4,13 @@ import React from "react";
 import { ActivityIndicator, Platform, View } from "react-native";
 
 import { FirstPetGate } from "@/components/FirstPetGate";
+import { AccountRequired } from "@/components/AccountRequired";
 import { LoadFailed } from "@/components/ui";
 import Colors from "@/constants/colors";
 import { usePets } from "@/providers/PetProvider";
 
 export default function TabLayout() {
-  const { isLoading, backendReady, onboarded, hasPets, petsFailed, retryPets } = usePets();
+  const { isLoading, backendReady, onboarded, hasPets, petsFailed, retryPets, requiresSignIn } = usePets();
 
   // If the pet list couldn't be fetched at all (offline, backend down), say so
   // and offer a retry. Without this the app sits on a spinner forever with no
@@ -39,8 +40,10 @@ export default function TabLayout() {
     );
   }
   if (onboarded && !hasPets) {
+    if (requiresSignIn) return <AccountRequired />;
     return <FirstPetGate />;
   }
+  if (onboarded && requiresSignIn) return <AccountRequired />;
 
   return (
     <Tabs

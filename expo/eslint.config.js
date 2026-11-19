@@ -5,6 +5,6 @@ module.exports = defineConfig([
   expoConfig,
   {
     // Build output, not source: the web export bundles every dependency.
-    ignores: ["dist/*", "dist-web/*", "test-results/*", "playwright-report/*"],
+    ignores: ["dist/*", "dist-web/*", "dist-production/*", "test-results/*", "playwright-report/*"],
   },
 ]);

@@ -1,14 +1,7 @@
 import { config } from "./config";
 import { supabase, isSupabaseConfigured } from "./supabase";
 
-/**
- * Backend bootstrap.
- *
- * Petwell uses Supabase anonymous auth so every device gets a real, RLS-scoped
- * identity with no login screen. init() is attempted once; if anything fails
- * (network blocked, anonymous sign-ins disabled, offline) we fall back to
- * "local" mode and the app keeps working against bundled mock data.
- */
+/** Production uses explicit email authentication; development can use guest sessions. */
 export type BackendMode = "remote" | "local";
 
 const INIT_TIMEOUT_MS = 8000;
@@ -19,6 +12,12 @@ let currentIsAnonymous: boolean = false;
 let currentMode: BackendMode = "local";
 let initPromise: Promise<{ mode: BackendMode; userId: string | null }> | null = null;
 let listenerSet = false;
+let identityRevision = 0;
+const listeners = new Set<() => void>();
+export function subscribeBackend(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => { listeners.delete(listener); };
+}
 
 type SbUser = {
   id: string;
@@ -29,6 +28,7 @@ type SbUser = {
 };
 
 function applyUser(user: SbUser | null): void {
+  identityRevision += 1;
   if (user) {
     currentUserId = user.id;
     currentEmail = user.email ?? null;
@@ -40,6 +40,7 @@ function applyUser(user: SbUser | null): void {
     currentIsAnonymous = false;
     currentMode = "local";
   }
+  for (const listener of listeners) listener();
 }
 
 /** Keep the cached identity in sync with token refreshes / external changes. */
@@ -47,7 +48,7 @@ function ensureAuthListener(): void {
   if (listenerSet) return;
   listenerSet = true;
   supabase.auth.onAuthStateChange((_event, session) => {
-    if (session?.user) applyUser(session.user as SbUser);
+    applyUser((session?.user as SbUser) ?? null);
   });
 }
 
@@ -93,9 +94,18 @@ async function doInit(): Promise<{ mode: BackendMode; userId: string | null }> {
   if (!isSupabaseConfigured || !config.useApi) return { mode: "local", userId: null };
   ensureAuthListener();
 
-  const { data: sessionData } = await supabase.auth.getSession();
+  const revision = identityRevision;
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError) throw sessionError;
+  if (revision !== identityRevision) return { mode: currentMode, userId: currentUserId };
   let user = sessionData.session?.user ?? null;
 
+  // Production uses explicit email sign-in. Guest auth is optional, never a
+  // prerequisite for showing the account screen or recovering a password.
+  if (!user && config.isProduction) {
+    applyUser(null);
+    return { mode: "local", userId: null };
+  }
   if (!user) {
     const { data, error } = await supabase.auth.signInAnonymously();
     if (error) throw error;
@@ -110,14 +120,14 @@ async function doInit(): Promise<{ mode: BackendMode; userId: string | null }> {
 
 /** Idempotent. Resolves to the active mode; never rejects. */
 export function initBackend(): Promise<{ mode: BackendMode; userId: string | null }> {
+  if (currentUserId) return Promise.resolve({ mode: currentMode, userId: currentUserId });
   if (!initPromise) {
     initPromise = withTimeout(doInit(), INIT_TIMEOUT_MS).catch((e: unknown) => {
       const msg = e instanceof Error ? e.message : String(e);
       console.warn(`[petwell] Supabase unavailable, using local mode: ${msg}`);
-      currentMode = "local";
-      currentUserId = null;
-      return { mode: "local" as const, userId: null };
-    });
+      // A successful sign-in may have overtaken this bootstrap request.
+      return { mode: currentMode, userId: currentUserId };
+    }).finally(() => { initPromise = null; });
   }
   return initPromise;
 }
@@ -164,15 +174,16 @@ export interface AuthResult {
  * anonymous identity, the account is CONVERTED IN PLACE (same user id) so all
  * existing data carries over. Otherwise a fresh account is created.
  */
-export async function signUpWithEmail(email: string, password: string): Promise<AuthResult> {
+export async function signUpWithEmail(email: string, password: string, emailRedirectTo?: string): Promise<AuthResult> {
   if (!isSupabaseConfigured) return { ok: false, error: "Backend isn't configured on this build." };
   const e = email.trim().toLowerCase();
+  ensureAuthListener();
   try {
     const { data: sess } = await supabase.auth.getSession();
     const current = (sess.session?.user ?? null) as SbUser | null;
 
     if (current?.is_anonymous) {
-      const { data, error } = await supabase.auth.updateUser({ email: e, password });
+      const { data, error } = await supabase.auth.updateUser({ email: e, password }, { emailRedirectTo });
       if (error) throw error;
       const u = data.user as SbUser | null;
       if (u) applyUser(u);
@@ -181,7 +192,7 @@ export async function signUpWithEmail(email: string, password: string): Promise<
       return { ok: true, needsConfirmation };
     }
 
-    const { data, error } = await supabase.auth.signUp({ email: e, password });
+    const { data, error } = await supabase.auth.signUp({ email: e, password, options: { emailRedirectTo } });
     if (error) throw error;
     if (data.user && data.session) applyUser(data.user as SbUser);
     await ensureProfile();
@@ -196,6 +207,7 @@ export async function signUpWithEmail(email: string, password: string): Promise<
 export async function signInWithEmail(email: string, password: string): Promise<AuthResult> {
   if (!isSupabaseConfigured) return { ok: false, error: "Backend isn't configured on this build." };
   try {
+    ensureAuthListener();
     const { data, error } = await supabase.auth.signInWithPassword({
       email: email.trim().toLowerCase(),
       password,
@@ -214,13 +226,10 @@ export async function signInWithEmail(email: string, password: string): Promise<
  * app keeps working (and a new device-local profile starts clean).
  */
 export async function signOutToAnonymous(): Promise<void> {
-  try {
-    await supabase.auth.signOut();
-  } catch {
-    // ignore
-  }
+  const { error } = await supabase.auth.signOut();
+  if (error) throw error;
   applyUser(null);
-  if (!isSupabaseConfigured) return;
+  if (!isSupabaseConfigured || config.isProduction) return;
   try {
     const { data, error } = await supabase.auth.signInAnonymously();
     if (!error && data.user) {
@@ -230,4 +239,11 @@ export async function signOutToAnonymous(): Promise<void> {
   } catch {
     // ignore — UI will reflect signed-out/local state
   }
+}
+
+/** Clear this device after the server confirms account deletion. */
+export async function clearDeletedSession(): Promise<void> {
+  const { error } = await supabase.auth.signOut({ scope: "local" });
+  if (error) throw error;
+  applyUser(null);
 }

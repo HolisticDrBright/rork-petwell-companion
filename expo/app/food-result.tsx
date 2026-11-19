@@ -1,3 +1,5 @@
+import { useSaveAction } from "@/hooks/useSaveAction";
+import { SaveStatus } from "@/components/SaveStatus";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import {
   AlertTriangle,
@@ -110,6 +112,7 @@ interface Loaded {
 }
 
 export default function FoodResultScreen() {
+  const { saving, saveError, runSave } = useSaveAction();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { productId, raw, image, source } = useLocalSearchParams<{
@@ -223,10 +226,10 @@ export default function FoodResultScreen() {
     return rec === "good_fit" ? ("green" as const) : rec === "use_caution" ? ("amber" as const) : ("red" as const);
   }, []);
 
-  const saveToLog = useCallback(() => {
+  const saveToLog = useCallback(() => runSave(async () => {
     if (!data || !selectedPet) return;
     const { review, bundle, scanId } = data;
-    addLog(selectedPet.id, {
+    await addLog(selectedPet.id, {
       id: `food-${Date.now()}`,
       petId: selectedPet.id,
       date: todayIso,
@@ -235,18 +238,9 @@ export default function FoodResultScreen() {
       title: `${bundle.name} — ${review.recommendationLabel}`,
       detail: `Grade ${review.grade} · ${review.overallScore}/100`,
       urgency: recUrgency(review.recommendation),
-    });
-    if (mode === "remote") {
-      foodService
-        .logFood(selectedPet.id, {
-          label: bundle.name,
-          productId: bundle.id,
-          foodScanId: scanId ?? undefined,
-        })
-        .catch((e) => console.warn("[petwell] food log failed:", e));
-    }
+    }, { label: bundle.name, productId: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(bundle.id) ? bundle.id : undefined, foodScanId: scanId ?? undefined });
     setSaved(true);
-  }, [data, addLog, selectedPet, todayIso, mode, recUrgency]);
+  }), [runSave, data, addLog, selectedPet, todayIso, recUrgency]);
 
   const correctMatch = useCallback(() => {
     if (data && mode === "remote") {
@@ -707,7 +701,8 @@ export default function FoodResultScreen() {
 
         {/* Actions */}
         <View style={styles.actions}>
-          <PrimaryButton
+          <SaveStatus saving={saving} saveError={saveError} />
+        <PrimaryButton
             label={saved ? "Saved to log" : "Save to food log"}
             icon={saved ? <Check size={18} color="#fff" /> : <Sparkles size={18} color="#fff" />}
             variant="primary"

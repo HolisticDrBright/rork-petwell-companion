@@ -9,7 +9,7 @@ import { lifeStage } from "@/lib/integrative/safety";
  * isn't enough data yet.
  */
 
-export type ScoreBand = "great" | "good" | "watch" | "attention";
+export type ScoreBand = "great" | "good" | "watch" | "attention" | "insufficient";
 
 export interface SystemSubScore {
   key: string;
@@ -25,7 +25,7 @@ export interface SystemSubScore {
 }
 
 export interface PetHealthScore {
-  overall: number;
+  overall: number | null;
   band: ScoreBand;
   headline: string;
   generatedAt: string;
@@ -51,9 +51,8 @@ function bandFor(score: number): ScoreBand {
   return "attention";
 }
 
-function refDate(timeline: TimelineEntry[], todayIso?: string): string {
-  const dates = timeline.map((t) => t.date).filter(Boolean).sort();
-  return dates[dates.length - 1] ?? todayIso ?? "2026-06-25";
+function refDate(todayIso?: string): string {
+  return todayIso ?? new Date().toISOString().slice(0, 10);
 }
 
 function daysBetween(a: string, b: string): number {
@@ -63,7 +62,7 @@ function daysBetween(a: string, b: string): number {
 }
 
 function recent(timeline: TimelineEntry[], ref: string, days: number): TimelineEntry[] {
-  return timeline.filter((t) => daysBetween(t.date, ref) <= days);
+  return timeline.filter((t) => t.date <= ref && daysBetween(t.date, ref) <= days).sort((a, b) => b.date.localeCompare(a.date));
 }
 
 const has = (text: string, words: string[]) => {
@@ -161,11 +160,11 @@ function scoreSkin(tl: TimelineEntry[], ref: string, pet: Pet): SystemSubScore {
   };
 }
 
-function scoreWeight(tl: TimelineEntry[], ref: string, pet: Pet, trends?: Record<string, number[]>): SystemSubScore {
+function scoreWeight(tl: TimelineEntry[], ref: string, pet: Pet): SystemSubScore {
   const weights = recent(tl, ref, 60)
     .filter((e) => e.category === "weight" && typeof e.value === "number")
     .map((e) => e.value as number);
-  const series = weights.length >= 2 ? weights : trends?.weight ?? [];
+  const series = weights; // Never infer measured change from a default/profile trend.
   const obeseFlag = pet.conditions.some((c) => has(c, ["obes", "overweight", "weight"]));
   const diabetesFlag = pet.conditions.some((c) => has(c, ["diabet", "insulin"]));
   if (series.length < 2 && !obeseFlag && !diabetesFlag) {
@@ -355,49 +354,47 @@ function scoreSenior(pet: Pet): SystemSubScore {
 export function computeHealthScore(
   pet: Pet,
   timeline: TimelineEntry[],
-  trends?: Record<string, number[]>,
+  _trends?: Record<string, number[]>,
   todayIso?: string,
 ): PetHealthScore {
-  const ref = refDate(timeline, todayIso);
+  const ref = refDate(todayIso);
   const systems: SystemSubScore[] = [
     scoreDigestion(timeline, ref),
     scoreSkin(timeline, ref, pet),
-    scoreWeight(timeline, ref, pet, trends),
+    scoreWeight(timeline, ref, pet),
     scoreActivity(timeline, ref),
     scoreDental(timeline, ref, pet),
     scoreHydration(timeline, ref, pet),
     scoreStress(timeline, ref),
     scoreSenior(pet),
   ];
-  // Overall weights data-backed systems more heavily so the score reflects real signals.
-  let weightSum = 0;
-  let acc = 0;
-  for (const s of systems) {
-    const w = s.hasData ? 1 : 0.5;
-    acc += s.score * w;
-    weightSum += w;
-  }
-  const overall = Math.round(acc / weightSum);
-  const band = bandFor(overall);
-  const loggedSignals = systems.filter((s) => s.hasData).length;
-  const lowest = [...systems].sort((a, b) => a.score - b.score)[0];
-  const headline =
-    band === "great"
-      ? `${pet.name} is doing great across the board.`
-      : band === "good"
-        ? `${pet.name} is doing well — one or two areas to watch.`
-        : `A few areas need attention — start with ${lowest.label.toLowerCase()}.`;
+  // Profile risk context is useful, but isn't a logged observation. Missing
+  // systems never contribute invented neutral values to the overall score.
+  const recentTitles = new Set(recent(timeline, ref, 30).map(e => e.title));
+  const observed = systems.filter(s => s.key !== "senior" && s.hasData && (
+    s.key === "weight"
+      ? recent(timeline, ref, 60).filter(e => e.category === "weight" && typeof e.value === "number").length >= 2
+      : s.influencedBy.some(title => recentTitles.has(title))
+  ));
+  const loggedSignals = observed.length;
+  // At least two observed systems are needed for a cross-system summary.
+  const overall = loggedSignals >= 2 ? Math.round(observed.reduce((sum, s) => sum + s.score, 0) / loggedSignals) : null;
+  const band: ScoreBand = overall === null ? "insufficient" : bandFor(overall);
+  const headline = overall === null
+    ? `Not enough recent logs to score ${pet.name} yet.`
+    : `Summary of ${loggedSignals} logged systems — unlogged areas are unknown.`;
   return {
     overall,
     band,
     headline,
     generatedAt: ref,
-    systems,
+    systems: systems.map(s => observed.includes(s) ? s : { ...s, hasData: false, band: "insufficient" as const }),
     loggedSignals,
   };
 }
 
 export const SCORE_BAND_LABEL: Record<ScoreBand, string> = {
+  insufficient: "Not enough data",
   great: "Great",
   good: "Good",
   watch: "Watch",

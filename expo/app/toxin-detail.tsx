@@ -1,3 +1,5 @@
+import { useSaveAction } from "@/hooks/useSaveAction";
+import { SaveStatus } from "@/components/SaveStatus";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { Check, ExternalLink, ListPlus, MapPin, ShieldAlert } from "lucide-react-native";
 import React, { useCallback, useMemo, useState } from "react";
@@ -38,6 +40,7 @@ function urgencyForSeverity(sev: ToxinSeverity): "green" | "amber" | "red" {
 }
 
 export default function ToxinDetailScreen() {
+  const { saving, saveError, runSave } = useSaveAction();
   const router = useRouter();
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const { selectedPet, addLog, todayIso } = usePets();
@@ -49,10 +52,10 @@ export default function ToxinDetailScreen() {
     [toxin, selectedPet],
   );
 
-  const onSaveToTimeline = useCallback(() => {
+  const onSaveToTimeline = useCallback(() => runSave(async () => {
     if (!selectedPet) return;
     if (!toxin || !action) return;
-    addLog(selectedPet.id, {
+    await addLog(selectedPet.id, {
       id: `toxin-${Date.now()}`,
       petId: selectedPet.id,
       date: todayIso,
@@ -63,7 +66,7 @@ export default function ToxinDetailScreen() {
       urgency: urgencyForSeverity(action.severity),
     });
     setSaved(true);
-  }, [toxin, action, addLog, selectedPet, todayIso]);
+  }), [runSave, toxin, action, addLog, selectedPet, todayIso]);
 
   if (!selectedPet) return <NoPetSelected />;
 
@@ -160,7 +163,8 @@ export default function ToxinDetailScreen() {
 
         {/* Save concern to the pet's timeline / vet report */}
         <View style={{ marginTop: Space.lg }}>
-          <PrimaryButton
+          <SaveStatus saving={saving} saveError={saveError} />
+        <PrimaryButton
             label={saved ? "Saved to timeline" : "Save concern to timeline"}
             icon={saved ? <Check size={18} color="#fff" /> : <ListPlus size={18} color="#fff" />}
             variant="primary"

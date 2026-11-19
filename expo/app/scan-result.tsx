@@ -1,3 +1,5 @@
+import { useSaveAction } from "@/hooks/useSaveAction";
+import { SaveStatus } from "@/components/SaveStatus";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { AlertTriangle, BookOpen, FileText, Link2, Pencil, Save, Sparkles } from "lucide-react-native";
 import React, { useCallback, useMemo, useState } from "react";
@@ -57,6 +59,7 @@ type AiArea = (typeof AI_AREAS)[number];
 const CONCERN_FOR: Record<string, string> = { poop: "diarrhea", skin: "skin", ear: "ear", eye: "eye" };
 
 export default function ScanResultScreen() {
+  const { saving, saveError, runSave } = useSaveAction();
   const router = useRouter();
   const { type, notes, photo } = useLocalSearchParams<{ type: string; notes: string; photo?: string }>();
   const { selectedPet, addLog, todayIso, mode } = usePets();
@@ -139,15 +142,20 @@ export default function ScanResultScreen() {
     setCorrectOpen(false);
   }, [correctText, mode, type]);
 
-  const saveToTimeline = useCallback(async () => {
+  const saveToTimeline = useCallback(() => runSave(async () => {
     if (!selectedPet) return;
     // Attach the photo: reuse the AI-upload if it happened, else upload now in
     // remote mode; in local mode keep the device URI so the thumbnail still shows.
     let imagePath: string | undefined = uploadedPath ?? undefined;
     if (!imagePath && photo) {
-      imagePath = (mode === "remote" ? await aiService.uploadScanImage(photo) : null) ?? photo;
+      if (mode === "remote") {
+        const path = await aiService.uploadScanImage(photo);
+        if (!path) throw new Error("Photo upload failed");
+        setUploadedPath(path);
+        imagePath = path;
+      } else imagePath = photo;
     }
-    addLog(selectedPet.id, {
+    await addLog(selectedPet.id, {
       imagePath,
       id: `scan-${Date.now()}`,
       petId: selectedPet.id,
@@ -163,14 +171,10 @@ export default function ScanResultScreen() {
       value: undefined,
       urgency: mockScan ? result.urgency : aiBanner ? "red" : undefined,
     });
-    // Persist the full scan record (best-effort; ignored in local mode).
-    if (mode === "remote") {
-      scanService
-        .createScan(selectedPet.id, { scanType: type ?? "poop", result, notes: notes || undefined })
-        .catch((e) => console.warn("[petwell] scan save failed:", e));
-    }
+    // The confirmed timeline entry is the saved observation. Do not write the
+    // preview's illustrative scores into a real user's scan records.
     router.replace("/(tabs)/timeline");
-  }, [addLog, selectedPet, todayIso, result, mode, type, notes, router, mockScan, aiObs, aiBanner, uploadedPath, photo]);
+  }), [runSave, addLog, selectedPet, todayIso, result, mode, router, mockScan, aiObs, aiBanner, uploadedPath, photo]);
 
   if (!selectedPet) return <NoPetSelected />;
 
@@ -398,6 +402,7 @@ export default function ScanResultScreen() {
 
       {/* Actions */}
       <View style={styles.actions}>
+        <SaveStatus saving={saving} saveError={saveError} />
         <PrimaryButton
           label="Save to timeline"
           icon={<Save size={18} color="#fff" />}

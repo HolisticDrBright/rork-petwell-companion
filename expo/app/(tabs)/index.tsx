@@ -185,7 +185,7 @@ export default function TodayScreen() {
   );
 
   if (!selectedPet) return <NoPetSelected />;
-  const healthScore = computeHealthScore(selectedPet, timeline, trends);
+  const healthScore = computeHealthScore(selectedPet, timeline, trends, todayIso);
 
   return (
     <View style={styles.container}>

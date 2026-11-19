@@ -1,3 +1,5 @@
+import { useSaveAction } from "@/hooks/useSaveAction";
+import { SaveStatus } from "@/components/SaveStatus";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import {
@@ -65,6 +67,7 @@ function nowLabel(): string {
 }
 
 export default function LogScreen() {
+  const { saving, saveError, runSave } = useSaveAction();
   const router = useRouter();
   const { type } = useLocalSearchParams<{ type: string }>();
   const { selectedPet, addLog, todayIso } = usePets();
@@ -200,14 +203,14 @@ export default function LogScreen() {
     symptom,
   ]);
 
-  const save = useCallback(() => {
+  const save = useCallback(() => runSave(async () => {
     if (!valid || !selectedPet) return;
     const entry = buildEntry();
     if (!entry) return;
-    if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    addLog(selectedPet.id, entry);
+    await addLog(selectedPet.id, entry);
+    if (Platform.OS !== "web") void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     router.replace("/(tabs)/timeline");
-  }, [valid, addLog, selectedPet, buildEntry, router]);
+  }), [runSave, valid, addLog, selectedPet, buildEntry, router]);
 
   if (!selectedPet) return <NoPetSelected />;
 
@@ -386,7 +389,8 @@ export default function LogScreen() {
         style={[styles.input, styles.multiline]}
       />
 
-      <PrimaryButton
+      <SaveStatus saving={saving} saveError={saveError} />
+        <PrimaryButton
         testID="log-save"
         label="Save to timeline"
         icon={<Check size={18} color="#fff" />}

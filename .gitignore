@@ -2,6 +2,7 @@ node_modules
 .env
 .expo
 .rork
+supabase/.temp/
 
 # vision golden set: local photos + dated reports stay out of git
 expo/data/vision-golden-set/photos/

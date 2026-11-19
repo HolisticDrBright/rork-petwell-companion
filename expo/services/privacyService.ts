@@ -57,7 +57,8 @@ export const privacyService = {
     };
     if (!uid) return out;
     for (const table of OWNED_TABLES) {
-      const { data } = await supabase.from(table).select("*");
+      const { data, error } = await supabase.from(table).select("*");
+      if (error) throw error;
       out[table] = data ?? [];
     }
     return out;
@@ -67,58 +68,30 @@ export const privacyService = {
   async deleteScanImages(): Promise<number> {
     const uid = getUserId();
     if (!uid) return 0;
-    const { data: scans } = await supabase.from("scan_records").select("id").eq("owner_id", uid);
+    const { data: scans, error: scanError } = await supabase.from("scan_records").select("id").eq("owner_id", uid);
+    if (scanError) throw scanError;
     const scanIds = (scans ?? []).map((s) => s.id);
     if (scanIds.length === 0) return 0;
-    const { data: imgs } = await supabase.from("scan_images").select("id, storage_path").in("scan_id", scanIds);
+    const { data: imgs, error: imageError } = await supabase.from("scan_images").select("id, storage_path").in("scan_id", scanIds);
+    if (imageError) throw imageError;
     const rows = imgs ?? [];
     const paths = rows.map((i) => i.storage_path).filter(Boolean) as string[];
-    if (paths.length) await supabase.storage.from("scan-images").remove(paths);
-    if (rows.length) await supabase.from("scan_images").delete().in("id", rows.map((i) => i.id));
+    if (paths.length) {
+      const { error } = await supabase.storage.from("scan-images").remove(paths);
+      if (error) throw error;
+    }
+    if (rows.length) {
+      const { error } = await supabase.from("scan_images").delete().in("id", rows.map((i) => i.id));
+      if (error) throw error;
+    }
     return paths.length;
   },
 
-  /**
-   * Delete the user's pet + activity data and their profile row, then sign out.
-   * Pet-scoped rows cascade from pet_profiles; owner-scoped rows cascade from
-   * profiles. (The auth user record itself is removed server-side on request.)
-   */
+  /** The authenticated server function removes files and the actual auth user. */
   async deleteAccountData(): Promise<void> {
-    const uid = getUserId();
-    if (!uid) return;
-
-    // Remove the user's storage objects FIRST — they aren't covered by row
-    // cascades, so deleting rows first would orphan the files. Best-effort.
-    try {
-      const { data: scans } = await supabase.from("scan_records").select("id").eq("owner_id", uid);
-      const scanIds = (scans ?? []).map((s) => s.id);
-      if (scanIds.length) {
-        const { data: imgs } = await supabase.from("scan_images").select("storage_path").in("scan_id", scanIds);
-        const paths = (imgs ?? []).map((i) => i.storage_path).filter(Boolean) as string[];
-        if (paths.length) await supabase.storage.from("scan-images").remove(paths);
-      }
-      const { data: docs } = await supabase.from("document_uploads").select("storage_path").eq("owner_id", uid);
-      const docPaths = (docs ?? []).map((d) => d.storage_path).filter(Boolean) as string[];
-      if (docPaths.length) await supabase.storage.from("documents").remove(docPaths);
-    } catch (e) {
-      console.warn("[petwell] storage cleanup during account delete skipped:", e);
-    }
-
-    await supabase.from("pet_profiles").delete().eq("owner_id", uid);
-    await supabase.from("vet_reports").delete().eq("owner_id", uid);
-    await supabase.from("food_scans").delete().eq("owner_id", uid);
-
-    // Integrative / longevity rows (owner-scoped). system_scores cascades from
-    // health_scores and program_logs cascades from progress_programs.
-    await supabase.from("protocol_recommendations").delete().eq("owner_id", uid);
-    await supabase.from("health_scores").delete().eq("owner_id", uid);
-    await supabase.from("detected_patterns").delete().eq("owner_id", uid);
-    await supabase.from("treat_audits").delete().eq("owner_id", uid);
-    await supabase.from("environment_checklists").delete().eq("owner_id", uid);
-    await supabase.from("progress_programs").delete().eq("owner_id", uid);
-    await supabase.from("product_recommendations").delete().eq("owner_id", uid);
-
-    await supabase.from("profiles").delete().eq("id", uid);
-    await supabase.auth.signOut();
+    if (!getUserId()) throw new Error("Sign in to delete your account.");
+    const { data, error } = await supabase.functions.invoke("delete-account", { body: { confirmation: "DELETE" } });
+    if (error) throw error;
+    if (data?.deleted !== true) throw new Error("The server did not confirm account deletion. Please retry.");
   },
 };

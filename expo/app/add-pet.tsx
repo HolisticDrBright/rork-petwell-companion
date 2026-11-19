@@ -57,6 +57,7 @@ export default function AddPetScreen() {
   const [conditions, setConditions] = useState<string>("");
   const [photo, setPhoto] = useState<string>("");
   const [touched, setTouched] = useState<boolean>(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState<boolean>(false);
   const [breedFit, setBreedFit] = useState<BreedFitRow | null>(null);
 
@@ -93,6 +94,8 @@ export default function AddPetScreen() {
     setTouched(true);
     if (!canSave) return;
     setSaving(true);
+    setSaveError(null);
+    try {
     await addPet({
       name: name.trim(),
       species,
@@ -105,7 +108,10 @@ export default function AddPetScreen() {
         .map((c) => c.trim())
         .filter(Boolean),
     });
-    router.back();
+    router.replace("/");
+    } catch {
+      setSaveError("Couldn’t save your pet. Your details are still here — please try again.");
+    } finally { setSaving(false); }
   }, [canSave, addPet, name, species, breed, age, weight, photo, conditions, router]);
 
   return (
@@ -201,6 +207,7 @@ export default function AddPetScreen() {
         style={[styles.input, styles.multiline]}
       />
 
+      {saveError ? <Text accessibilityRole="alert" style={styles.errorText}>{saveError}</Text> : null}
       <PrimaryButton
         testID="add-pet-save"
         label={saving ? "Saving…" : "Save pet"}

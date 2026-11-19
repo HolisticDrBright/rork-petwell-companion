@@ -9,7 +9,7 @@
     "start-web-dev": "DEBUG=expo* expo start --web",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
-    "test": "bun tests/safety.test.ts && bun tests/data.test.ts && bun tests/toxins.test.ts && bun tests/ai.test.ts && bun tests/dataMode.test.ts && bun tests/petEmptyState.test.ts && bun tests/symptomKb.test.ts && bun tests/insights.test.ts && bun tests/sharedCare.test.ts && bun tests/products.test.ts",
+    "test": "bun tests/safety.test.ts && bun tests/data.test.ts && bun tests/toxins.test.ts && bun tests/ai.test.ts && bun tests/dataMode.test.ts && bun tests/petEmptyState.test.ts && bun tests/symptomKb.test.ts && bun tests/insights.test.ts && bun tests/sharedCare.test.ts && bun tests/products.test.ts && bun tests/blockers.test.ts && bun ../supabase/tests/delete-account.test.ts && bun tests/authAndSaves.test.ts",
     "test:safety": "bun tests/safety.test.ts",
     "test:data": "bun tests/data.test.ts",
     "test:toxins": "bun tests/toxins.test.ts",
@@ -27,13 +27,14 @@
     "export:legal": "bun scripts/export-legal-pages.ts",
     "review:export-toxins": "bun scripts/export-toxin-review.ts --csv",
     "review:export-kb": "bun scripts/export-symptom-kb-review.ts",
-    "e2e:build": "EXPO_PUBLIC_APP_ENV=development npx expo export --platform web --output-dir dist-web",
+    "e2e:build": "EXPO_PUBLIC_APP_ENV=development EXPO_PUBLIC_USE_API=false npx expo export --clear --platform web --output-dir dist-web",
     "e2e": "bun run e2e:build && playwright test",
     "e2e:run": "playwright test",
     "screenshots": "node scripts/store-screenshots.mjs",
     "review:apply-toxins": "bun scripts/apply-toxin-review.ts",
     "review:apply-kb": "bun scripts/apply-symptom-kb-review.ts",
-    "test:products": "bun tests/products.test.ts"
+    "test:products": "bun tests/products.test.ts",
+    "e2e:build:production": "EXPO_PUBLIC_APP_ENV=production EXPO_PUBLIC_SUPABASE_URL=https://petwell-test.supabase.co EXPO_PUBLIC_SUPABASE_ANON_KEY=test-publishable-key npx expo export --clear --platform web --output-dir dist-production"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",

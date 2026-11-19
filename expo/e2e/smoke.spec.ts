@@ -68,7 +68,7 @@ test.describe("core journey", () => {
     await page.getByTestId("add-pet-save").click();
 
     // The new pet becomes the selected one, so its name shows in the switcher.
-    await expect(page.getByTestId("pet-switcher")).toContainText("Scout", { timeout: 20_000 });
+    await expect(page.getByTestId("pet-switcher").filter({ visible: true }).first()).toContainText("Scout", { timeout: 20_000 });
 
     // ── 4. Log a symptom; it lands on the timeline ───────────────────────────
     await page.goto("/log");

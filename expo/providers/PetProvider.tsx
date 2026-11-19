@@ -1,7 +1,8 @@
 import createContextHook from "@nkzw/create-context-hook";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Alert } from "react-native";
 
 import {
   CARE_ITEMS,
@@ -18,15 +19,18 @@ import {
   getAuthInfo,
   getUserId,
   initBackend,
+  subscribeBackend,
   signInWithEmail,
   signOutToAnonymous,
   signUpWithEmail,
   type AuthResult,
 } from "@/lib/backend";
+import { config } from "@/lib/config";
+import { trendsFromLogs } from "@/lib/health/trends";
 import { shouldShowDemoData } from "@/lib/dataMode";
 import { resolveSelectedPet } from "@/lib/pets/select";
 import { clampAge, clampWeight } from "@/lib/petValidation";
-import { supabase } from "@/lib/supabase";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import {
   petsService,
   remindersService,
@@ -58,17 +62,6 @@ const DEFAULT_STATE: PersistedState = {
 };
 
 const EMPTY_INSIGHTS: { type: "pattern" | "progress" | "attention"; title: string; body: string }[] = [];
-
-function defaultTrends(weightLb: number): Record<string, number[]> {
-  const w = weightLb || 10;
-  return {
-    appetite: [7, 7, 7, 7, 7, 7, 7],
-    stool: [6, 6, 6, 6, 6, 6, 6],
-    itching: [1, 1, 1, 1, 1, 1, 1],
-    activity: [6, 6, 6, 6, 6, 6, 6],
-    weight: [w, w, w, w, w, w, w],
-  };
-}
 
 export const [PetProvider, usePets] = createContextHook(() => {
   const queryClient = useQueryClient();
@@ -115,10 +108,27 @@ export const [PetProvider, usePets] = createContextHook(() => {
       return res;
     },
   });
-  const remoteMode = backendQuery.data?.mode === "remote";
+  const [authInfo, setAuthInfo] = useState(getAuthInfo);
+  const previousIdentity = useRef(authInfo.userId);
+  useEffect(() => {
+    const sync = () => {
+      const next = getAuthInfo();
+      if (previousIdentity.current !== next.userId) {
+        previousIdentity.current = next.userId;
+        const remoteQueries = { predicate: (q: { queryKey: readonly unknown[] }) => !["petwell-state", "petwell-onboarded", "backend-init"].includes(String(q.queryKey[0])) };
+        void queryClient.cancelQueries(remoteQueries);
+        queryClient.removeQueries(remoteQueries);
+      }
+      setAuthInfo((prev) => prev.userId === next.userId && prev.email === next.email && prev.isAnonymous === next.isAnonymous ? prev : next);
+    };
+    const unsubscribe = subscribeBackend(sync);
+    sync();
+    return unsubscribe;
+  }, [queryClient]);
+  const remoteMode = !!authInfo.userId;
 
   const petsQuery = useQuery({
-    queryKey: ["pets"],
+    queryKey: ["pets", authInfo.userId],
     enabled: remoteMode,
     queryFn: () => petsService.listPets(),
   });
@@ -133,19 +143,20 @@ export const [PetProvider, usePets] = createContextHook(() => {
   const loaded = stateQuery.isSuccess;
   const persisted: PersistedState = local ?? stateQuery.data ?? DEFAULT_STATE;
 
-  // Functional persist: each write computes from the latest committed state, so
-  // two mutations in the same tick can't clobber each other (lost-update race).
-  const persist = useCallback(
-    (updater: (prev: PersistedState) => PersistedState) => {
-      setLocal((prev) => {
-        const base = prev ?? stateQuery.data ?? DEFAULT_STATE;
-        const next = updater(base);
-        AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next)).catch(() => {});
-        return next;
-      });
-    },
-    [stateQuery.data]
-  );
+  // Serialize disk writes and publish only after storage succeeds. A failed
+  // write must never look saved or clobber a later write.
+  const persistedRef = useRef<PersistedState | null>(null);
+  const writeQueue = useRef(Promise.resolve());
+  const persist = useCallback((updater: (prev: PersistedState) => PersistedState): Promise<void> => {
+    const write = writeQueue.current.catch(() => {}).then(async () => {
+      const next = updater(persistedRef.current ?? stateQuery.data ?? DEFAULT_STATE);
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      persistedRef.current = next;
+      setLocal(next);
+    });
+    writeQueue.current = write;
+    return write;
+  }, [stateQuery.data]);
 
   // Remote pets in remote mode; otherwise the local set. Demo pets (PETS) are
   // only included in dev/demo mode — production never shows mock pets, only the
@@ -221,7 +232,7 @@ export const [PetProvider, usePets] = createContextHook(() => {
 
   const selectPet = useCallback(
     (id: string) => {
-      persist((prev) => ({ ...prev, selectedPetId: id }));
+      void persist((prev) => ({ ...prev, selectedPetId: id })).catch(() => Alert.alert("Could not save selection", "Please try again."));
     },
     [persist]
   );
@@ -243,13 +254,13 @@ export const [PetProvider, usePets] = createContextHook(() => {
       }
       const base = CARE_ITEMS[pid] ?? [];
       const initialDone = base.filter((c) => c.done).map((c) => c.id);
-      persist((prev) => {
+      void persist((prev) => {
         const currentList = prev.careDone[pid] ?? initialDone;
         const nextList = currentList.includes(itemId)
           ? currentList.filter((id) => id !== itemId)
           : [...currentList, itemId];
         return { ...prev, careDone: { ...prev.careDone, [pid]: nextList } };
-      });
+      }).catch(() => Alert.alert("Could not save care update", "Please try again."));
     },
     [remoteMode, queryClient, careItems, persist]
   );
@@ -269,49 +280,38 @@ export const [PetProvider, usePets] = createContextHook(() => {
           .finally(() => queryClient.invalidateQueries({ queryKey: ["reminders", keyPid] }));
         return;
       }
-      persist((prev) => ({ ...prev, reminderState: { ...prev.reminderState, [key]: value } }));
+      void persist((prev) => ({ ...prev, reminderState: { ...prev.reminderState, [key]: value } })).catch(() => Alert.alert("Could not save reminder", "Please try again."));
     },
     [remoteMode, queryClient, petId, persist]
   );
 
-  const addLog = useCallback(
-    (pid: string, entry: TimelineEntry) => {
-      if (remoteMode) {
-        queryClient.setQueryData(["timeline", pid], (old: TimelineEntry[] = []) => [entry, ...old]);
-        timelineService
-          .addEvent(pid, {
-            category: entry.category,
-            title: entry.title,
-            detail: entry.detail,
-            value: entry.value,
-            urgency: entry.urgency,
-            date: entry.date,
-            time: entry.time,
-            source: "manual",
-            imagePath: entry.imagePath,
-          })
-          .catch((e) => console.warn("[petwell] log failed:", e))
-          .finally(() => queryClient.invalidateQueries({ queryKey: ["timeline", pid] }));
-        return;
-      }
-      persist((prev) => ({ ...prev, logs: { ...prev.logs, [pid]: [entry, ...(prev.logs[pid] ?? [])] } }));
-    },
-    [remoteMode, queryClient, persist]
-  );
+  const addLog = useCallback(async (pid: string, entry: TimelineEntry, food?: { label: string; productId?: string; foodScanId?: string }): Promise<void> => {
+    if (remoteMode) {
+      const saved = await timelineService.addEvent(pid, {
+        category: entry.category, title: entry.title, detail: entry.detail,
+        value: entry.value, urgency: entry.urgency, date: entry.date,
+        time: entry.time, source: "manual", imagePath: entry.imagePath, food,
+      });
+      queryClient.setQueryData(["timeline", pid], (old: TimelineEntry[] = []) => [saved, ...old.filter(e => e.id !== saved.id)]);
+      void queryClient.invalidateQueries({ queryKey: ["timeline", pid] });
+      return;
+    }
+    if (config.isProduction) throw new Error("Sign in before saving a log. Your entry has not been saved.");
+    await persist(prev => ({ ...prev, logs: { ...prev.logs, [pid]: [entry, ...(prev.logs[pid] ?? [])] } }));
+  }, [remoteMode, queryClient, persist]);
 
   const addPet = useCallback(
     async (input: NewPetInput): Promise<Pet | null> => {
       if (remoteMode) {
-        try {
-          const pet = await petsService.createPet(input);
-          await queryClient.invalidateQueries({ queryKey: ["pets"] });
-          persist((prev) => ({ ...prev, selectedPetId: pet.id }));
-          return pet;
-        } catch (e) {
-          console.warn("[petwell] create pet failed:", e);
-          return null;
-        }
+        const pet = await petsService.createPet(input);
+        queryClient.setQueryData(["pets", getUserId()], (old: Pet[] = []) => [...old.filter(p => p.id !== pet.id), pet]);
+        // Selection is a preference; a failed preference write must not report
+        // the successfully-created cloud pet as a failed save.
+        await persist(prev => ({ ...prev, selectedPetId: pet.id })).catch(() => {});
+        void queryClient.invalidateQueries({ queryKey: ["pets"] });
+        return pet;
       }
+      if (config.isProduction) throw new Error("Sign in before saving a pet. Your details have not been saved.");
       const localPet: Pet = {
         id: `local-${Date.now()}`,
         name: input.name.trim() || "New pet",
@@ -328,7 +328,7 @@ export const [PetProvider, usePets] = createContextHook(() => {
         conditions: input.conditions ?? [],
         allergies: [],
       };
-      persist((prev) => ({
+      await persist((prev) => ({
         ...prev,
         extraPets: [...prev.extraPets, localPet],
         selectedPetId: localPet.id,
@@ -353,60 +353,25 @@ export const [PetProvider, usePets] = createContextHook(() => {
     }
   }, [remoteMode, queryClient]);
 
-  // ── Auth (email + password) ──
-  const [authInfo, setAuthInfo] = useState<{ email: string | null; isAnonymous: boolean }>({
-    email: null,
-    isAnonymous: true,
-  });
-
-  useEffect(() => {
-    const a = getAuthInfo();
-    setAuthInfo({ email: a.email, isAnonymous: a.isAnonymous });
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
-      const u = session?.user;
-      const email = u?.email ?? null;
-      const isAnonymous = u?.is_anonymous ?? !u?.email;
-      // Keep the same object reference when nothing changed (e.g. hourly token
-      // refresh) so consumers don't re-render needlessly.
-      setAuthInfo((prev) => (prev.email === email && prev.isAnonymous === isAnonymous ? prev : { email, isAnonymous }));
-    });
-    return () => sub.subscription.unsubscribe();
-  }, [backendQuery.data?.mode]);
-
-  /** Best-effort: upload locally-created pets to the account on first auth. */
-  const migrateLocalPets = useCallback(async () => {
-    if (!remoteMode) return;
-    const base = local ?? stateQuery.data ?? DEFAULT_STATE;
-    if (base.extraPets.length === 0) return;
-    for (const p of base.extraPets) {
-      try {
-        await petsService.createPet({
-          name: p.name,
-          species: p.species,
-          breed: p.breed,
-          ageYears: p.ageYears,
-          weightLb: p.weightLb,
-          photo: p.photo || undefined,
-          conditions: p.conditions,
-        });
-      } catch (e) {
-        console.warn("[petwell] pet migration skipped:", e);
-      }
-    }
-    persist((prev) => ({ ...prev, extraPets: [] }));
-    await queryClient.invalidateQueries({ queryKey: ["pets"] });
-  }, [remoteMode, local, stateQuery.data, persist, queryClient]);
-
+  // Keep legacy device-only data intact. Automatic best-effort migration
+  // used to delete the local originals even when an upload failed.
   const refreshAfterAuth = useCallback(async () => {
-    const a = getAuthInfo();
-    setAuthInfo({ email: a.email, isAnonymous: a.isAnonymous });
-    await migrateLocalPets();
-    await queryClient.invalidateQueries();
-  }, [migrateLocalPets, queryClient]);
+    setAuthInfo(getAuthInfo());
+    await queryClient.invalidateQueries({ queryKey: ["pets"] });
+  }, [queryClient]);
+
+  const clearDeviceData = useCallback(async () => {
+    await writeQueue.current.catch(() => {});
+    const keys = (await AsyncStorage.getAllKeys()).filter(key => key.startsWith("petwell."));
+    await AsyncStorage.multiRemove(keys);
+    persistedRef.current = DEFAULT_STATE;
+    setLocal(DEFAULT_STATE);
+    queryClient.clear();
+  }, [queryClient]);
 
   const signUp = useCallback(
-    async (email: string, password: string): Promise<AuthResult> => {
-      const res = await signUpWithEmail(email, password);
+    async (email: string, password: string, emailRedirectTo?: string): Promise<AuthResult> => {
+      const res = await signUpWithEmail(email, password, emailRedirectTo);
       if (res.ok) await refreshAfterAuth();
       return res;
     },
@@ -425,13 +390,13 @@ export const [PetProvider, usePets] = createContextHook(() => {
   const signOut = useCallback(async () => {
     await signOutToAnonymous();
     const a = getAuthInfo();
-    setAuthInfo({ email: a.email, isAnonymous: a.isAnonymous });
+    setAuthInfo(a);
     await queryClient.invalidateQueries();
   }, [queryClient]);
 
   const setPremium = useCallback(
     (value: boolean) => {
-      persist((prev) => ({ ...prev, premium: value }));
+      void persist((prev) => ({ ...prev, premium: value })).catch(() => console.warn("[petwell] Could not cache subscription status"));
       const uid = getUserId();
       if (remoteMode && uid) {
         supabase
@@ -463,19 +428,19 @@ export const [PetProvider, usePets] = createContextHook(() => {
 
   const derived = useMemo(
     () => ({
-      trends: (trendKey ? TRENDS[trendKey] : undefined) ?? defaultTrends(selectedPet?.weightLb ?? 0),
+      trends: (trendKey ? TRENDS[trendKey] : undefined) ?? trendsFromLogs(timeline),
       smartInsight:
         (trendKey ? SMART_INSIGHT[trendKey] : undefined) ??
         "Keep logging meals, symptoms, and activity — Petwell will surface patterns here as data builds.",
       insightCards: (trendKey ? INSIGHT_CARDS[trendKey] : undefined) ?? EMPTY_INSIGHTS,
       upcoming: (trendKey ? UPCOMING[trendKey] : undefined) ?? [],
     }),
-    [trendKey, selectedPet?.weightLb]
+    [trendKey, timeline]
   );
 
   return useMemo(
     () => ({
-      isLoading: !loaded || onboardQuery.isLoading,
+      isLoading: !loaded || onboardQuery.isLoading || backendQuery.isPending,
       // `backendReady` = the pet source has settled (remote list loaded / local
       // state loaded). Distinct from `hasPets` so the first-pet gate can tell
       // "still loading" apart from "genuinely no pets".
@@ -508,7 +473,7 @@ export const [PetProvider, usePets] = createContextHook(() => {
       addLog,
       // Real "today" in production; the fixed demo date only in dev/demo mode so
       // sample data lines up. Never ship 2026-06-25 as "today" to real users.
-      todayIso: shouldShowDemoData ? TODAY_ISO : new Date().toISOString().slice(0, 10),
+      todayIso: shouldShowDemoData && selectedPet && (selectedPet.demoKey || PETS.some(p => p.id === selectedPet.id)) ? TODAY_ISO : new Date().toISOString().slice(0, 10),
       premium: persisted.premium,
       setPremium,
       completeOnboarding,
@@ -520,13 +485,20 @@ export const [PetProvider, usePets] = createContextHook(() => {
       // Auth
       authEmail: authInfo.email,
       isAuthenticated: remoteMode && !authInfo.isAnonymous && !!authInfo.email,
-      canUseAuth: remoteMode,
+      canUseAuth: isSupabaseConfigured && config.useApi,
+      requiresSignIn: config.isProduction && !remoteMode,
+      clearDeviceData,
+      hasDeviceData: persisted.extraPets.length > 0,
+      deviceData: persisted,
       signUp,
       signIn,
       signOut,
     }),
     [
       loaded,
+      backendQuery.isPending,
+      clearDeviceData,
+      persisted,
       backendReady,
       hasPets,
       petsQuery,
@@ -544,7 +516,6 @@ export const [PetProvider, usePets] = createContextHook(() => {
       reminders,
       toggleReminder,
       addLog,
-      persisted.premium,
       setPremium,
       completeOnboarding,
       derived,

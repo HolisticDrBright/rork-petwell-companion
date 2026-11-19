@@ -1,7 +1,7 @@
 import Purchases, { LOG_LEVEL } from "react-native-purchases";
 import RevenueCatUI, { PAYWALL_RESULT } from "react-native-purchases-ui";
 
-import { ENTITLEMENT_ID, REVENUECAT_API_KEY, isPurchasesConfigured } from "@/lib/purchases/config";
+import { ENTITLEMENT_ID, PRO_SALES_ENABLED, REVENUECAT_API_KEY, isPurchasesConfigured } from "@/lib/purchases/config";
 import type {
   CustomerInfo,
   PaywallOutcome,
@@ -125,6 +125,7 @@ export const subscriptionService: SubscriptionService = {
   },
 
   async purchasePackage(pkg): Promise<PurchaseOutcome> {
+    if (!PRO_SALES_ENABLED) return { ok: false, isPro: false, error: "New Pro purchases are paused." };
     if (!configured) return { ok: false, isPro: false, error: UNAVAILABLE };
     try {
       const { customerInfo } = await Purchases.purchasePackage(pkg);
@@ -149,6 +150,7 @@ export const subscriptionService: SubscriptionService = {
   },
 
   async presentPaywall(offering?: PurchasesOffering | null): Promise<PaywallOutcome> {
+    if (!PRO_SALES_ENABLED) return "not_presented";
     if (!configured) return "not_presented";
     try {
       const result = await RevenueCatUI.presentPaywall(
@@ -164,6 +166,7 @@ export const subscriptionService: SubscriptionService = {
   },
 
   async presentPaywallIfNeeded(): Promise<PaywallOutcome> {
+    if (!PRO_SALES_ENABLED) return "not_presented";
     if (!configured) return "not_presented";
     try {
       const result = await RevenueCatUI.presentPaywallIfNeeded({
