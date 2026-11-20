@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { URL } from "node:url";
 import { runInNewContext } from "node:vm";
 import { computeHealthScore } from "../lib/health/score";
 import { trendsFromLogs } from "../lib/health/trends";
