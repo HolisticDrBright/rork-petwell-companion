@@ -1,6 +1,6 @@
 import { getUserId } from "@/lib/backend";
 import { supabase } from "@/lib/supabase";
-import type { PetHealthScore } from "@/lib/health/score";
+import { HEALTH_SCORE_MODEL, type PetHealthScore } from "@/lib/health/score";
 import type { DetectedPattern } from "@/lib/integrative/patterns";
 import type { TreatAuditResult } from "@/lib/integrative/treats";
 import type { IntegrativePlan } from "@/lib/integrative/types";
@@ -30,14 +30,14 @@ export const integrativeService = {
     if (error) throw error;
   },
 
-  /** Persist a Petwell Health Score snapshot + its sub-scores (best-effort). */
+  /** Store one complete, versioned snapshot per pet and date. */
   async saveHealthScore(petId: string, score: PetHealthScore): Promise<void> {
     if (score.overall === null) return;
     const owner_id = getUserId();
     if (!owner_id) return;
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from("health_scores")
-      .insert({
+      .upsert({
         pet_id: petId,
         owner_id,
         overall: score.overall,
@@ -45,23 +45,19 @@ export const integrativeService = {
         headline: score.headline,
         generated_at: score.generatedAt,
         systems: asJson(score.systems),
-      })
-      .select("id")
-      .single();
+        score_model: HEALTH_SCORE_MODEL,
+        inputs: asJson(score.inputs),
+        data_coverage: asJson(score.coverage),
+        confidence: score.confidence,
+      }, { onConflict: "pet_id,generated_at,score_model" });
     if (error) throw error;
-    const hsId = data?.id;
-    if (hsId) {
-      const rows = score.systems.filter(s => s.hasData).map((s) => ({
-        health_score_id: hsId,
-        owner_id,
-        key: s.key,
-        label: s.label,
-        score: s.score,
-        band: s.band,
-        status: s.status,
-      }));
-      await supabase.from("system_scores").insert(rows);
-    }
+  },
+
+  async healthScoreHistory(petId: string) {
+    const { data, error } = await supabase.from("health_scores").select("generated_at,overall")
+      .eq("pet_id", petId).eq("score_model", HEALTH_SCORE_MODEL).order("generated_at", { ascending: false }).limit(30);
+    if (error) throw error;
+    return data.reverse();
   },
 
   /** Persist detected patterns for a pet (best-effort). */

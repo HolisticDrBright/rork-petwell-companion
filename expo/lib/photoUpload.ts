@@ -3,10 +3,9 @@ import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 import { Platform } from "react-native";
 
 /** Re-encode locally to remove photo metadata and handle formats such as HEIC. */
-export async function photoJpeg(uri: string): Promise<ArrayBuffer> {
+export async function photoJpeg(uri: string, maxEdge = 1600): Promise<ArrayBuffer> {
   const context = ImageManipulator.manipulate(uri);
   const original = await context.renderAsync();
-  const maxEdge = 1600;
   const needsResize = Math.max(original.width, original.height) > maxEdge;
   if (needsResize) {
     context.resize(original.width >= original.height ? { width: maxEdge } : { height: maxEdge });

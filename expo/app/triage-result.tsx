@@ -20,7 +20,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { EmergencyContacts } from "@/components/EmergencyContacts";
-import { AiExplainCard } from "@/components/ai/AiExplainCard";
+import { VetSources } from "@/components/VetSources";
 import { IntegrativePlanView } from "@/components/IntegrativePlan";
 import { NoPetSelected } from "@/components/NoPetSelected";
 import { Card, Disclaimer, PrimaryButton } from "@/components/ui";
@@ -28,6 +28,7 @@ import Colors, { Fonts, Radius, Space, Urgency, softShadow } from "@/constants/c
 import { TRIAGE_TO_SYSTEM } from "@/lib/integrative/catalog";
 import { buildPlan } from "@/lib/integrative/engine";
 import { useTriage } from "@/lib/triage/store";
+import { triageReferences } from "@/lib/triage/sources";
 import { usePets } from "@/providers/PetProvider";
 import { integrativeService } from "@/services";
 
@@ -280,10 +281,10 @@ export default function TriageResultScreen() {
             style={{ flex: 1 }}
           />
           <PrimaryButton
-            label="Vet report"
+            label="Prepare for vet visit"
             icon={<FileText size={18} color={Colors.teal800} />}
             variant="outline"
-            onPress={() => router.push("/vet-report")}
+            onPress={() => router.push({ pathname: "/vet-report", params: { prepare: "1" } })}
             style={{ flex: 1 }}
           />
         </View>
@@ -336,7 +337,7 @@ export default function TriageResultScreen() {
         </View>
 
         <View style={{ marginTop: Space.lg }}>
-          <AiExplainCard feature="triage_result" result={{ concernLabel, ...outcome }} label="Explain this result with AI" />
+          <VetSources citations={triageReferences(outcome.urgency, concernLabel, selectedPet.species)} />
         </View>
 
         <View style={{ marginTop: Space.lg }}>

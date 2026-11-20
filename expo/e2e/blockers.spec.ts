@@ -23,7 +23,7 @@ test("failed device saves retain inputs and allow retry; a fresh pet has no inve
   await expect(page.getByTestId("pet-switcher")).toContainText("Evidence Test");
   await page.goto("/health-score");
   await expect(page.getByText("Not enough data", { exact: true }).first()).toBeVisible();
-  await expect(page.getByText("0 of 8 systems have recent log data.")).toBeVisible();
+  await expect(page.getByText("0 of 7 trackable systems contributed.")).toBeVisible();
   await page.goto("/log");
   await page.getByTestId("log-kind-symptom").click();
   await page.getByTestId("log-symptom-input").fill("Retry this symptom");

@@ -6,6 +6,30 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
+type CareScheduleRow = {
+  id: string;
+  series_id: string;
+  pet_id: string;
+  created_by: string;
+  kind: string;
+  title: string;
+  instructions: string | null;
+  dose_portion: Json | null;
+  rrule: string;
+  start_local: string;
+  timezone: string;
+  active: boolean;
+  effective_from: string;
+  effective_until: string | null;
+};
+
+type ReleaseTable<T extends Record<string, unknown>> = {
+  Row: T;
+  Insert: Partial<T>;
+  Update: Partial<T>;
+  Relationships: [];
+};
+
 export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
@@ -14,6 +38,22 @@ export type Database = {
   }
   public: {
     Tables: {
+      capability_disclosures: ReleaseTable<{ feature: string; available: string; limits: string; last_reviewed: string; version: number }>;
+      vet_visit_packages: ReleaseTable<{
+        id: string; pet_id: string; owner_id: string; token_hash: string; summary: Json;
+        created_at: string; expires_at: string; revoked_at: string | null;
+      }>;
+      vet_sources: ReleaseTable<{
+        id: string; title: string; publisher: string; url: string; species: string; topics: string[]; section: string;
+        passage: string; last_reviewed_at: string; status: string;
+      }>;
+      record_ingestions: ReleaseTable<{
+        id: string; pet_id: string; uploaded_by: string; image_path: string; ocr_text: string; extraction: Json;
+        status: string; confirmed_fields: Json | null; record_id: string | null; created_at: string; reviewed_at: string | null;
+      }>;
+      care_schedules: ReleaseTable<CareScheduleRow>;
+      care_schedule_occurrences: ReleaseTable<{ id: string; schedule_id: string; scheduled_at: string }>;
+      care_schedule_completions: ReleaseTable<{ id: string; occurrence_id: string; completed_by: string | null; completed_at: string }>;
       admin_review_actions: {
         Row: {
           action: string
@@ -1387,6 +1427,10 @@ export type Database = {
       health_scores: {
         Row: {
           band: string
+          confidence: string | null
+          data_coverage: Json | null
+          inputs: Json | null
+          score_model: string | null
           created_at: string
           generated_at: string
           headline: string | null
@@ -1398,6 +1442,10 @@ export type Database = {
         }
         Insert: {
           band: string
+          confidence?: string | null
+          data_coverage?: Json | null
+          inputs?: Json | null
+          score_model?: string | null
           created_at?: string
           generated_at?: string
           headline?: string | null
@@ -1409,6 +1457,10 @@ export type Database = {
         }
         Update: {
           band?: string
+          confidence?: string | null
+          data_coverage?: Json | null
+          inputs?: Json | null
+          score_model?: string | null
           created_at?: string
           generated_at?: string
           headline?: string | null
@@ -3729,6 +3781,21 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      attach_vet_document: {
+        Args: { p_pet_id: string; p_path: string; p_title: string; p_size: number };
+        Returns: string;
+      };
+      export_pet_data: { Args: { p_pet_id: string }; Returns: Json };
+      create_vet_visit_package: { Args: { p_pet_id: string; p_summary: Json; p_days?: number }; Returns: Json };
+      get_vet_visit_package: { Args: { p_token: string }; Returns: Json };
+      revoke_vet_visit_package: { Args: { p_id: string }; Returns: undefined };
+      review_record_ingestion: { Args: { p_id: string; p_fields: Json; p_accept: boolean }; Returns: string | null };
+      save_care_schedule: { Args: { p_pet_id: string; p_fields: Json; p_previous?: string }; Returns: string };
+      list_care_schedule_occurrences: {
+        Args: { p_pet_id: string; p_after: string; p_before: string };
+        Returns: { schedule_id: string; kind: string; title: string; instructions: string | null; amount: string | null; scheduled_at: string; completed_at: string | null }[];
+      };
+      complete_care_schedule: { Args: { p_schedule_id: string; p_scheduled_at: string }; Returns: string };
       create_pet_with_conditions: { Args: { input: Json }; Returns: Json }
       add_timeline_event: { Args: { pet_id: string; entry: Json }; Returns: Database["public"]["Tables"]["timeline_events"]["Row"] }
 

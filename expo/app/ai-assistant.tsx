@@ -15,6 +15,8 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AiDisclaimer } from "@/components/ai/AiBits";
+import { VetSources, type VetCitation } from "@/components/VetSources";
+import { CapabilityDisclosure } from "@/components/CapabilityDisclosure";
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
 import { aiService } from "@/services/aiService";
 import { usePets } from "@/providers/PetProvider";
@@ -25,6 +27,7 @@ interface ChatMsg {
   banner?: string | null;
   contextUsed?: string[];
   suggestedVetReport?: boolean;
+  citations?: VetCitation[];
 }
 
 const GREETING =
@@ -33,7 +36,7 @@ const GREETING =
 export default function AiAssistantScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { selectedPet } = usePets();
+  const { selectedPet, mode } = usePets();
   const [messages, setMessages] = useState<ChatMsg[]>([{ role: "assistant", text: GREETING }]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -75,6 +78,7 @@ export default function AiAssistantScreen() {
         banner: res.safety?.banner ?? pre.banner,
         contextUsed: res.data!.contextUsed,
         suggestedVetReport: res.data!.suggestedVetReport,
+        citations: res.data!.citations,
       },
     ]);
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 50);
@@ -89,6 +93,7 @@ export default function AiAssistantScreen() {
         keyboardVerticalOffset={90}
       >
         <ScrollView ref={scrollRef} contentContainerStyle={{ padding: Space.md, paddingBottom: 16 }}>
+          <CapabilityDisclosure feature="chat" remote={mode === "remote"} />
           <View style={styles.intro}>
             <Sparkles size={16} color={Colors.teal700} />
             <Text style={styles.introText}>
@@ -122,6 +127,7 @@ export default function AiAssistantScreen() {
                   <Text style={styles.reportChipText}>Create a vet report</Text>
                 </Pressable>
               ) : null}
+              {m.citations ? <VetSources citations={m.citations} /> : null}
             </View>
           ))}
 

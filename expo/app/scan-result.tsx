@@ -423,10 +423,10 @@ export default function ScanResultScreen() {
           style={{ flex: 1 }}
         />
         <PrimaryButton
-          label="Add to report"
+          label="Prepare for vet visit"
           icon={<FileText size={18} color={Colors.teal800} />}
           variant="outline"
-          onPress={() => router.replace("/vet-report")}
+          onPress={() => router.replace({ pathname: "/vet-report", params: { prepare: "1" } })}
           style={{ flex: 1 }}
         />
       </View>

@@ -1,4 +1,4 @@
-import { Stack } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import { Bell, Clock, Plus, Repeat } from "lucide-react-native";
 import React, { useCallback, useState } from "react";
 import { Alert, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
@@ -7,6 +7,7 @@ import { useQueryClient } from "@tanstack/react-query";
 
 import { NoPetSelected } from "@/components/NoPetSelected";
 import { PetSwitcher } from "@/components/PetSwitcher";
+import { CareScheduleChecklist } from "@/components/CareScheduleChecklist";
 import { SaveStatus } from "@/components/SaveStatus";
 import { Card, PrimaryButton } from "@/components/ui";
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
@@ -16,6 +17,7 @@ import { remindersService, syncReminder } from "@/services";
 import type { Reminder } from "@/types/pet";
 
 export default function RemindersScreen() {
+  const router = useRouter();
   const { selectedPet, reminders, toggleReminder, mode } = usePets();
   const queryClient = useQueryClient();
 
@@ -86,6 +88,10 @@ export default function RemindersScreen() {
 
       <Text style={styles.title}>Reminders</Text>
       <Text style={styles.subtitle}>Care, medication, and follow-up nudges for {selectedPet.name}.</Text>
+
+      {mode === "remote" ? <View style={{ marginTop: Space.md }}>
+        <CareScheduleChecklist key={selectedPet.id} petId={selectedPet.id} canComplete days={14} reminders onManage={() => router.push("/care-schedules")} />
+      </View> : null}
 
       <View style={{ gap: Space.sm, marginTop: Space.md }}>
         {all.map(({ reminder: r, local }) => (

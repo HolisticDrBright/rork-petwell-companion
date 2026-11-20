@@ -1,3 +1,4 @@
+import { photoJpeg } from "@/lib/photoUpload";
 import { requireUserId } from "@/lib/backend";
 import { supabase } from "@/lib/supabase";
 import type { RecordItem } from "@/types/pet";
@@ -82,40 +83,22 @@ export const recordsService = {
     return mapRecord(data as RecordRow);
   },
 
-  /**
-   * Upload a document/photo to the private "documents" bucket under the user's
-   * folder and link it in document_uploads. Returns the storage path or null.
-   */
-  async uploadDocument(
-    petId: string,
-    localUri: string,
-    title: string,
-    recordId?: string
-  ): Promise<string | null> {
-    try {
-      const owner_id = requireUserId();
-      const res = await fetch(localUri);
-      const bytes = await res.arrayBuffer();
-      const ext = (localUri.split(".").pop()?.split("?")[0] || "jpg").toLowerCase();
-      const mime = ext === "pdf" ? "application/pdf" : ext === "png" ? "image/png" : "image/jpeg";
-      const path = `${owner_id}/${petId}-${Date.now()}.${ext}`;
-      const { error } = await supabase.storage
-        .from("documents")
-        .upload(path, bytes, { contentType: mime, upsert: true });
-      if (error) throw error;
-      await supabase.from("document_uploads").insert({
-        pet_id: petId,
-        owner_id,
-        title,
-        storage_path: path,
-        mime_type: mime,
-        size_bytes: bytes.byteLength,
-        record_id: recordId ?? null,
-      });
-      return path;
-    } catch (e) {
-      console.warn("[petwell] document upload skipped:", e);
-      return null;
+  /** Store a private photo and atomically link it to Records. */
+  async uploadDocument(petId: string, localUri: string, title: string): Promise<string> {
+    const userId = requireUserId();
+    const bytes = await photoJpeg(localUri, 2400);
+    const path = `${userId}/${petId}-${Date.now()}.jpg`;
+    const { error: uploadError } = await supabase.storage.from("documents")
+      .upload(path, bytes, { contentType: "image/jpeg" });
+    if (uploadError) throw uploadError;
+    const { error: attachError, status } = await supabase.rpc("attach_vet_document", {
+      p_pet_id: petId, p_path: path, p_title: title.trim().slice(0, 200), p_size: bytes.byteLength,
+    });
+    if (attachError) {
+      // On a lost response the database may already have linked the photo.
+      if (status >= 400 && status < 500) await supabase.storage.from("documents").remove([path]);
+      throw attachError;
     }
+    return path;
   },
 };

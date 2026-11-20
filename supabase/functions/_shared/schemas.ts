@@ -171,10 +171,19 @@ export const chatSchema = {
   schema: {
     type: "object",
     additionalProperties: false,
-    required: ["reply", "suggestedVetReport"],
+    required: ["reply", "suggestedVetReport", "citations"],
     properties: {
       reply: { type: "string" },
       suggestedVetReport: { type: "boolean" },
+      citations: {
+        type: "array",
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: ["source_id", "quote_or_section"],
+          properties: { source_id: { type: "string" }, quote_or_section: { type: "string" } },
+        },
+      },
     },
   },
 };

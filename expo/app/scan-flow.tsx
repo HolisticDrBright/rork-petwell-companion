@@ -1,6 +1,7 @@
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
+import { CapabilityDisclosure } from "@/components/CapabilityDisclosure";
 import { Camera, ImagePlus, Lightbulb, Target, Upload } from "lucide-react-native";
 import React, { useCallback, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
@@ -20,7 +21,7 @@ const GUIDANCE = [
 export default function ScanFlowScreen() {
   const router = useRouter();
   const { type } = useLocalSearchParams<{ type: string }>();
-  const { selectedPet } = usePets();
+  const { selectedPet, mode } = usePets();
   const [photo, setPhoto] = useState<string | null>(null);
   const [notes, setNotes] = useState<string>("");
 
@@ -54,6 +55,7 @@ export default function ScanFlowScreen() {
       showsVerticalScrollIndicator={false}
     >
       <Stack.Screen options={{ title: category?.label ?? "Scan" }} />
+      <CapabilityDisclosure feature="scan" remote={mode === "remote"} />
 
       <Text style={styles.title}>{category?.label ?? "Scan"}</Text>
       <Text style={styles.subtitle}>

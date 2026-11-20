@@ -25,6 +25,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { NoPetSelected } from "@/components/NoPetSelected";
+import { SaveStatus } from "@/components/SaveStatus";
+import { useSaveAction } from "@/hooks/useSaveAction";
 import { PetSwitcher } from "@/components/PetSwitcher";
 import { Card, EmptyState, PrimaryButton } from "@/components/ui";
 import Colors, { Fonts, Radius, Space, cardShadow } from "@/constants/colors";
@@ -129,6 +131,8 @@ export default function RecordsScreen() {
   const [addTitle, setAddTitle] = useState<string>("");
   const [busy, setBusy] = useState<boolean>(false);
   const [status, setStatus] = useState<string | null>(null);
+  const recordSave = useSaveAction();
+  const { runSave: runRecordSave } = recordSave;
   const [lastDoc, setLastDoc] = useState<{ path: string; title: string } | null>(null);
   const [aiSummary, setAiSummary] = useState<RecordSummary | null>(null);
   const [aiBanner, setAiBanner] = useState<string | null>(null);
@@ -153,7 +157,7 @@ export default function RecordsScreen() {
     return merged;
   }, [baseSections, localAdds]);
 
-  const saveRecord = useCallback(async () => {
+  const saveRecord = useCallback(() => runRecordSave(async () => {
     if (!selectedPet) return;
     const title = addTitle.trim();
     const category = addCategory;
@@ -162,21 +166,15 @@ export default function RecordsScreen() {
       return;
     }
     const item: RecordItem = { id: `local-${Date.now()}`, title, subtitle: `Added ${todayLabel()}`, date: todayLabel() };
-    setAddCategory(null);
-    setAddTitle("");
     if (mode === "remote") {
-      // Persist + refetch is the source of truth — don't also keep an optimistic
-      // copy in localAdds, or the record would render twice after the refetch.
-      try {
-        await recordsService.addRecord(selectedPet.id, { category, title, subtitle: item.subtitle, date: item.date });
-        queryClient.invalidateQueries({ queryKey: ["records", selectedPet.id] });
-      } catch (e) {
-        console.warn("[petwell] add record failed:", e);
-      }
+      await recordsService.addRecord(selectedPet.id, { category, title, subtitle: item.subtitle, date: item.date });
+      void queryClient.invalidateQueries({ queryKey: ["records", selectedPet.id] });
     } else {
       setLocalAdds((prev) => ({ ...prev, [category]: [...(prev[category] ?? []), item] }));
     }
-  }, [addTitle, addCategory, mode, selectedPet, queryClient]);
+    setAddCategory(null);
+    setAddTitle("");
+  }), [addTitle, addCategory, mode, selectedPet, queryClient, runRecordSave]);
 
   const uploadDoc = useCallback(async () => {
     if (!selectedPet) return;
@@ -187,26 +185,25 @@ export default function RecordsScreen() {
       const title = res.assets[0].fileName || `Document ${todayLabel()}`;
       setBusy(true);
       setStatus(null);
-      const item: RecordItem = { id: `doc-${Date.now()}`, title, subtitle: `Uploaded ${todayLabel()}`, date: todayLabel() };
-      setLocalAdds((prev) => ({ ...prev, Documents: [...(prev.Documents ?? []), item] }));
       if (mode === "remote") {
         const path = await recordsService.uploadDocument(selectedPet.id, uri, title);
-        setStatus(path ? "Document uploaded to your records." : "Saved locally — sign in to store it in the cloud.");
-        if (path) {
-          setLastDoc({ path, title });
-          setAiSummary(null);
-          setAiBanner(null);
-          setAiNote(null);
-        }
+        void queryClient.invalidateQueries({ queryKey: ["records", selectedPet.id] });
+        setStatus("Document uploaded to your records.");
+        setLastDoc({ path, title });
+        setAiSummary(null);
+        setAiBanner(null);
+        setAiNote(null);
       } else {
-        setStatus("Added to records. Sign in to store documents in the cloud.");
+        const item: RecordItem = { id: `doc-${Date.now()}`, title, subtitle: `Added ${todayLabel()}`, date: todayLabel() };
+        setLocalAdds((prev) => ({ ...prev, Documents: [...(prev.Documents ?? []), item] }));
+        setStatus("Added to this session. Sign in to keep documents in your records.");
       }
     } catch {
       setStatus("Couldn't add that document — please try again.");
     } finally {
       setBusy(false);
     }
-  }, [mode, selectedPet]);
+  }, [mode, selectedPet, queryClient]);
 
   // Optional AI: summarize the just-uploaded document into structured fields.
   // The result is needs_review and saved only after the user confirms.
@@ -260,6 +257,7 @@ export default function RecordsScreen() {
       </View>
 
       <Text style={styles.title}>Records</Text>
+      {mode === "remote" ? <PrimaryButton label="Import a vet document" variant="outline" onPress={() => router.push("/record-import")} /> : null}
 
       {/* Vet report banner */}
       <Pressable
@@ -384,8 +382,9 @@ export default function RecordsScreen() {
             />
             <View style={styles.modalBtns}>
               <PrimaryButton label="Cancel" variant="outline" onPress={() => setAddCategory(null)} style={{ flex: 1 }} />
-              <PrimaryButton label="Add" variant="primary" onPress={saveRecord} style={{ flex: 1 }} />
+              <PrimaryButton label="Add" variant="primary" disabled={recordSave.saving || !addTitle.trim()} onPress={saveRecord} style={{ flex: 1 }} />
             </View>
+            <SaveStatus saving={recordSave.saving} saveError={recordSave.saveError} />
           </Pressable>
         </Pressable>
       </Modal>

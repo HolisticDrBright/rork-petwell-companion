@@ -24,7 +24,7 @@ import {
   Video,
 } from "lucide-react-native";
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import { ActivityIndicator, Linking, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 
 import { Card } from "@/components/ui";
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
@@ -52,7 +52,9 @@ export default function SettingsScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { deviceData, mode, authEmail, isAuthenticated, canUseAuth, loadDemoProfile, clearDeviceData } = usePets();
-  const { isPro, isSupported, manageSubscription, restore } = useSubscription();
+  const { isPro, isSupported, restore } = useSubscription();
+  const storeSubscriptions = Platform.OS === "ios" ? "https://apps.apple.com/account/subscriptions" :
+    Platform.OS === "android" ? "https://play.google.com/store/account/subscriptions" : null;
 
   const [prefs, setPrefs] = useState<PrivacyPrefs>(DEFAULT_PRIVACY);
   const [status, setStatus] = useState<string | null>(null);
@@ -261,17 +263,19 @@ export default function SettingsScreen() {
       </View>
 
       {/* Subscription — RevenueCat (hidden on web where purchases aren't supported) */}
-      {isSupported ? (
+      {storeSubscriptions || isSupported ? (
         <View style={styles.group}>
           <Text style={styles.groupTitle}>Subscription</Text>
           <Card style={{ gap: 0 }}>
-            <ActionRow
+            {storeSubscriptions ? <ActionRow
               icon={CreditCard}
-              label={isPro ? "Manage subscription" : "See Petwell Pro plans"}
-              onPress={isPro ? () => { void manageSubscription(); } : () => router.push("/premium")}
-            />
-            <View style={styles.divider} />
-            <ActionRow icon={RefreshCw} label="Restore purchases" onPress={() => { void onRestore(); }} />
+              label="Manage or cancel subscription"
+              onPress={() => { void Linking.openURL(storeSubscriptions).catch(() => setStatus("Open your store account to manage subscriptions.")); }}
+            /> : null}
+            {isSupported ? <>
+              {storeSubscriptions ? <View style={styles.divider} /> : null}
+              <ActionRow icon={RefreshCw} label="Restore purchases" onPress={() => { void onRestore(); }} />
+            </> : null}
           </Card>
         </View>
       ) : null}
@@ -346,6 +350,8 @@ export default function SettingsScreen() {
         <Text style={styles.groupTitle}>Your data</Text>
         <Card style={{ gap: 0 }}>
           <ActionRow icon={Download} label="Export all my data" onPress={onExportAll} />
+          <View style={styles.divider} />
+          <ActionRow icon={Download} label="Export this pet’s records" onPress={() => router.push("/export-pet")} />
           <View style={styles.divider} />
           <ActionRow icon={FileText} label="Build a vet-ready report" onPress={() => router.push("/vet-report")} />
           <View style={styles.divider} />
