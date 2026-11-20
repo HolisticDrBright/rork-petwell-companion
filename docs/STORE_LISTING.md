@@ -163,7 +163,7 @@ This reverses the earlier recommendation of **Medical**. Three reasons:
 any app whose primary or secondary category is Health & Fitness or Medical — or that
 answers "frequent" to medical or treatment information in the age rating — to declare
 whether it is a regulated medical device before it can be distributed in the US, UK or
-EEA. Apple counts an app as one if it has FDA clearance or registration, or UK
+EEA. Apple's help page lists what counts, such as FDA clearance or registration, or UK
 self-certification. Nothing in this repository suggests Petwell has any of those, so
 the expected answer is **No** — confirm that before declaring. It is answered under
 App Information → App Store Regulations & Permits, by the Account Holder or an Admin.
@@ -186,8 +186,9 @@ adults, so 16+ costs it nothing. Answering lower risks a rejection under Guideli
 2.3.6, which requires the questions to be answered honestly.
 
 *The definition and the tier mapping above were read from Apple's age-ratings reference
-on 2026-11-20 through a summarising reader, not copied verbatim. App Store Connect computes the
-rating as you answer, so treat the console as the authority and record what it shows.*
+on 2026-11-20 through a summarising reader, not copied verbatim. App Store Connect
+computes the rating as you answer, so treat the console as the authority and record
+what it shows.*
 
 **Answers to give (record what you actually submitted):**
 
