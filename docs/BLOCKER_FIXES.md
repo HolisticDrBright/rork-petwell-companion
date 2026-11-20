@@ -37,9 +37,10 @@ Applied migrations:
 
 - `20261119231508_commercial_readiness_writes.sql`
 - `20261119233700_deleted_account_storage_guard.sql`
+- `20261120003500_serialize_care_invite_claim.sql`
 
 The remote historical migration names differ from this checkout's old numeric
-filenames. These two migrations were applied individually in transactions and
+filenames. These migrations were applied individually in transactions and
 recorded in migration history. Do not replay the entire legacy migration folder
 with an unreviewed `db push`.
 
@@ -66,6 +67,8 @@ test accounts. Physical iPhone link and mailbox verification are release checks.
   passed with a controlled backend (sign-in, save failure/retry/reload, sign-out,
   recovery delivery failure). These are not native-device tests.
 - Rollback-only SQL tests covered ownership, atomic writes and stale-token storage.
+- A rollback-only SQL check verified normal Care Circle invite claims and same-user
+  retries after the server-side change that serializes claims on each invite.
 - Live production tests used two disposable accounts: real password sign-in,
   pet/condition and timeline/metric saves, cross-account denial, deletion of the
   caller and nested files in all four buckets, preservation of the other account,

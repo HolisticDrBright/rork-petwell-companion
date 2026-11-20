@@ -19,9 +19,11 @@ test("production can sign in without anonymous auth and retains a failed cloud s
     else if (url.pathname === "/rest/v1/pet_profiles") body = pets;
     else if (url.pathname.startsWith("/storage/v1/object/sign/pet-photos/")) {
       body = { signedURL: "/object/pet-photos/profile.jpg" };
-    } else if (url.pathname.startsWith("/storage/v1/object/pet-photos/")) {
+    } else if (url.pathname.startsWith("/storage/v1/object/pet-photos/") && route.request().method() === "POST") {
       uploads++;
       body = { Key: url.pathname.slice("/storage/v1/object/".length) };
+    } else if (url.pathname === "/storage/v1/object/pet-photos/profile.jpg") {
+      return route.fulfill({ path: "assets/images/icon.png" });
     }
     else if (url.pathname === "/rest/v1/rpc/create_pet_with_conditions") {
       if (failSave) { status = 503; body = { message: "Database unavailable" }; }
