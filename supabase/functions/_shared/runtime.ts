@@ -51,9 +51,21 @@ export async function handleAi(
   }
 
   try {
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return json({ ok: false, error: "Please provide a valid request." }, 400);
+    }
+    // These functions use a service client, so explicitly establish ownership
+    // before reading pet context or writing a generation associated with it.
+    if (body.petId !== undefined && body.petId !== null) {
+      if (typeof body.petId !== "string") return json({ ok: false, error: "Pet not available." }, 403);
+      const { data, error } = await svc.from("pet_profiles").select("id")
+        .eq("id", body.petId).eq("owner_id", caller.userId).maybeSingle();
+      if (error || !data) return json({ ok: false, error: "Pet not available." }, 403);
+    }
     const env = await run({ caller, svc, provider }, body);
     return json(env);
   } catch (e) {
-    return json({ ok: false, error: e instanceof Error ? e.message : "AI request failed." });
+    console.error("Petwell AI request failed", e instanceof Error ? e.name : "unknown");
+    return json({ ok: false, error: "AI request failed. Please try again." });
   }
 }
