@@ -41,7 +41,7 @@ export const remindersService = {
   },
 
   async setEnabled(reminderId: string, enabled: boolean): Promise<void> {
-    const { error } = await supabase.from("reminders").update({ enabled }).eq("id", reminderId);
+    const { error } = await supabase.from("reminders").update({ enabled }).eq("id", reminderId).select("id").single();
     if (error) throw error;
   },
 

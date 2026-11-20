@@ -242,14 +242,10 @@ export const [PetProvider, usePets] = createContextHook(() => {
       if (remoteMode) {
         const list = (queryClient.getQueryData(["care", pid]) as CareItem[] | undefined) ?? careItems;
         const item = list.find((c) => c.id === itemId);
-        const next = !(item?.done ?? false);
-        queryClient.setQueryData(["care", pid], (old: CareItem[] = list) =>
-          old.map((c) => (c.id === itemId ? { ...c, done: next } : c))
-        );
-        petsService
-          .setCareItemDone(itemId, next)
-          .catch((e) => console.warn("[petwell] care toggle failed:", e))
-          .finally(() => queryClient.invalidateQueries({ queryKey: ["care", pid] }));
+        if (!item) return;
+        void petsService.setCareItemDone(itemId, !item.done)
+          .then(() => queryClient.invalidateQueries({ queryKey: ["care", pid] }))
+          .catch(() => Alert.alert("Could not save care update", "Please try again."));
         return;
       }
       const base = CARE_ITEMS[pid] ?? [];
@@ -266,21 +262,16 @@ export const [PetProvider, usePets] = createContextHook(() => {
   );
 
   const toggleReminder = useCallback(
-    (key: string, value: boolean) => {
+    async (key: string, value: boolean) => {
       if (remoteMode) {
         // key is `${petId}:${reminderId}` — target the cache by the pet in the
         // key, not the currently-selected pet.
         const [keyPid, keyReminderId] = key.includes(":") ? key.split(":") : [petId, key];
-        queryClient.setQueryData(["reminders", keyPid], (old: Reminder[] = []) =>
-          old.map((r) => (r.id === keyReminderId ? { ...r, enabled: value } : r))
-        );
-        remindersService
-          .setEnabled(keyReminderId, value)
-          .catch((e) => console.warn("[petwell] reminder toggle failed:", e))
-          .finally(() => queryClient.invalidateQueries({ queryKey: ["reminders", keyPid] }));
+        await remindersService.setEnabled(keyReminderId, value);
+        await queryClient.invalidateQueries({ queryKey: ["reminders", keyPid] });
         return;
       }
-      void persist((prev) => ({ ...prev, reminderState: { ...prev.reminderState, [key]: value } })).catch(() => Alert.alert("Could not save reminder", "Please try again."));
+      await persist((prev) => ({ ...prev, reminderState: { ...prev.reminderState, [key]: value } }));
     },
     [remoteMode, queryClient, petId, persist]
   );
@@ -303,8 +294,10 @@ export const [PetProvider, usePets] = createContextHook(() => {
   const addPet = useCallback(
     async (input: NewPetInput): Promise<Pet | null> => {
       if (remoteMode) {
+        const ownerId = getUserId();
         const pet = await petsService.createPet(input);
-        queryClient.setQueryData(["pets", getUserId()], (old: Pet[] = []) => [...old.filter(p => p.id !== pet.id), pet]);
+        if (ownerId !== getUserId()) throw new Error("The signed-in account changed during the save.");
+        queryClient.setQueryData(["pets", ownerId], (old: Pet[] = []) => [...old.filter(p => p.id !== pet.id), pet]);
         // Selection is a preference; a failed preference write must not report
         // the successfully-created cloud pet as a failed save.
         await persist(prev => ({ ...prev, selectedPetId: pet.id })).catch(() => {});

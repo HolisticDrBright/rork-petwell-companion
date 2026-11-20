@@ -62,6 +62,17 @@ export interface NewPetInput {
 }
 
 export const petsService = {
+  async uploadPetPhoto(uri: string): Promise<string> {
+    const ownerId = requireUserId();
+    const { photoJpeg } = await import("@/lib/photoUpload");
+    const bytes = await photoJpeg(uri);
+    if (requireUserId() !== ownerId) throw new Error("The signed-in account changed.");
+    const path = `${ownerId}/profile-${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
+    const { data, error } = await supabase.storage.from("pet-photos").upload(path, bytes, { contentType: "image/jpeg" });
+    if (error) throw error;
+    return data.path;
+  },
+
   async listPets(): Promise<Pet[]> {
     const { data, error } = await supabase
       .from("pet_profiles")
@@ -116,7 +127,7 @@ export const petsService = {
   },
 
   async setCareItemDone(itemId: string, done: boolean): Promise<void> {
-    const { error } = await supabase.from("care_tasks").update({ done }).eq("id", itemId);
+    const { error } = await supabase.from("care_tasks").update({ done }).eq("id", itemId).select("id").single();
     if (error) throw error;
   },
 

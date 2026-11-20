@@ -78,7 +78,10 @@ export default function AccountScreen() {
         <Text style={Fonts.h3}>Device-only records found</Text>
         <Text style={styles.body}>These records are still on this device and have not been uploaded to your account. Export a copy before clearing device data.</Text>
         <PrimaryButton label="Export device records" variant="outline" onPress={async () => {
-          try { await exportJson({ app: "Petwell", exportedAt: new Date().toISOString(), data: deviceData }, "petwell-device-records.json"); }
+          try {
+            const method = await exportJson({ app: "Petwell", exportedAt: new Date().toISOString(), data: deviceData }, "petwell-device-records.json");
+            if (method === "none") throw new Error("Export failed.");
+          }
           catch { setError("Could not export device records. Please try again."); }
         }} />
       </Card> : null}

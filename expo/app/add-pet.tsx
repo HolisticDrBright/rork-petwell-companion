@@ -2,7 +2,7 @@ import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { Stack, useRouter } from "expo-router";
 import { Camera, Cat, Dog, PawPrint } from "lucide-react-native";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { PrimaryButton } from "@/components/ui";
@@ -10,6 +10,8 @@ import Colors, { Fonts, Radius, Space, cardShadow } from "@/constants/colors";
 import { BREED_FIT_GUIDANCE_LABEL, type BreedFitRow } from "@/lib/food/breedFit";
 import { usePets } from "@/providers/PetProvider";
 import { breedFitService } from "@/services/breedFitService";
+import { petsService } from "@/services/petsService";
+import { requireUserId } from "@/lib/backend";
 
 function Field({
   label,
@@ -48,7 +50,7 @@ function Field({
 
 export default function AddPetScreen() {
   const router = useRouter();
-  const { addPet } = usePets();
+  const { addPet, mode } = usePets();
   const [species, setSpecies] = useState<"dog" | "cat">("dog");
   const [name, setName] = useState<string>("");
   const [breed, setBreed] = useState<string>("");
@@ -59,6 +61,8 @@ export default function AddPetScreen() {
   const [touched, setTouched] = useState<boolean>(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState<boolean>(false);
+  const savingRef = useRef(false);
+  const uploadedPhoto = useRef<{ uri: string; path: string; ownerId: string } | null>(null);
   const [breedFit, setBreedFit] = useState<BreedFitRow | null>(null);
 
   // Breed-aware nutrition context (WSAVA general guidance), debounced as they type.
@@ -92,27 +96,41 @@ export default function AddPetScreen() {
 
   const handleSave = useCallback(async () => {
     setTouched(true);
-    if (!canSave) return;
+    if (!canSave || savingRef.current) return;
+    savingRef.current = true;
     setSaving(true);
     setSaveError(null);
     try {
-    await addPet({
-      name: name.trim(),
-      species,
-      breed: breed.trim(),
-      ageYears: Number(age) || 0,
-      weightLb: Number(weight) || 0,
-      photo: photo || undefined,
-      conditions: conditions
-        .split(/[,\n]/)
-        .map((c) => c.trim())
-        .filter(Boolean),
-    });
-    router.replace("/");
+      let savedPhoto = photo || undefined;
+      if (mode === "remote" && photo) {
+        const ownerId = requireUserId();
+        const uploaded = uploadedPhoto.current;
+        if (uploaded?.uri === photo && uploaded.ownerId === ownerId) {
+          savedPhoto = uploaded.path;
+        } else {
+          savedPhoto = await petsService.uploadPetPhoto(photo);
+          uploadedPhoto.current = { uri: photo, path: savedPhoto, ownerId };
+        }
+        if (requireUserId() !== ownerId) throw new Error("The signed-in account changed.");
+      }
+
+      await addPet({
+        name: name.trim(),
+        species,
+        breed: breed.trim(),
+        ageYears: Number(age) || 0,
+        weightLb: Number(weight) || 0,
+        photo: savedPhoto,
+        conditions: conditions.split(/[,\n]/).map((item) => item.trim()).filter(Boolean),
+      });
+      router.replace("/");
     } catch {
       setSaveError("Couldn’t save your pet. Your details are still here — please try again.");
-    } finally { setSaving(false); }
-  }, [canSave, addPet, name, species, breed, age, weight, photo, conditions, router]);
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
+    }
+  }, [canSave, addPet, mode, name, species, breed, age, weight, photo, conditions, router]);
 
   return (
     <ScrollView

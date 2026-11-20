@@ -15,6 +15,7 @@ import { URGENCY_LABEL, type KbUrgency, type SymptomKbEntry } from "@/lib/sympto
 import { usePets } from "@/providers/PetProvider";
 import { scanService } from "@/services";
 import { aiService } from "@/services/aiService";
+import { privacyService } from "@/services/privacyService";
 import { symptomKbService } from "@/services/symptomKbService";
 
 function nowLabel(): string {
@@ -60,6 +61,7 @@ const CONCERN_FOR: Record<string, string> = { poop: "diarrhea", skin: "skin", ea
 
 export default function ScanResultScreen() {
   const { saving, saveError, runSave } = useSaveAction();
+  const correction = useSaveAction();
   const router = useRouter();
   const { type, notes, photo } = useLocalSearchParams<{ type: string; notes: string; photo?: string }>();
   const { selectedPet, addLog, todayIso, mode } = usePets();
@@ -90,6 +92,11 @@ export default function ScanResultScreen() {
     setAiNote(null);
     setKbMatches([]);
     try {
+      const availability = await aiService.availability({ needsDocs: true });
+      if (!availability.ok || !(await privacyService.getPrefs()).store_photos) {
+        setAiNote(availability.reason ?? "Enable cloud storage for scan photos in Settings to use photo analysis.");
+        return;
+      }
       const path = uploadedPath ?? (await aiService.uploadScanImage(photo));
       if (!path) {
         setAiNote("Couldn't upload the photo — please try again.");
@@ -120,6 +127,8 @@ export default function ScanResultScreen() {
         summary: res.data.summary,
       });
       setKbMatches(kb);
+    } catch {
+      setAiNote("Couldn’t process this photo. You can still use the guided check.");
     } finally {
       setAiBusy(false);
     }
@@ -129,25 +138,27 @@ export default function ScanResultScreen() {
     router.push({ pathname: "/ask-flow", params: { concern: guidedConcern } });
   }, [router, guidedConcern]);
 
-  const saveCorrection = useCallback(() => {
+  const { runSave: runCorrection } = correction;
+  const saveCorrection = useCallback(() => runCorrection(async () => {
     const note = correctText.trim();
     if (!note) {
       setCorrectOpen(false);
       return;
     }
     if (mode === "remote") {
-      scanService.saveCorrection({ scanType: type ?? "scan", note }).catch((e) => console.warn("[petwell] correction failed:", e));
+      await scanService.saveCorrection({ scanType: type ?? "scan", note });
     }
     setCorrected(true);
     setCorrectOpen(false);
-  }, [correctText, mode, type]);
+  }), [correctText, mode, type, runCorrection]);
 
   const saveToTimeline = useCallback(() => runSave(async () => {
     if (!selectedPet) return;
     // Attach the photo: reuse the AI-upload if it happened, else upload now in
     // remote mode; in local mode keep the device URI so the thumbnail still shows.
-    let imagePath: string | undefined = uploadedPath ?? undefined;
-    if (!imagePath && photo) {
+    const allowPhoto = mode !== "remote" || !photo || (await privacyService.getPrefs()).store_photos;
+    let imagePath = allowPhoto ? uploadedPath ?? undefined : undefined;
+    if (allowPhoto && !imagePath && photo) {
       if (mode === "remote") {
         const path = await aiService.uploadScanImage(photo);
         if (!path) throw new Error("Photo upload failed");
@@ -162,7 +173,7 @@ export default function ScanResultScreen() {
       date: todayIso,
       time: nowLabel(),
       category: "scan",
-      title: mockScan ? `${result.title} saved` : aiObs ? "Photo + AI observations saved" : "Photo saved to timeline",
+      title: mockScan ? `${result.title} saved` : imagePath ? "Photo saved to timeline" : "Scan notes saved",
       detail: mockScan && result.score
         ? `${result.scoreLabel}: ${result.score}`
         : aiObs
@@ -386,16 +397,17 @@ export default function ScanResultScreen() {
             <Pressable onPress={() => setCorrectOpen(false)} hitSlop={8}>
               <Text style={styles.correctCancel}>Cancel</Text>
             </Pressable>
-            <Pressable onPress={saveCorrection} hitSlop={8}>
+            <Pressable onPress={saveCorrection} disabled={correction.saving} hitSlop={8}>
               <Text style={styles.correctSave}>Save correction</Text>
             </Pressable>
           </View>
+          <SaveStatus saving={correction.saving} saveError={correction.saveError} />
         </View>
       ) : (
         <Pressable style={styles.correctRow} onPress={() => setCorrectOpen(true)}>
           <Pencil size={15} color={Colors.teal700} />
           <Text style={styles.correctText}>
-            {corrected ? "Correction saved · edit again" : "Something off? Correct this result by hand"}
+            {corrected ? (mode === "remote" ? "Correction saved · edit again" : "Edit correction for this session") : "Something off? Correct this result by hand"}
           </Text>
         </Pressable>
       )}

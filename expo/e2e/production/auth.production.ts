@@ -3,6 +3,7 @@ import { expect, test } from "@playwright/test";
 test("production can sign in without anonymous auth and retains a failed cloud save", async ({ page }) => {
   let anonymousCalls = 0;
   let failSave = true;
+  let uploads = 0;
   const pets: Record<string, unknown>[] = [];
   const user = { id: "f0000000-0000-4000-8000-000000000001", email: "test@example.invalid", aud: "authenticated", role: "authenticated", email_confirmed_at: new Date().toISOString(), app_metadata: {}, user_metadata: {}, created_at: new Date().toISOString() };
   const errors: string[] = [];
@@ -16,11 +17,18 @@ test("production can sign in without anonymous auth and retains a failed cloud s
     else if (url.pathname === "/auth/v1/token") body = { access_token: "test-session-token", token_type: "bearer", expires_in: 3600, refresh_token: "test-refresh", user };
     else if (url.pathname === "/auth/v1/user") body = user;
     else if (url.pathname === "/rest/v1/pet_profiles") body = pets;
+    else if (url.pathname.startsWith("/storage/v1/object/sign/pet-photos/")) {
+      body = { signedURL: "/object/pet-photos/profile.jpg" };
+    } else if (url.pathname.startsWith("/storage/v1/object/pet-photos/")) {
+      uploads++;
+      body = { Key: url.pathname.slice("/storage/v1/object/".length) };
+    }
     else if (url.pathname === "/rest/v1/rpc/create_pet_with_conditions") {
       if (failSave) { status = 503; body = { message: "Database unavailable" }; }
       else {
         const input = route.request().postDataJSON().input;
-        body = { id: "f0000000-0000-4000-8000-000000000002", owner_id: user.id, name: input.name, species: input.species, age_years: 2, weight_lb: 20, status: "stable", status_note: "New", pet_conditions: [], pet_allergies: [] };
+        expect(input.photo).toMatch(new RegExp(`^${user.id}/profile-.*\\.jpg$`));
+        body = { id: "f0000000-0000-4000-8000-000000000002", owner_id: user.id, name: input.name, species: input.species, photo_url: input.photo, age_years: 2, weight_lb: 20, status: "stable", status_note: "New", pet_conditions: [], pet_allergies: [] };
         pets.push(body as Record<string, unknown>);
       }
     } else if (url.pathname === "/rest/v1/profiles") body = {};
@@ -35,12 +43,19 @@ test("production can sign in without anonymous auth and retains a failed cloud s
   expect(anonymousCalls).toBe(0);
   await page.getByRole("button", { name: /Add.*pet/i }).first().click();
   await page.getByLabel("Name", { exact: true }).fill("Cloud Pet");
+  const [picker] = await Promise.all([
+    page.waitForEvent("filechooser"),
+    page.getByRole("button", { name: "Add a pet photo" }).click(),
+  ]);
+  await picker.setFiles("assets/images/icon.png");
+  await expect(page.getByRole("button", { name: "Change pet photo" })).toBeVisible();
   await page.getByTestId("add-pet-save").click();
   await expect(page.getByText(/Couldn’t save your pet/)).toBeVisible();
   await expect(page.getByLabel("Name", { exact: true })).toHaveValue("Cloud Pet");
   failSave = false;
   await page.getByTestId("add-pet-save").click();
   await expect(page.getByTestId("pet-switcher").filter({ visible: true }).first()).toContainText("Cloud Pet");
+  expect(uploads).toBe(1);
   await page.reload();
   await expect(page.getByTestId("pet-switcher").filter({ visible: true }).first()).toContainText("Cloud Pet");
   await page.goto("/account");

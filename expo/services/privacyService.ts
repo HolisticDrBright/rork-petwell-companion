@@ -1,4 +1,4 @@
-import { getUserId } from "@/lib/backend";
+import { getUserId, requireUserId } from "@/lib/backend";
 import { supabase } from "@/lib/supabase";
 
 import { OWNED_TABLES } from "./ownedTables";
@@ -26,6 +26,30 @@ export const DEFAULT_PRIVACY: PrivacyPrefs = {
   share_research: false,
 };
 
+async function listPhotoPaths(
+  bucket: "scan-images" | "documents",
+  directory: string,
+  prefix?: string,
+): Promise<string[]> {
+  const paths: string[] = [];
+  const size = 100;
+  for (let offset = 0; ; offset += size) {
+    const { data, error } = await supabase.storage.from(bucket).list(directory, {
+      limit: size,
+      offset,
+      sortBy: { column: "name", order: "asc" },
+    });
+    if (error) throw error;
+    for (const entry of data) {
+      if (entry.name.includes("/") || entry.name === "." || entry.name === "..") continue;
+      const path = `${directory}/${entry.name}`;
+      if (!entry.id && !prefix) paths.push(...await listPhotoPaths(bucket, path));
+      else if (entry.id && (!prefix || entry.name.startsWith(prefix))) paths.push(path);
+    }
+    if (data.length < size) return paths;
+  }
+}
+
 export const privacyService = {
   async getPrefs(): Promise<PrivacyPrefs> {
     const uid = getUserId();
@@ -40,10 +64,9 @@ export const privacyService = {
   },
 
   async setPref(key: PrivacyKey, value: boolean): Promise<void> {
-    const uid = getUserId();
-    if (!uid) return;
+    const uid = requireUserId();
     const patch: Partial<Record<PrivacyKey, boolean>> = { [key]: value };
-    const { error } = await supabase.from("profiles").update(patch).eq("id", uid);
+    const { error } = await supabase.from("profiles").update(patch).eq("id", uid).select("id").single();
     if (error) throw error;
   },
 
@@ -57,34 +80,44 @@ export const privacyService = {
     };
     if (!uid) return out;
     for (const table of OWNED_TABLES) {
-      const { data, error } = await supabase.from(table).select("*");
-      if (error) throw error;
-      out[table] = data ?? [];
+      const entries: unknown[] = [];
+      const size = 500;
+      for (let offset = 0; ; offset += size) {
+        const { data, error } = await supabase.from(table).select("*").order("id").range(offset, offset + size - 1);
+        if (error) throw error;
+        entries.push(...data);
+        if (data.length < size) break;
+      }
+      out[table] = entries;
     }
     return out;
   },
 
   /** Delete all stored scan images (storage objects + rows). Returns count removed. */
   async deleteScanImages(): Promise<number> {
-    const uid = getUserId();
-    if (!uid) return 0;
-    const { data: scans, error: scanError } = await supabase.from("scan_records").select("id").eq("owner_id", uid);
-    if (scanError) throw scanError;
-    const scanIds = (scans ?? []).map((s) => s.id);
-    if (scanIds.length === 0) return 0;
-    const { data: imgs, error: imageError } = await supabase.from("scan_images").select("id, storage_path").in("scan_id", scanIds);
-    if (imageError) throw imageError;
-    const rows = imgs ?? [];
-    const paths = rows.map((i) => i.storage_path).filter(Boolean) as string[];
-    if (paths.length) {
-      const { error } = await supabase.storage.from("scan-images").remove(paths);
-      if (error) throw error;
+    const uid = requireUserId();
+    const buckets = ["scan-images", "documents"] as const;
+    const [scans, documents] = await Promise.all([
+      listPhotoPaths("scan-images", uid),
+      listPhotoPaths("documents", uid, "ai-scan-"),
+    ]);
+    const pathsByBucket = { "scan-images": scans, documents };
+    for (const bucket of buckets) {
+      const paths = pathsByBucket[bucket];
+      for (let offset = 0; offset < paths.length; offset += 100) {
+        const { error } = await supabase.storage.from(bucket).remove(paths.slice(offset, offset + 100));
+        if (error) throw error;
+      }
     }
-    if (rows.length) {
-      const { error } = await supabase.from("scan_images").delete().in("id", rows.map((i) => i.id));
-      if (error) throw error;
-    }
-    return paths.length;
+
+    const [oldScanLinks, timelineLinks, foodLinks] = await Promise.all([
+      supabase.from("scan_images").delete().like("storage_path", `${uid}/%`),
+      supabase.from("timeline_events").update({ image_path: null }).eq("owner_id", uid).like("image_path", `${uid}/ai-scan-%`),
+      supabase.from("food_scans").update({ image_path: null }).eq("owner_id", uid).like("image_path", `${uid}/ai-scan-%`),
+    ]);
+    const error = oldScanLinks.error ?? timelineLinks.error ?? foodLinks.error;
+    if (error) throw error;
+    return scans.length + documents.length;
   },
 
   /** The authenticated server function removes files and the actual auth user. */

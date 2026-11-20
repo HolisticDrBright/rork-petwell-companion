@@ -1,9 +1,9 @@
-import { Image } from "expo-image";
 import { Check, ChevronDown, Plus } from "lucide-react-native";
 import React, { memo, useState } from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 
 import Colors, { Fonts, Radius, Space, cardShadow } from "@/constants/colors";
+import { PetPhoto } from "@/components/PetPhoto";
 import { usePets } from "@/providers/PetProvider";
 import type { HealthStatus, Pet } from "@/types/pet";
 
@@ -40,7 +40,7 @@ export const PetSwitcher = memo(function PetSwitcher({
         onPress={() => setOpen(true)}
         style={({ pressed }) => [styles.switcher, pressed && { opacity: 0.9 }]}
       >
-        <Image source={{ uri: selectedPet.photo }} style={styles.avatar} contentFit="cover" />
+        <PetPhoto photo={selectedPet.photo} style={styles.avatar} />
         <View style={styles.switcherInfo}>
           <View style={styles.nameRow}>
             <Text style={[styles.name, light && { color: "#fff" }]} numberOfLines={1}>
@@ -85,7 +85,7 @@ export const PetSwitcher = memo(function PetSwitcher({
                     pressed && { opacity: 0.9 },
                   ]}
                 >
-                  <Image source={{ uri: p.photo }} style={styles.rowAvatar} contentFit="cover" />
+                  <PetPhoto photo={p.photo} style={styles.rowAvatar} />
                   <View style={{ flex: 1 }}>
                     <View style={styles.nameRow}>
                       <Text style={Fonts.h3}>{p.name}</Text>

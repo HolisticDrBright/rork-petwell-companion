@@ -23,6 +23,11 @@ unsupported Pro sales claims. It is not a commercial-release certification.
   updating a password. Expired/wrong-flow links and email delivery failures are visible.
 - New Pro purchases and paywalls are disabled. Existing restore and subscription
   management remain available. Unsupported marketing claims were removed.
+- Pet photos upload to a private bucket and use expiring links for display.
+  Scan photo uploads follow the cloud-storage preference. The scan image deletion
+  action removes both current and legacy files without deleting other documents.
+- Reminder and correction saves surface failures. On iOS, account exports are full
+  JSON files and vet reports are PDFs. Legacy photo scores no longer appear in reports.
 
 ## Deployed backend
 
@@ -47,6 +52,11 @@ Allowed native redirects now include both two-slash and three-slash forms of
 `petwell://reset-password` and `petwell://account`. Signup confirms the email
 before returning to Account, where the user signs in with their password.
 
+Resend verified `ailongevitypro.app` and supplies Supabase custom SMTP through a
+send-only, domain-scoped key. Petwell sends from `info@AILongevityPro.app`.
+Production Auth accepted signup confirmation and recovery requests for disposable
+test accounts. Physical iPhone link and mailbox verification are release checks.
+
 ## Verification
 
 - TypeScript and ESLint passed.
@@ -65,9 +75,9 @@ before returning to Account, where the user signs in with their password.
 
 ## Release work still required
 
-- Complete Resend domain verification and SMTP setup for `info@AILongevityPro.app`;
-  verify actual signup and recovery delivery and links on an installed iPhone build.
-- Build and test a new native release. Existing TestFlight builds are unchanged.
+- Verify signup and recovery delivery and links on an installed iPhone build.
+- Run native release QA on the next TestFlight build, including PDFs, JSON export,
+  photo uploads, reminders, and deletion with a disposable account.
 - Check real store entitlements, restore/manage flows, and subscription disclosure
   on device. Pausing purchases in this branch does not alter older installed builds
   or cancel existing subscriptions.
