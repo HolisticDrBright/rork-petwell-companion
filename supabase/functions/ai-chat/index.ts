@@ -46,6 +46,7 @@ async function buildContext(
         .from("timeline_events")
         .select("*")
         .eq("pet_id", petId)
+        .eq("owner_id", userId)
         .order("created_at", { ascending: false })
         .limit(6);
       if (Array.isArray(events) && events.length) {
@@ -89,6 +90,13 @@ Deno.serve((req) =>
     let threadId = typeof body.threadId === "string" ? body.threadId : null;
     const includeContext = body.includeContext !== false;
     if (!message) return { ok: false, error: "Please type a message." };
+    if (threadId) {
+      const { data: thread, error } = await ctx.svc.from("ai_chat_threads").select("pet_id")
+        .eq("id", threadId).eq("owner_id", ctx.caller.userId).maybeSingle();
+      if (error || !thread || thread.pet_id !== petId) {
+        return { ok: false, error: "This conversation is unavailable for the current pet. Start a new chat." };
+      }
+    }
 
     // Deterministic safety FIRST — the model cannot lower this.
     const safety = assessInput(message);
@@ -161,7 +169,8 @@ Deno.serve((req) =>
         content: reply,
         safety_flags: safety.flags.length ? (safety.flags as never) : null,
       });
-      await ctx.svc.from("ai_chat_threads").update({ updated_at: new Date().toISOString() }).eq("id", threadId);
+      await ctx.svc.from("ai_chat_threads").update({ updated_at: new Date().toISOString() })
+        .eq("id", threadId).eq("owner_id", ctx.caller.userId);
     }
 
     return {
