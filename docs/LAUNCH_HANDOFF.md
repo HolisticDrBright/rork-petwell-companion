@@ -8,6 +8,12 @@ unless the item says otherwise.
 
 Last updated 2026-09-18.
 
+> **This file predates the November fixes.** Since then the app requires an account
+> and new Pro purchases are paused, so some items below are out of date. The current
+> list of launch blockers, with an owner for each, is
+> [`LAUNCH_REPORT_P0P1.md`](LAUNCH_REPORT_P0P1.md). Where the two disagree, that
+> report is right.
+
 ---
 
 ## Where things actually stand
