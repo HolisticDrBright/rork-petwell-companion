@@ -22,40 +22,72 @@ export interface LegalDoc {
   footer: string;
 }
 
+// PENDING OWNER CONFIRMATION — do not publish the hosted pages until these are
+// settled (tracked in docs/LAUNCH_REPORT_P0P1.md, "Questions for Brandon"):
+//   1. SUPPORT_EMAIL must be a mailbox someone reads. `petwell.app` has not
+//      been confirmed as a domain the owner controls. Deletion requests land
+//      here, so a wrong address sends a user's account email to a stranger.
+//      (expo/lib/config.ts has its own default for the in-app "Contact us"
+//      row — change both, or the app and the pages will disagree.)
+//   2. The "within 30 days" and "up to 30 days" figures below are drafted
+//      upper bounds, not measured facts.
+//   3. Counsel review of both documents has not happened. That is a launch
+//      task, not something to tell users, so it is no longer printed on the
+//      page.
 export const SUPPORT_EMAIL = "support@petwell.app";
 export const COPYRIGHT_LINE = "© 2026 Petwell. All rights reserved.";
-const COUNSEL_FOOTER =
-  "This document is a general template provided for transparency and should be reviewed by qualified counsel before public launch.";
 
 export const PRIVACY_POLICY: LegalDoc = {
   title: "Privacy Policy",
-  lastUpdated: "June 26, 2026",
+  lastUpdated: "November 20, 2026",
   intro: [
-    "Petwell helps you track and understand your pet's health. This policy explains what we collect, how it is used, and the control you have. It is written to be read by a person, not just a lawyer.",
+    "Petwell helps you track and understand your pet's health. This policy explains what we collect, how it is used, who helps us process it, and the control you have. It is written to be read by a person, not just a lawyer.",
   ],
   sections: [
     {
       title: "Information you provide",
       paragraphs: [
-        "Pet profiles (name, species, breed, age, weight, conditions, allergies), the logs you add (food, stool, skin, weight, activity, medications, symptoms), photos you choose to scan, triage answers, and — if you create an account — your email address. You decide what to enter.",
+        "Your account: Petwell requires an account, so we collect your email address and a password. The password is handled by our sign-in provider and is never visible to us in readable form.",
+        "Your pet's records: pet profiles (name, species, breed, age, weight, conditions, allergies, and an optional photo), the logs you add (food, stool, skin, weight, activity, medications, symptoms), triage answers, reminders, and the photos, documents, and notes you choose to attach or scan. You decide what to enter.",
+      ],
+    },
+    {
+      title: "Information collected automatically",
+      paragraphs: [
+        "Diagnostics: when the app crashes or hits an error, it sends a crash and performance report (for example the error, the app version, and the device model and operating system) to our error-monitoring provider. These reports are configured not to include your email, account ID, pet records, or AI content.",
+        "Service logs: like any online service, our backend records routine technical logs (such as IP address and the time of a request) to keep the service secure and working.",
+        "Purchases: if you have ever bought Petwell Pro, the App Store or Google Play and our subscription provider tell the app whether that purchase is still active. We never see your card or payment details.",
+        "We do not use advertising identifiers, and we do not track you across other companies' apps or websites.",
       ],
     },
     {
       title: "How we use it",
       paragraphs: [
-        "To provide the app's features: triage guidance, food reviews, the health score, patterns to watch, integrative support plans, programs, and vet-ready reports. Insights are generated from your own logs to help you and your veterinarian — never to diagnose.",
+        "To provide the app's features: triage guidance, food reviews, the health score, patterns to watch, integrative support plans, programs, reminders, and vet-ready reports. Insights are generated from your own logs to help you and your veterinarian — never to diagnose.",
+        "We use your email address to sign you in and to send account emails such as the confirmation link and the password-reset link.",
+      ],
+    },
+    {
+      title: "Who helps us run Petwell",
+      paragraphs: [
+        "We use a small number of service providers that process data on our behalf: Supabase (database, file storage, sign-in, and server functions), Resend (delivery of account emails), Sentry (crash and performance diagnostics), RevenueCat together with Apple and Google (purchase status), and OpenAI (only if you turn on AI features — see below).",
+        "When you look up a product by barcode, the barcode is sent to Open Pet Food Facts, a public product database, to identify it. Your account and your pet's records are not sent with it.",
+        "If you invite someone to a pet's Care Circle, that person can see the records you share for that pet until you remove them.",
+        "Links to stores, hotlines, and reference sites open outside Petwell, and those sites' own privacy policies apply.",
       ],
     },
     {
       title: "What we do NOT do",
       paragraphs: [
-        "We do not sell your pet's photos or health data. We do not use your pet's photos or data to train models when you opt out of training in Settings. We do not show pay-to-rank product recommendations.",
+        "We do not sell your personal information, your pet's photos, or your pet's health data. We do not use your pet's photos, records, or AI conversations to train AI models. We do not show ads or pay-to-rank product recommendations.",
       ],
     },
     {
       title: "Storage & security",
       paragraphs: [
-        "With an account, your data is stored in our backend (Supabase) and isolated to you by row-level security, so your records are not accessible to other users. Without an account, the app can run in local mode where your data stays on your device. Scan photos are stored only if you allow it in Settings.",
+        "Your data is stored in our backend (Supabase) and isolated to your account by row-level security, so other users cannot read your records unless you share a pet with them through Care Circle. Data travels between the app and our backend over encrypted connections (HTTPS).",
+        "Scan photos are stored in your account by default so they appear in your pet's timeline. You can turn cloud storage of scan photos off, or delete the stored photos, in Settings.",
+        "If an earlier version of Petwell saved records only on your device, they stay on that device until you export or delete them there.",
       ],
     },
     {
@@ -68,7 +100,15 @@ export const PRIVACY_POLICY: LegalDoc = {
     {
       title: "Your choices & rights",
       paragraphs: [
-        "From Settings & privacy you can: export all of your data as JSON (always free), delete stored scan images, delete your account and data, opt out of model/photo training, and turn off personalized insights or research sharing. Reference catalog data (e.g. ingredient or protocol libraries) is not personal data and is not part of your export.",
+        "In Settings you can: export all of your data as JSON (always free), turn cloud storage of scan photos on or off, delete stored scan images, delete your AI history, and delete your account and data. Reference catalog data (e.g. ingredient or protocol libraries) is not personal data and is not part of your export.",
+      ],
+    },
+    {
+      title: "Keeping and deleting your data",
+      paragraphs: [
+        "We keep your account and your pet's records until you delete them or delete your account. To delete your account, open Settings → Delete account & data in the app and confirm. This permanently removes your account, pets, logs, scans, photos, documents, reports, reminders, and AI history from our backend.",
+        `If you cannot access the app, email ${SUPPORT_EMAIL} from the address on the account with the subject "Delete my account". We will delete the account within 30 days and confirm by email.`,
+        "After deletion, routine backups and service logs can persist for up to 30 days before they are purged, and crash reports that are not linked to your account are kept by our diagnostics provider under its own retention schedule. Deleting your account does not cancel a subscription bought through Apple or Google — cancel that in your store account settings.",
       ],
     },
     {
@@ -86,12 +126,12 @@ export const PRIVACY_POLICY: LegalDoc = {
       paragraphs: [`Questions about privacy? Email ${SUPPORT_EMAIL}.`],
     },
   ],
-  footer: COUNSEL_FOOTER,
+  footer: COPYRIGHT_LINE,
 };
 
 export const TERMS_OF_USE: LegalDoc = {
   title: "Terms of Use",
-  lastUpdated: "June 26, 2026",
+  lastUpdated: "November 20, 2026",
   callout:
     "Petwell is not a veterinarian and does not diagnose, cure, or treat disease. Its guidance is informational and supportive only. For an emergency, or before changing diet, supplements, or medication, contact a licensed veterinarian.",
   intro: [],
@@ -104,6 +144,7 @@ export const TERMS_OF_USE: LegalDoc = {
       title: "Not veterinary advice",
       paragraphs: [
         "Triage urgency, food reviews, health scores, patterns, and integrative support plans are educational tools to help you observe trends and prepare for veterinary visits. They are not a diagnosis and are not a substitute for professional veterinary care. Always defer to your veterinarian, especially when red-flag signs appear.",
+        "The toxin reference is not a complete list: a food, plant, or product that does not appear in it is not thereby safe. Product and supplement grades describe the public evidence we found for a product. They are educational and are not an instruction to give a product to your pet — ask your veterinarian first.",
       ],
     },
     {
@@ -121,7 +162,7 @@ export const TERMS_OF_USE: LegalDoc = {
     {
       title: "Your account & responsibility",
       paragraphs: [
-        "You are responsible for the accuracy of what you log and for keeping your account credentials secure. You can export or delete your data at any time from Settings.",
+        "You need a Petwell account to use the app. You are responsible for the accuracy of what you log and for keeping your account credentials secure. You can export your data, or delete your account and data, at any time from Settings.",
       ],
     },
     {
@@ -133,13 +174,14 @@ export const TERMS_OF_USE: LegalDoc = {
     {
       title: "Purchases & subscriptions",
       paragraphs: [
-        "Petwell Pro is offered through the App Store and Google Play as an auto-renewing subscription (monthly or yearly) or a one-time lifetime purchase. Payment is charged to your store account; subscriptions renew automatically unless cancelled at least 24 hours before the end of the period, and can be managed or cancelled in your store account settings. The core app — including data export — remains free.",
+        "New purchases of Petwell Pro are currently paused. The current app features, including data export, do not require a subscription.",
+        "If you already hold a Petwell Pro purchase made through the App Store or Google Play, it keeps working. Payment and renewal are handled by your store account: a subscription renews automatically unless cancelled at least 24 hours before the end of the period, and you can manage or cancel it in your store account settings. You can restore a previous purchase from Settings in the app. If paid plans return, the price and terms will be shown in the app before you buy.",
       ],
     },
     {
       title: "Affiliate links",
       paragraphs: [
-        "Some outbound product links are affiliate links: if you buy through one, Petwell may earn a commission at no extra cost to you. Rankings and recommendations are scored on evidence, safety, and transparency alone and are never influenced by commissions, payment, or sponsorship.",
+        "Some outbound product links are affiliate links: if you buy through one, Petwell may earn a commission at no extra cost to you. Rankings and recommendations are scored on evidence, known safety flags, and transparency alone and are never influenced by commissions, payment, or sponsorship.",
       ],
     },
     {
@@ -161,5 +203,5 @@ export const TERMS_OF_USE: LegalDoc = {
       paragraphs: [`Questions? Email ${SUPPORT_EMAIL}.`],
     },
   ],
-  footer: COUNSEL_FOOTER,
+  footer: COPYRIGHT_LINE,
 };

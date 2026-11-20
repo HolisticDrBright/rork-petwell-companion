@@ -1,0 +1,52 @@
+name: Publish legal pages
+
+# Publishes web-legal/ (site root, privacy, terms, support, delete-account) to
+# GitHub Pages.
+#
+# MANUAL ONLY. It never runs on a push: putting these pages on the public
+# internet is a publication the owner approves each time. See
+# docs/LAUNCH_REPORT_P0P1.md for what has to be true first.
+#
+# One-time setup, done by the repository owner:
+#   Settings → Pages → Build and deployment → Source: "GitHub Actions"
+# Then: Actions → "Publish legal pages" → Run workflow (from main).
+# Afterwards, verify with: ./scripts/check-public-urls.sh <the Pages URL>
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # A page that still says "template" or points at a placeholder domain is
+      # worse published than unpublished.
+      - name: Refuse to publish pages that still carry draft markers
+        run: |
+          if grep -rnE 'general template|<your-domain>|\[INSERT|TODO|TBD' web-legal/; then
+            echo "web-legal/ still contains draft markers. Fix expo/lib/legal/content.ts and re-run 'bun run export:legal'."
+            exit 1
+          fi
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web-legal
+
+      - id: deploy
+        uses: actions/deploy-pages@v4
