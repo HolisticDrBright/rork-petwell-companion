@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { runInNewContext } from "node:vm";
 import { computeHealthScore } from "../lib/health/score";
 import { trendsFromLogs } from "../lib/health/trends";
 import { PETS } from "../constants/mockData";
@@ -28,3 +30,25 @@ assert.equal(computeHealthScore(pet, [], undefined).generatedAt, new Date().toIS
 assert.deepEqual(trendsFromLogs([]), { appetite: [], stool: [], itching: [], activity: [], weight: [] });
 assert.deepEqual(trendsFromLogs([entry("weight", 42), entry("weight", 40, "2026-11-18")]).weight, [40,42]);
 console.log("PASS health evidence: empty, synthetic, sparse, recent, stale, future, and chronological trends");
+
+// Run the actual top-level initializer. React Native defines window even when
+// there is no browser location, and an exception here precedes the UI boundary.
+const layout = readFileSync(new URL("../app/_layout.tsx", import.meta.url), "utf8");
+const initializer = layout.match(/\/\/ A shared link[\s\S]*?(?=SplashScreen\.preventAutoHideAsync)/)?.[0];
+assert.ok(initializer?.includes("initSentry()"), "The root telemetry initializer is covered");
+
+function startsTelemetry(platform: string, window: object) {
+  let started = false;
+  runInNewContext(initializer!, {
+    Platform: { OS: platform },
+    window,
+    initSentry: () => { started = true; },
+  });
+  return started;
+}
+assert.equal(startsTelemetry("ios", {}), true);
+assert.equal(startsTelemetry("android", {}), true);
+assert.equal(startsTelemetry("web", { location: { pathname: "/today" } }), true);
+assert.equal(startsTelemetry("web", { location: { pathname: "/vet-visit-share" } }), false);
+assert.equal(startsTelemetry("web", { location: { pathname: "/beta/vet-visit-share/" } }), false);
+console.log("PASS native startup without window.location and share-page telemetry protection");

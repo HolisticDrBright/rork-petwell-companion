@@ -3,6 +3,7 @@ import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect } from "react";
+import { Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import { BackendRequired } from "@/components/BackendRequired";
@@ -16,7 +17,8 @@ import { SubscriptionProvider } from "@/providers/SubscriptionProvider";
 
 // A shared link contains a bearer credential in its fragment. The viewer
 // deliberately starts without telemetry.
-if (typeof window === "undefined" || !window.location.pathname.endsWith("/vet-visit-share")) initSentry();
+const webPath = Platform.OS === "web" && typeof window !== "undefined" ? window.location?.pathname : undefined;
+if (!webPath || !/\/vet-visit-share\/?$/.test(webPath)) initSentry();
 
 SplashScreen.preventAutoHideAsync();
 
