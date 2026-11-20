@@ -163,9 +163,10 @@ This reverses the earlier recommendation of **Medical**. Three reasons:
 any app whose primary or secondary category is Health & Fitness or Medical — or that
 answers "frequent" to medical or treatment information in the age rating — to declare
 whether it is a regulated medical device before it can be distributed in the US, UK or
-EEA. Petwell is not one: it has no FDA clearance or registration and no UK
-self-certification. The answer is **No**, under App Information → App Store
-Regulations & Permits. It still has to be answered, by the Account Holder or an Admin.
+EEA. Apple counts an app as one if it has FDA clearance or registration, or UK
+self-certification. Nothing in this repository suggests Petwell has any of those, so
+the expected answer is **No** — confirm that before declaring. It is answered under
+App Information → App Store Regulations & Permits, by the Account Holder or an Admin.
 
 The category is the owner's decision. On Google Play choose the closest equivalent and
 keep the "informational guidance, not a diagnosis, not a medical device" framing
@@ -384,9 +385,9 @@ that it still exists before every resubmission.
 >
 > **Account deletion (5.1.1(v)):** Records tab → gear icon at the top right → Settings → scroll to the bottom → "Delete account & data" → "Delete everything". Deletion is immediate and permanent: the account, pets, logs, photos, documents and reports are removed and the same sign-in stops working. If you delete the review account and need another, reply to this submission and we will supply one.
 >
-> **Purchases:** New Petwell Pro purchases are paused. This build offers no in-app purchase and locks nothing behind payment; current features and data export are free. Settings → Petwell Pro shows only "Restore purchases" and "Manage subscription", for anyone who already holds a purchase. No in-app purchase products are submitted with this version.
+> **Purchases:** New Petwell Pro purchases are paused. This build offers no in-app purchase and locks nothing behind payment; current features and data export are free. Settings → Petwell Pro offers nothing to buy; it only lets someone who already holds a purchase restore or manage it. No in-app purchase products are submitted with this version.
 >
-> **AI (optional, off by default):** AI helpers are off until the user turns them on in Settings → AI; document processing is a separate toggle. The notice beside the toggle states that submitted text or files are sent to our AI provider (OpenAI) through our backend. With AI off, AI buttons show a "turn on AI in Settings" note and make no network call. AI never diagnoses or prescribes, and the emergency and poison routing is deterministic and shows regardless of model output. No model API key ships in the app.
+> **AI (optional, off by default):** AI helpers are off until the user turns them on in Settings → AI; document processing is a separate toggle. The notice beside the toggle states that submitted text or files are sent to our AI provider (OpenAI) through our backend. With AI off, AI buttons show "Turn on AI features in Settings → AI to use this." and make no network call. AI never diagnoses or prescribes, and the emergency and poison routing is deterministic and shows regardless of model output. No model API key ships in the app.
 >
 > **Permissions:** Camera — to photograph a pet-food label (Scan tab → Food Intelligence → Photo). Photos — to choose a pet photo, a label image or a record image. Notifications — local reminders the user creates (Settings → Reminders). There is no push-notification server.
 >

@@ -438,7 +438,7 @@ Kept apart from the copy edits, as the handoff asks. None of these can be answer
 | --- | --- | --- |
 | App Store description | 3,957 | 4,000 |
 | Google Play description | 3,303 | 4,000 |
-| Review notes | 2,924 | 4,000 |
+| Review notes | 2,940 | 4,000 |
 | Subtitle | 29 | 30 |
 | Promotional text | 161 | 170 |
 | Keywords | 98 | 100 |
