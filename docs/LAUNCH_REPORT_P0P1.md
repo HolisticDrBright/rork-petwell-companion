@@ -1,7 +1,7 @@
 # Petwell launch report — P0 and P1
 
 **Date:** 2026-11-20
-**Build reviewed:** `fix/commercial-readiness-blockers` at `b56cc91` (draft PR #1; its `verify` and `e2e` checks are green).
+**Build reviewed:** `fix/commercial-readiness-blockers` at `b56cc91` (draft PR #1; its `verify` and `e2e` checks were green at that commit). Codex added `4c046a2` while this report was being written. It changes two AI server files and nothing cited here, and it is merged into this branch.
 **Scope:** store metadata, public pages, high-risk content, and owner testing. App fixes, Supabase and the TestFlight build belong to Codex and were not touched.
 **Proposed diff:** [`fix/commercial-readiness-blockers...claude/trusting-euler-mza9p0`](https://github.com/HolisticDrBright/rork-petwell-companion/compare/fix/commercial-readiness-blockers...claude/trusting-euler-mza9p0). It is stacked on the fixed build because the copy describes that build. Merge PR #1 first.
 
