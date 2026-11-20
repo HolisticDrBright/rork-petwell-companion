@@ -46,5 +46,6 @@ node_modules
 
 # e2e: web export + Playwright output are build artifacts
 dist-web/
+dist-production/
 test-results/
 playwright-report/

@@ -1,3 +1,5 @@
+import * as Linking from "expo-linking";
+import { requestPasswordReset } from "@/lib/authRecovery";
 import { Stack, useRouter } from "expo-router";
 import { Check, LogOut, Mail, ShieldCheck } from "lucide-react-native";
 import React, { useCallback, useMemo, useState } from "react";
@@ -6,14 +8,15 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, 
 import { Card, PrimaryButton } from "@/components/ui";
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
 import { usePets } from "@/providers/PetProvider";
+import { exportJson } from "@/lib/report/export";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function AccountScreen() {
   const router = useRouter();
-  const { authEmail, isAuthenticated, canUseAuth, signUp, signIn, signOut } = usePets();
+  const { authEmail, isAuthenticated, canUseAuth, signUp, signIn, signOut, hasDeviceData, deviceData } = usePets();
 
-  const [mode, setMode] = useState<"signup" | "signin">("signup");
+  const [mode, setMode] = useState<"signup" | "signin" | "reset">("signin");
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
   const [busy, setBusy] = useState<boolean>(false);
@@ -21,7 +24,7 @@ export default function AccountScreen() {
   const [info, setInfo] = useState<string | null>(null);
 
   const emailValid = EMAIL_RE.test(email.trim());
-  const passwordValid = password.length >= 6;
+  const passwordValid = mode === "reset" || password.length >= (mode === "signup" ? 8 : 6);
   const canSubmit = emailValid && passwordValid && !busy;
 
   const submit = useCallback(async () => {
@@ -29,33 +32,37 @@ export default function AccountScreen() {
     setBusy(true);
     setError(null);
     setInfo(null);
-    const res = mode === "signup" ? await signUp(email, password) : await signIn(email, password);
-    setBusy(false);
-    if (!res.ok) {
-      setError(res.error ?? "Something went wrong.");
-      return;
-    }
-    if (res.needsConfirmation) {
-      setInfo("Account created — check your email to confirm, then sign in.");
-      setMode("signin");
+    try {
+      if (mode === "reset") {
+        await requestPasswordReset(email, Linking.createURL("reset-password"));
+        setInfo("If this email has an account, you will receive a reset link. Open it on this device.");
+        return;
+      }
+      const res = mode === "signup" ? await signUp(email, password, Linking.createURL("account")) : await signIn(email, password);
+      if (!res.ok) { setError(res.error ?? "Something went wrong."); return; }
+      if (res.needsConfirmation) {
+        setInfo("Check your email to confirm your account, then sign in.");
+        setMode("signin"); setPassword(""); return;
+      }
       setPassword("");
-      return;
-    }
-    router.back();
+      router.replace("/");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Account services are unavailable. Please try again.");
+    } finally { setBusy(false); }
   }, [canSubmit, mode, email, password, signUp, signIn, router]);
 
   const doSignOut = useCallback(async () => {
     setBusy(true);
-    await signOut();
-    setBusy(false);
-    router.back();
+    try { await signOut(); router.replace("/"); }
+    catch { setError("Could not sign out. Please try again."); }
+    finally { setBusy(false); }
   }, [signOut, router]);
 
   const headerNote = useMemo(
     () =>
       mode === "signup"
-        ? "Create an account to back up your pets and sync across devices. Your current data stays attached to you."
-        : "Welcome back — sign in to access your pets on this device.",
+        ? "Create an account to back up your pets and sync across devices. Existing device-only data stays on this device; it is not automatically uploaded."
+        : mode === "reset" ? "Enter your email to request a password reset." : "Welcome back — sign in to access your pets on this device.",
     [mode],
   );
 
@@ -67,6 +74,17 @@ export default function AccountScreen() {
       showsVerticalScrollIndicator={false}
     >
       <Stack.Screen options={{ title: "Account" }} />
+      {hasDeviceData ? <Card style={{ gap: 8, marginBottom: Space.md }}>
+        <Text style={Fonts.h3}>Device-only records found</Text>
+        <Text style={styles.body}>These records are still on this device and have not been uploaded to your account. Export a copy before clearing device data.</Text>
+        <PrimaryButton label="Export device records" variant="outline" onPress={async () => {
+          try {
+            const method = await exportJson({ app: "Petwell", exportedAt: new Date().toISOString(), data: deviceData }, "petwell-device-records.json");
+            if (method === "none") throw new Error("Export failed.");
+          }
+          catch { setError("Could not export device records. Please try again."); }
+        }} />
+      </Card> : null}
 
       {!canUseAuth ? (
         <Card style={{ gap: 8 }}>
@@ -89,9 +107,10 @@ export default function AccountScreen() {
               </View>
             </View>
             <Text style={styles.body}>
-              Your pets, logs, scans, and reports are backed up to your account and protected by row-level security.
+              Saved account records are private to your account and available when you sign in on another device.
             </Text>
           </Card>
+          {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
           <Pressable
             onPress={doSignOut}
             disabled={busy}
@@ -103,7 +122,7 @@ export default function AccountScreen() {
             <Text style={styles.signOutText}>Sign out</Text>
           </Pressable>
           <Text style={styles.note}>
-            Signing out keeps your account data safe in the cloud and starts a fresh local session on this device.
+            Signing out keeps your account data safe in the cloud and returns this device to the sign-in screen.
           </Text>
         </>
       ) : (
@@ -145,12 +164,12 @@ export default function AccountScreen() {
                 style={styles.input}
               />
             </View>
-            <View>
+            {mode !== "reset" ? <View>
               <Text style={styles.label}>Password</Text>
               <TextInput
                 value={password}
                 onChangeText={setPassword}
-                placeholder="At least 6 characters"
+                placeholder={mode === "signup" ? "At least 8 characters" : "Password"}
                 placeholderTextColor={Colors.inkFaint}
                 secureTextEntry
                 autoCapitalize="none"
@@ -159,19 +178,20 @@ export default function AccountScreen() {
                 onSubmitEditing={submit}
                 returnKeyType="go"
               />
-            </View>
+            </View> : null}
 
             {error ? <Text style={styles.error}>{error}</Text> : null}
             {info ? <Text style={styles.info}>{info}</Text> : null}
 
             <PrimaryButton
-              label={busy ? "Please wait…" : mode === "signup" ? "Create account" : "Sign in"}
+              label={busy ? "Please wait…" : mode === "signup" ? "Create account" : mode === "reset" ? "Send reset link" : "Sign in"}
               icon={busy ? undefined : mode === "signup" ? <Mail size={18} color="#fff" /> : <Check size={18} color="#fff" />}
               variant="primary"
               onPress={submit}
               disabled={!canSubmit}
               style={!canSubmit ? { opacity: 0.6 } : undefined}
             />
+            {mode !== "reset" ? <Pressable accessibilityRole="button" onPress={() => { setMode("reset"); setPassword(""); setError(null); setInfo(null); }}><Text style={styles.info}>Forgot password?</Text></Pressable> : null}
             {busy ? <ActivityIndicator color={Colors.teal700} /> : null}
           </Card>
 

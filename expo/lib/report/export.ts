@@ -1,10 +1,13 @@
 import { Platform, Share } from "react-native";
+import { File, Paths } from "expo-file-system";
+import { printToFileAsync } from "expo-print";
+import { isAvailableAsync, shareAsync } from "expo-sharing";
 
 /**
- * Cross-platform export/share with NO extra native deps.
+ * Cross-platform export/share.
  *  - web: open the HTML and trigger the browser's print → "Save as PDF"; data
  *    exports download as a file via Blob.
- *  - native: share the text rendition via the OS share sheet.
+ *  - native: create and share a PDF or the complete JSON export as a file.
  * Export is always free — there is no premium gate anywhere in here.
  */
 
@@ -40,13 +43,16 @@ const isWeb = Platform.OS === "web";
 
 export type ExportMethod = "print" | "download" | "share" | "web-share" | "mailto" | "cancel" | "none";
 
-function textFromHtml(html: string): string {
-  return html
-    .replace(/<style[\s\S]*?<\/style>/g, "")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 4000);
+async function shareExportFile(file: File, mimeType: string, type: string): Promise<ExportMethod> {
+  try {
+    if (!(await isAvailableAsync())) return "none";
+    await shareAsync(file.uri, { mimeType, UTI: type });
+    return "share";
+  } catch {
+    return "none";
+  } finally {
+    try { if (file.exists) file.delete(); } catch { /* Cache cleanup can be retried by the OS. */ }
+  }
 }
 
 function downloadBlob(content: string, filename: string, type: string): boolean {
@@ -88,8 +94,8 @@ export async function exportReportPdf(html: string, filename: string): Promise<E
     return downloadBlob(html, `${filename}.html`, "text/html") ? "download" : "none";
   }
   try {
-    await Share.share({ title: filename, message: textFromHtml(html) });
-    return "share";
+    const { uri } = await printToFileAsync({ html });
+    return await shareExportFile(new File(uri), "application/pdf", "com.adobe.pdf");
   } catch {
     return "none";
   }
@@ -113,8 +119,8 @@ export async function shareReport(text: string, subject: string): Promise<Export
     return "none";
   }
   try {
-    await Share.share({ title: subject, message: text });
-    return "share";
+    const result = await Share.share({ title: subject, message: text });
+    return result.action === Share.dismissedAction ? "cancel" : "share";
   } catch {
     return "none";
   }
@@ -125,8 +131,11 @@ export async function exportJson(obj: unknown, filename: string): Promise<Export
   const json = JSON.stringify(obj, null, 2);
   if (isWeb) return downloadBlob(json, filename, "application/json") ? "download" : "none";
   try {
-    await Share.share({ title: filename, message: json.slice(0, 4000) });
-    return "share";
+    const safeFilename = filename.replace(/[^a-z0-9._-]/gi, "-");
+    const file = new File(Paths.cache, `${Date.now()}-${safeFilename}`);
+    file.create();
+    file.write(json);
+    return await shareExportFile(file, "application/json", "public.json");
   } catch {
     return "none";
   }

@@ -111,7 +111,7 @@ ck("5 mock pets are only reachable through ensureDemoData()", /async ensureDemoD
 ck("5 demo seeding is a no-op once the account has real pets", /count \?\? 0\) > 0\) return/.test(petsServiceSrc));
 const providerSrc = rd("providers/PetProvider.tsx");
 ck("5 automatic demo seeding is gated on the data mode", /remote" && shouldShowDemoData/.test(providerSrc));
-ck("5 the frozen demo date never becomes 'today' in production", /shouldShowDemoData \? TODAY_ISO : new Date\(\)/.test(providerSrc));
+ck("5 the frozen demo date never becomes 'today' in production", /shouldShowDemoData && selectedPet.*\? TODAY_ISO : new Date\(\)/.test(providerSrc));
 ck("5 sample vet records are gated on every screen that reads them", ["app/(tabs)/records.tsx", "app/log.tsx", "app/vet-report.tsx"].every((f) => /shouldShowDemoData/.test(rd(f))));
 ck("5 the unbuilt devices screen is hidden in production, deep link included", /!shouldShowDemoData/.test(rd("app/devices.tsx")) && /shouldShowDemoData \?/.test(rd("app/settings.tsx")));
 ck("5 the demo-profile affordance is an explicit, off-by-default opt-in", /demoModeEnabled = dataMode\.shouldShowDemoData \|\| boolEnv/.test(rd("lib/config.ts")));

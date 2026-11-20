@@ -3729,6 +3729,9 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_pet_with_conditions: { Args: { input: Json }; Returns: Json }
+      add_timeline_event: { Args: { pet_id: string; entry: Json }; Returns: Database["public"]["Tables"]["timeline_events"]["Row"] }
+
       claim_invite: {
         Args: { p_code: string }
         Returns: Json

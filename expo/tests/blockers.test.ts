@@ -1,0 +1,23 @@
+import assert from "node:assert/strict";
+import { computeHealthScore } from "../lib/health/score";
+import { trendsFromLogs } from "../lib/health/trends";
+import { PETS } from "../constants/mockData";
+import type { TimelineEntry } from "../types/pet";
+
+const pet = { ...PETS[0], conditions: [], allergies: [], ageYears: 2 };
+const today = "2026-11-19";
+const entry = (category: TimelineEntry["category"], value: number, date = today): TimelineEntry => ({ id: `${category}-${date}`, petId: pet.id, category, title: `${category} log`, value, date, time: "12:00" });
+const empty = computeHealthScore(pet, [], { weight: [40,40], activity: [8,8] }, today);
+assert.equal(empty.overall, null, "Synthetic trends must not create a score");
+assert.equal(empty.loggedSignals, 0);
+assert.ok(empty.systems.every(s => !s.hasData), "Profile age must not appear as logged evidence");
+assert.equal(computeHealthScore(pet, [entry("activity", 8)], undefined, today).overall, null);
+const real = [entry("activity", 8), entry("stool", 3)];
+assert.equal(computeHealthScore(pet, real, undefined, today).loggedSignals, 2);
+assert.notEqual(computeHealthScore(pet, real, undefined, today).overall, null);
+assert.equal(computeHealthScore(pet, real.map(e => ({ ...e, date: "2020-01-01" })), undefined, today).overall, null);
+assert.equal(computeHealthScore(pet, real.map(e => ({ ...e, date: "2099-01-01" })), undefined, today).overall, null);
+assert.equal(computeHealthScore(pet, [], undefined).generatedAt, new Date().toISOString().slice(0,10));
+assert.deepEqual(trendsFromLogs([]), { appetite: [], stool: [], itching: [], activity: [], weight: [] });
+assert.deepEqual(trendsFromLogs([entry("weight", 42), entry("weight", 40, "2026-11-18")]).weight, [40,42]);
+console.log("PASS health evidence: empty, synthetic, sparse, recent, stale, future, and chronological trends");

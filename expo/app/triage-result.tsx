@@ -1,3 +1,5 @@
+import { useSaveAction } from "@/hooks/useSaveAction";
+import { SaveStatus } from "@/components/SaveStatus";
 import { Stack, useRouter } from "expo-router";
 import {
   Bell,
@@ -40,6 +42,7 @@ function nowLabel(): string {
 }
 
 export default function TriageResultScreen() {
+  const { saving, saveError, runSave } = useSaveAction();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { selectedPet, addLog, todayIso, mode } = usePets();
@@ -83,9 +86,9 @@ export default function TriageResultScreen() {
     integrativeService.savePlan(selectedPet.id, { plan }).catch((e) => console.warn("[petwell] plan save failed:", e));
   }, [plan, mode, selectedPet]);
 
-  const addToTimeline = useCallback(() => {
+  const addToTimeline = useCallback(() => runSave(async () => {
     if (!outcome || !selectedPet) return;
-    addLog(selectedPet.id, {
+    await addLog(selectedPet.id, {
       id: `triage-${Date.now()}`,
       petId: selectedPet.id,
       date: todayIso,
@@ -96,7 +99,7 @@ export default function TriageResultScreen() {
       urgency: outcome.urgency,
     });
     setAddedTimeline(true);
-  }, [outcome, addLog, selectedPet, todayIso, concernLabel]);
+  }), [runSave, outcome, addLog, selectedPet, todayIso, concernLabel]);
 
   if (!selectedPet) return <NoPetSelected />;
   if (!outcome) return null;
@@ -262,7 +265,8 @@ export default function TriageResultScreen() {
 
         {/* Save actions */}
         <View style={styles.actions}>
-          <PrimaryButton
+          <SaveStatus saving={saving} saveError={saveError} />
+        <PrimaryButton
             label={addedTimeline ? "Added to timeline" : "Add to timeline"}
             icon={
               addedTimeline ? (

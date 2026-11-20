@@ -54,6 +54,7 @@ function RootLayoutNav() {
       <Stack.Screen name="premium" options={{ headerShown: false, presentation: "modal" }} />
       <Stack.Screen name="settings" options={{ title: "Settings & privacy", presentation: "card" }} />
       <Stack.Screen name="account" options={{ title: "Account", presentation: "card" }} />
+      <Stack.Screen name="reset-password" options={{ title: "Reset password", presentation: "card" }} />
       <Stack.Screen name="privacy-policy" options={{ title: "Privacy Policy", presentation: "card" }} />
       <Stack.Screen name="terms" options={{ title: "Terms of Use", presentation: "card" }} />
       <Stack.Screen name="devices" options={{ title: "Connected devices", presentation: "card" }} />

@@ -1,4 +1,4 @@
-import { getUserId } from "@/lib/backend";
+import { getUserId, requireUserId } from "@/lib/backend";
 import { supabase } from "@/lib/supabase";
 
 import { OWNED_TABLES } from "./ownedTables";
@@ -26,6 +26,30 @@ export const DEFAULT_PRIVACY: PrivacyPrefs = {
   share_research: false,
 };
 
+async function listPhotoPaths(
+  bucket: "scan-images" | "documents",
+  directory: string,
+  prefix?: string,
+): Promise<string[]> {
+  const paths: string[] = [];
+  const size = 100;
+  for (let offset = 0; ; offset += size) {
+    const { data, error } = await supabase.storage.from(bucket).list(directory, {
+      limit: size,
+      offset,
+      sortBy: { column: "name", order: "asc" },
+    });
+    if (error) throw error;
+    for (const entry of data) {
+      if (entry.name.includes("/") || entry.name === "." || entry.name === "..") continue;
+      const path = `${directory}/${entry.name}`;
+      if (!entry.id && !prefix) paths.push(...await listPhotoPaths(bucket, path));
+      else if (entry.id && (!prefix || entry.name.startsWith(prefix))) paths.push(path);
+    }
+    if (data.length < size) return paths;
+  }
+}
+
 export const privacyService = {
   async getPrefs(): Promise<PrivacyPrefs> {
     const uid = getUserId();
@@ -40,10 +64,9 @@ export const privacyService = {
   },
 
   async setPref(key: PrivacyKey, value: boolean): Promise<void> {
-    const uid = getUserId();
-    if (!uid) return;
+    const uid = requireUserId();
     const patch: Partial<Record<PrivacyKey, boolean>> = { [key]: value };
-    const { error } = await supabase.from("profiles").update(patch).eq("id", uid);
+    const { error } = await supabase.from("profiles").update(patch).eq("id", uid).select("id").single();
     if (error) throw error;
   },
 
@@ -57,68 +80,51 @@ export const privacyService = {
     };
     if (!uid) return out;
     for (const table of OWNED_TABLES) {
-      const { data } = await supabase.from(table).select("*");
-      out[table] = data ?? [];
+      const entries: unknown[] = [];
+      const size = 500;
+      for (let offset = 0; ; offset += size) {
+        const { data, error } = await supabase.from(table).select("*").order("id").range(offset, offset + size - 1);
+        if (error) throw error;
+        entries.push(...data);
+        if (data.length < size) break;
+      }
+      out[table] = entries;
     }
     return out;
   },
 
   /** Delete all stored scan images (storage objects + rows). Returns count removed. */
   async deleteScanImages(): Promise<number> {
-    const uid = getUserId();
-    if (!uid) return 0;
-    const { data: scans } = await supabase.from("scan_records").select("id").eq("owner_id", uid);
-    const scanIds = (scans ?? []).map((s) => s.id);
-    if (scanIds.length === 0) return 0;
-    const { data: imgs } = await supabase.from("scan_images").select("id, storage_path").in("scan_id", scanIds);
-    const rows = imgs ?? [];
-    const paths = rows.map((i) => i.storage_path).filter(Boolean) as string[];
-    if (paths.length) await supabase.storage.from("scan-images").remove(paths);
-    if (rows.length) await supabase.from("scan_images").delete().in("id", rows.map((i) => i.id));
-    return paths.length;
-  },
-
-  /**
-   * Delete the user's pet + activity data and their profile row, then sign out.
-   * Pet-scoped rows cascade from pet_profiles; owner-scoped rows cascade from
-   * profiles. (The auth user record itself is removed server-side on request.)
-   */
-  async deleteAccountData(): Promise<void> {
-    const uid = getUserId();
-    if (!uid) return;
-
-    // Remove the user's storage objects FIRST — they aren't covered by row
-    // cascades, so deleting rows first would orphan the files. Best-effort.
-    try {
-      const { data: scans } = await supabase.from("scan_records").select("id").eq("owner_id", uid);
-      const scanIds = (scans ?? []).map((s) => s.id);
-      if (scanIds.length) {
-        const { data: imgs } = await supabase.from("scan_images").select("storage_path").in("scan_id", scanIds);
-        const paths = (imgs ?? []).map((i) => i.storage_path).filter(Boolean) as string[];
-        if (paths.length) await supabase.storage.from("scan-images").remove(paths);
+    const uid = requireUserId();
+    const buckets = ["scan-images", "documents"] as const;
+    const [scans, documents] = await Promise.all([
+      listPhotoPaths("scan-images", uid),
+      listPhotoPaths("documents", uid, "ai-scan-"),
+    ]);
+    const pathsByBucket = { "scan-images": scans, documents };
+    for (const bucket of buckets) {
+      const paths = pathsByBucket[bucket];
+      for (let offset = 0; offset < paths.length; offset += 100) {
+        const { error } = await supabase.storage.from(bucket).remove(paths.slice(offset, offset + 100));
+        if (error) throw error;
       }
-      const { data: docs } = await supabase.from("document_uploads").select("storage_path").eq("owner_id", uid);
-      const docPaths = (docs ?? []).map((d) => d.storage_path).filter(Boolean) as string[];
-      if (docPaths.length) await supabase.storage.from("documents").remove(docPaths);
-    } catch (e) {
-      console.warn("[petwell] storage cleanup during account delete skipped:", e);
     }
 
-    await supabase.from("pet_profiles").delete().eq("owner_id", uid);
-    await supabase.from("vet_reports").delete().eq("owner_id", uid);
-    await supabase.from("food_scans").delete().eq("owner_id", uid);
+    const [oldScanLinks, timelineLinks, foodLinks] = await Promise.all([
+      supabase.from("scan_images").delete().like("storage_path", `${uid}/%`),
+      supabase.from("timeline_events").update({ image_path: null }).eq("owner_id", uid).like("image_path", `${uid}/ai-scan-%`),
+      supabase.from("food_scans").update({ image_path: null }).eq("owner_id", uid).like("image_path", `${uid}/ai-scan-%`),
+    ]);
+    const error = oldScanLinks.error ?? timelineLinks.error ?? foodLinks.error;
+    if (error) throw error;
+    return scans.length + documents.length;
+  },
 
-    // Integrative / longevity rows (owner-scoped). system_scores cascades from
-    // health_scores and program_logs cascades from progress_programs.
-    await supabase.from("protocol_recommendations").delete().eq("owner_id", uid);
-    await supabase.from("health_scores").delete().eq("owner_id", uid);
-    await supabase.from("detected_patterns").delete().eq("owner_id", uid);
-    await supabase.from("treat_audits").delete().eq("owner_id", uid);
-    await supabase.from("environment_checklists").delete().eq("owner_id", uid);
-    await supabase.from("progress_programs").delete().eq("owner_id", uid);
-    await supabase.from("product_recommendations").delete().eq("owner_id", uid);
-
-    await supabase.from("profiles").delete().eq("id", uid);
-    await supabase.auth.signOut();
+  /** The authenticated server function removes files and the actual auth user. */
+  async deleteAccountData(): Promise<void> {
+    if (!getUserId()) throw new Error("Sign in to delete your account.");
+    const { data, error } = await supabase.functions.invoke("delete-account", { body: { confirmation: "DELETE" } });
+    if (error) throw error;
+    if (data?.deleted !== true) throw new Error("The server did not confirm account deletion. Please retry.");
   },
 };

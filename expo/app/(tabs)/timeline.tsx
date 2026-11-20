@@ -117,7 +117,7 @@ const EntryRow = memo(function EntryRow({ entry, isLast }: { entry: TimelineEntr
 export default function TimelineScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { selectedPet, timeline, insightCards, trends, timelineFailed, retryTimeline } = usePets();
+  const { selectedPet, timeline, insightCards, trends, timelineFailed, retryTimeline, todayIso } = usePets();
   const [filter, setFilter] = useState<LogCategory | "all">("all");
 
   const patterns = useMemo(
@@ -183,7 +183,7 @@ export default function TimelineScreen() {
     );
   }
 
-  const healthScore = computeHealthScore(selectedPet, timeline, trends);
+  const healthScore = computeHealthScore(selectedPet, timeline, trends, todayIso);
 
   return (
     <ScrollView

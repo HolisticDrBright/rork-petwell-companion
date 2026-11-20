@@ -8,8 +8,6 @@
  * stricter allowDocumentProcessing opt-in. When anything is off we return a
  * friendly disabled envelope instead of calling out.
  */
-import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
-
 import { getMode, requireUserId } from "@/lib/backend";
 import { getAiPreferences } from "@/lib/ai/config";
 import { assessInput } from "@/lib/ai/safety";
@@ -25,6 +23,8 @@ import type {
   VetReportRewrite,
 } from "@/lib/ai/types";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
+import { photoJpeg } from "@/lib/photoUpload";
+import { privacyService } from "./privacyService";
 
 function disabled<T>(reason: string): AiEnvelope<T> {
   return { ok: false, disabled: true, disabledReason: reason };
@@ -68,27 +68,16 @@ export const aiService = {
   /** Upload a transient scan image to the private documents bucket; returns its path.
    *  Always re-encodes to JPEG first: iPhones may hand us HEIC (which vision
    *  providers reject), and re-encoding also strips EXIF/GPS metadata before the
-   *  photo leaves the device. Falls back to the original bytes if encoding fails. */
+   *  photo leaves the device. */
   async uploadScanImage(localUri: string): Promise<string | null> {
     if (!isSupabaseConfigured || getMode() !== "remote") return null;
     try {
       const ownerId = requireUserId();
-      let uri = localUri;
-      let ext = (localUri.split(".").pop()?.split("?")[0] || "jpg").toLowerCase();
-      try {
-        const ctx = ImageManipulator.manipulate(localUri);
-        const rendered = await ctx.renderAsync();
-        const jpeg = await rendered.saveAsync({ format: SaveFormat.JPEG, compress: 0.8 });
-        uri = jpeg.uri;
-        ext = "jpg";
-      } catch {
-        // keep original; guessMime server-side will still refuse unsupported kinds
-      }
-      const res = await fetch(uri);
-      const bytes = await res.arrayBuffer();
-      const mime = ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
-      const path = `${ownerId}/ai-scan-${Date.now()}.${ext}`;
-      const { error } = await supabase.storage.from("documents").upload(path, bytes, { contentType: mime, upsert: true });
+      if (!(await privacyService.getPrefs()).store_photos) return null;
+      const bytes = await photoJpeg(localUri);
+      if (requireUserId() !== ownerId) return null;
+      const path = `${ownerId}/ai-scan-${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
+      const { error } = await supabase.storage.from("documents").upload(path, bytes, { contentType: "image/jpeg" });
       return error ? null : path;
     } catch {
       return null;

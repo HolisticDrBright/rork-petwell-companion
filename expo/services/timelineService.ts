@@ -31,9 +31,6 @@ function mapEvent(row: EventRow): TimelineEntry {
   };
 }
 
-// Categories that carry a chartable numeric value also get a health_logs row.
-const METRIC_CATEGORIES = new Set<LogCategory>(["stool", "skin", "weight", "activity"]);
-
 export interface NewTimelineEntry {
   category: LogCategory;
   title: string;
@@ -45,6 +42,7 @@ export interface NewTimelineEntry {
   source?: string;
   refId?: string;
   imagePath?: string;
+  food?: { label: string; productId?: string; foodScanId?: string };
 }
 
 export const timelineService = {
@@ -63,37 +61,10 @@ export const timelineService = {
   },
 
   async addEvent(petId: string, entry: NewTimelineEntry): Promise<TimelineEntry> {
-    const owner_id = requireUserId();
-    const { data, error } = await supabase
-      .from("timeline_events")
-      .insert({
-        pet_id: petId,
-        owner_id,
-        category: entry.category,
-        title: entry.title,
-        detail: entry.detail ?? null,
-        value: entry.value ?? null,
-        urgency: entry.urgency ?? null,
-        event_date: entry.date,
-        event_time: entry.time,
-        source: entry.source ?? "manual",
-        ref_id: entry.refId ?? null,
-        image_path: entry.imagePath ?? null,
-      })
-      .select("*")
-      .single();
+    requireUserId();
+    const { data, error } = await supabase.rpc("add_timeline_event", { pet_id: petId, entry: { ...entry } });
     if (error) throw error;
-
-    // Mirror chartable metrics into health_logs.
-    if (entry.value != null && METRIC_CATEGORIES.has(entry.category)) {
-      await supabase.from("health_logs").insert({
-        pet_id: petId,
-        owner_id,
-        category: entry.category,
-        value: entry.value,
-        note: entry.detail ?? null,
-      });
-    }
+    if (!data) throw new Error("The server did not confirm this save. Please try again.");
     return mapEvent(data as EventRow);
   },
 };

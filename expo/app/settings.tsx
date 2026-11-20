@@ -1,4 +1,5 @@
 import { Stack, useRouter } from "expo-router";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Bell,
   Bluetooth,
@@ -27,7 +28,7 @@ import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Switch, 
 
 import { Card } from "@/components/ui";
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
-import { isCurrentUserAdmin } from "@/lib/backend";
+import { clearDeletedSession, isCurrentUserAdmin } from "@/lib/backend";
 import { config } from "@/lib/config";
 import { shouldShowDemoData } from "@/lib/dataMode";
 import { AI_DATA_NOTICE, DEFAULT_AI_PREFS, getAiPreferences, setAiPreferences, type AiPreferences } from "@/lib/ai/config";
@@ -44,19 +45,18 @@ interface Toggle {
 }
 
 const PERMISSIONS: Toggle[] = [
-  { key: "store_photos", label: "Store scan photos in the cloud", detail: "Turn off to keep photos on this device only." },
-  { key: "personalized_insights", label: "Use my logs for personalized insights", detail: "Powers trends and correlations for your pets." },
-  { key: "training_opt_out", label: "Opt out of photo & model training", detail: "We never use your pet's photos or data to train models." },
-  { key: "share_research", label: "Share anonymized data for research", detail: "Off by default. Helps improve pet-health insights." },
+  { key: "store_photos", label: "Store scan photos in the cloud", detail: "Turn off to save scan notes without uploading photos. Photo analysis requires this setting." },
 ];
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const { selectedPet, timeline, mode, authEmail, isAuthenticated, canUseAuth, loadDemoProfile } = usePets();
+  const queryClient = useQueryClient();
+  const { deviceData, mode, authEmail, isAuthenticated, canUseAuth, loadDemoProfile, clearDeviceData } = usePets();
   const { isPro, isSupported, manageSubscription, restore } = useSubscription();
 
   const [prefs, setPrefs] = useState<PrivacyPrefs>(DEFAULT_PRIVACY);
   const [status, setStatus] = useState<string | null>(null);
+  const [accountDeleted, setAccountDeleted] = useState(false);
   const [busy, setBusy] = useState<boolean>(false);
   const [confirm, setConfirm] = useState<"images" | "account" | "aiHistory" | null>(null);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
@@ -137,14 +137,20 @@ export default function SettingsScreen() {
   }, []);
 
   const togglePref = useCallback(
-    (key: PrivacyKey) => {
-      setPrefs((prev) => {
-        const next = { ...prev, [key]: !prev[key] };
-        privacyService.setPref(key, next[key]).catch((e) => console.warn("[petwell] pref save failed:", e));
-        return next;
-      });
+    async (key: PrivacyKey, value: boolean) => {
+      if (busy || mode !== "remote") return;
+      setBusy(true);
+      setStatus(null);
+      try {
+        await privacyService.setPref(key, value);
+        setPrefs((prev) => ({ ...prev, [key]: value }));
+      } catch {
+        setStatus("Couldn’t save this privacy setting. Please try again.");
+      } finally {
+        setBusy(false);
+      }
     },
-    []
+    [busy, mode]
   );
 
   const onExportAll = useCallback(async () => {
@@ -154,40 +160,47 @@ export default function SettingsScreen() {
       const payload =
         mode === "remote"
           ? await privacyService.exportAll()
-          : { app: "Petwell", exportedAt: new Date().toISOString(), mode: "local", pet: selectedPet, timeline };
+          : { app: "Petwell", exportedAt: new Date().toISOString(), data: deviceData };
       const method = await exportJson(payload, "petwell-data-export.json");
-      setStatus(method === "download" ? "Your data was downloaded as JSON." : "Your data export was shared.");
+      if (method === "none") throw new Error("Export failed.");
+      setStatus(method === "download" ? "Your data was downloaded as JSON." : "Choose where to save the JSON export in the share sheet.");
     } catch {
       setStatus("Couldn't export right now — please try again.");
     } finally {
       setBusy(false);
     }
-  }, [mode, selectedPet, timeline]);
+  }, [mode, deviceData]);
 
   const onDeleteImages = useCallback(async () => {
     setConfirm(null);
     setBusy(true);
     try {
       const n = await privacyService.deleteScanImages();
+      void queryClient.invalidateQueries({ queryKey: ["timeline"] });
       setStatus(n > 0 ? `Deleted ${n} stored scan image${n === 1 ? "" : "s"}.` : "No stored scan images to delete.");
     } catch {
       setStatus("Couldn't delete images — please try again.");
     } finally {
       setBusy(false);
     }
-  }, []);
+  }, [queryClient]);
 
   const onDeleteAccount = useCallback(async () => {
     setConfirm(null);
     setBusy(true);
     try {
-      await privacyService.deleteAccountData();
+      if (mode === "remote" && !accountDeleted) {
+        await privacyService.deleteAccountData();
+        setAccountDeleted(true);
+      }
+      await clearDeletedSession();
+      await clearDeviceData();
       router.replace("/onboarding");
     } catch {
-      setStatus("Couldn't delete account data — please try again.");
+      setStatus("Deletion did not finish. Please retry to complete account and device cleanup.");
       setBusy(false);
     }
-  }, [router]);
+  }, [router, mode, accountDeleted, clearDeviceData]);
 
   return (
     <ScrollView
@@ -205,7 +218,7 @@ export default function SettingsScreen() {
         <View style={{ flex: 1 }}>
           <Text style={styles.premiumTitle}>{isPro ? "Petwell Pro active" : "Petwell Pro"}</Text>
           <Text style={styles.premiumSub}>
-            {isPro ? "Thanks for supporting Petwell" : "Unlimited scans, correlations & more"}
+            {isPro ? "Thanks for supporting Petwell" : "New Pro subscriptions are paused"}
           </Text>
         </View>
         <ChevronRight size={20} color="rgba(255,255,255,0.8)" />
@@ -277,7 +290,8 @@ export default function SettingsScreen() {
                 </View>
                 <Switch
                   value={prefs[t.key]}
-                  onValueChange={() => togglePref(t.key)}
+                  onValueChange={(value) => togglePref(t.key, value)}
+                  disabled={busy || mode !== "remote"}
                   trackColor={{ true: Colors.teal600, false: Colors.cream2 }}
                   thumbColor="#fff"
                 />
@@ -419,13 +433,13 @@ export default function SettingsScreen() {
       {confirm === "account" ? (
         <View style={styles.deleteConfirm}>
           <Text style={styles.deleteConfirmText}>
-            This permanently deletes your pets, logs, scans, and reports. This can&apos;t be undone.
+            {mode === 'remote' ? 'This permanently deletes your account, pets, logs, scans, reports, and stored files.' : 'This permanently deletes Petwell data on this device.'} This cannot be undone. Store subscriptions must be canceled separately in Manage subscription.
           </Text>
           <View style={styles.confirmBtns}>
             <Pressable style={[styles.confirmBtn, styles.confirmCancel]} onPress={() => setConfirm(null)}>
               <Text style={styles.confirmCancelText}>Cancel</Text>
             </Pressable>
-            <Pressable style={[styles.confirmBtn, styles.confirmDelete]} onPress={onDeleteAccount}>
+            <Pressable style={[styles.confirmBtn, styles.confirmDelete]} onPress={onDeleteAccount} disabled={busy}>
               <Text style={styles.confirmDeleteText}>Delete everything</Text>
             </Pressable>
           </View>
@@ -433,7 +447,7 @@ export default function SettingsScreen() {
       ) : (
         <Pressable style={styles.deleteRow} onPress={() => setConfirm("account")}>
           <Trash2 size={18} color={Colors.red600} />
-          <Text style={styles.deleteText}>Delete account & data</Text>
+          <Text style={styles.deleteText}>{mode === "remote" ? "Delete account & data" : "Delete device data"}</Text>
         </Pressable>
       )}
 

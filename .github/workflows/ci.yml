@@ -60,6 +60,9 @@ jobs:
       - name: Shared care (Care Circle) tests
         run: bun tests/sharedCare.test.ts
 
+      - name: Commercial blocker regressions
+        run: bun tests/blockers.test.ts && bun tests/authAndSaves.test.ts && bun ../supabase/tests/delete-account.test.ts
+
       - name: Graded product catalogue + product safety rules
         run: bun tests/products.test.ts
 
@@ -89,6 +92,12 @@ jobs:
 
       - name: Smoke test
         run: bunx playwright test
+
+      - name: Build production authentication test app
+        run: bun run e2e:build:production
+
+      - name: Production sign-in, recovery, and save retries
+        run: bunx playwright test --config playwright.production.config.ts
 
       - name: Upload failure traces
         if: failure()

@@ -36,3 +36,6 @@ if (!isPurchasesConfigured && Platform.OS !== "web") {
       "EXPO_PUBLIC_REVENUECAT_ANDROID_KEY in .env to enable subscriptions. Pro stays locked.",
   );
 }
+
+/** Enable only after paid benefits and their enforcement are verified. */
+export const PRO_SALES_ENABLED = false;

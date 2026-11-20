@@ -137,6 +137,7 @@ export const MiniTrend = memo(function MiniTrend({
   const last = values[values.length - 1];
   const prev = values[values.length - 2] ?? last;
   const up = last >= prev;
+  if (!values.length) return <View style={styles.miniCard}><Text style={styles.miniLabel}>{label}</Text><Text style={Fonts.small}>No observations yet</Text></View>;
   return (
     <View style={styles.miniCard}>
       <Text style={styles.miniLabel}>{label}</Text>
@@ -144,7 +145,7 @@ export const MiniTrend = memo(function MiniTrend({
       <Text style={[styles.miniValue, { color }]}>
         {Number.isInteger(last) ? last : last.toFixed(1)}
         {unit ? <Text style={styles.miniUnit}>{unit}</Text> : null}
-        <Text style={styles.miniArrow}>{up ? " ↑" : " ↓"}</Text>
+        <Text style={styles.miniArrow}>{values.length < 2 || last === prev ? "" : up ? " ↑" : " ↓"}</Text>
       </Text>
     </View>
   );

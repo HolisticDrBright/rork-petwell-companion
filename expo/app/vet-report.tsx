@@ -1,4 +1,3 @@
-import { Image } from "expo-image";
 import { Stack } from "expo-router";
 import { Check, Download, FileText, HelpCircle, Minus, Share2, X } from "lucide-react-native";
 import React, { memo, useCallback, useEffect, useMemo, useState } from "react";
@@ -6,6 +5,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-nat
 
 import { EmergencyContacts } from "@/components/EmergencyContacts";
 import { NoPetSelected } from "@/components/NoPetSelected";
+import { PetPhoto } from "@/components/PetPhoto";
 import { AiDisclaimer, AiDisabledNote, AiSparkleButton } from "@/components/ai/AiBits";
 import { Card, Disclaimer, PrimaryButton } from "@/components/ui";
 import type { VetReportRewrite } from "@/lib/ai/types";
@@ -134,10 +134,10 @@ export default function VetReportScreen() {
           triage: g?.triage ?? storeTriage,
           scans: (g?.scans ?? []).map((s) => ({
             type: s.scan_type,
-            score: s.score,
-            urgency: s.urgency,
+            score: null,
+            urgency: null,
             date: s.created_at,
-            note: s.correlation ?? s.notes,
+            note: s.notes,
           })),
           medications: (g?.medications ?? []).map((m) => ({ name: m.name, purpose: m.purpose, status: m.status })),
         };
@@ -162,48 +162,49 @@ export default function VetReportScreen() {
     };
   }, [selectedPet, timeline, mode, storeTriage]);
 
-  const saveSnapshot = useCallback(() => {
-    if (!data || !selectedPet) return;
-    setSaved(true);
-    if (mode === "remote") {
-      reportService
-        .createReport(selectedPet.id, {
+  const saveSnapshot = useCallback(async (): Promise<boolean> => {
+    if (!data || !selectedPet || mode !== "remote") return true;
+    try {
+      await reportService.createReport(selectedPet.id, {
           title: "Vet-ready summary",
           concernSummary: data.concernSummary ?? undefined,
           payload: data as unknown as Record<string, unknown>,
-        })
-        .catch((e) => console.warn("[petwell] report save failed:", e));
+      });
+      setSaved(true);
+      return true;
+    } catch {
+      return false;
     }
   }, [data, mode, selectedPet]);
 
   const onExportPdf = useCallback(async () => {
     if (!data) return;
     const method = await exportReportPdf(buildReportHtml(data), `petwell-${data.pet.name}-report`);
-    setStatus(
-      method === "print"
-        ? "Opening print dialog — choose “Save as PDF”."
-        : method === "download"
-          ? "Report downloaded."
-          : method === "share"
-            ? "Report shared."
-            : "Couldn't open the export — try Share instead."
-    );
-    saveSnapshot();
+    if (method === "none") {
+      setStatus("Couldn’t open the export. Try Share instead.");
+      return;
+    }
+    const message = method === "print"
+      ? "In the print dialog, choose “Save as PDF”."
+      : method === "download" ? "Report downloaded." : "PDF share sheet opened.";
+    const savedToAccount = await saveSnapshot();
+    setStatus(savedToAccount ? message : `${message} The report copy could not be saved to your account.`);
   }, [data, saveSnapshot]);
 
   const onShare = useCallback(async () => {
     if (!data) return;
     const method = await shareReport(buildReportText(data), `Petwell — ${data.pet.name} vet report`);
-    setStatus(
-      method === "web-share" || method === "share"
-        ? "Shared with your clinic."
-        : method === "mailto"
-          ? "Opening email to your clinic…"
-          : method === "cancel"
-            ? null
-            : "Couldn't open share — try Export PDF."
-    );
-    saveSnapshot();
+    if (method === "cancel") {
+      setStatus(null);
+      return;
+    }
+    if (method === "none") {
+      setStatus("Couldn’t open sharing. Try Export PDF.");
+      return;
+    }
+    const message = method === "mailto" ? "Email draft opened." : "Share sheet opened.";
+    const savedToAccount = await saveSnapshot();
+    setStatus(savedToAccount ? message : `${message} The report copy could not be saved to your account.`);
   }, [data, saveSnapshot]);
 
   // Optional AI polish: rewrite the compiled report into vet- + owner-friendly
@@ -260,7 +261,7 @@ export default function VetReportScreen() {
         {/* Pet profile */}
         <Card style={styles.profileCard}>
           {selectedPet.photo ? (
-            <Image source={{ uri: selectedPet.photo }} style={styles.avatar} contentFit="cover" />
+            <PetPhoto photo={selectedPet.photo} style={styles.avatar} />
           ) : (
             <View style={styles.avatar} />
           )}

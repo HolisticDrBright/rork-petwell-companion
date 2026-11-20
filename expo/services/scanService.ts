@@ -1,5 +1,5 @@
 import type { ScanResult } from "@/constants/scans";
-import { getUserId, requireUserId } from "@/lib/backend";
+import { requireUserId } from "@/lib/backend";
 import { supabase } from "@/lib/supabase";
 import type { Json } from "@/types/db";
 
@@ -48,15 +48,15 @@ export const scanService = {
 
   /** Manual scan correction — the owner fixes anything the photo read wrong. */
   async saveCorrection(input: { scanType: string; note: string; scanId?: string }): Promise<void> {
-    const owner_id = getUserId();
-    if (!owner_id) return;
-    await supabase.from("user_corrections").insert({
+    const owner_id = requireUserId();
+    const { error } = await supabase.from("user_corrections").insert({
       owner_id,
       entity_type: "scan",
       entity_id: input.scanId ?? null,
       field: input.scanType,
       note: input.note,
     });
+    if (error) throw error;
   },
 
   async listScans(petId: string): Promise<ScanRecordRow[]> {

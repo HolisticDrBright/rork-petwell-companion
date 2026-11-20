@@ -54,7 +54,7 @@ the privacy answers against your final build.
 > Petwell's AI helpers are entirely opt-in. When you turn them on in Settings, they can explain a result in plain language or help summarize a record or report — always as a draft you review, never as a source of truth for urgent safety. Document processing is a separate opt-in, and no AI model key ever ships in the app.
 >
 > **PETWELL PRO**
-> The core app — profiles, reminders, symptom triage, food checks, full records, and free report export — is free. Petwell Pro unlocks more: unlimited scans, advanced Ask follow-ups, trend correlations, wearable integrations, advanced vet reports, and multi-pet family sharing. Honest pricing, no dark patterns, cancel anytime. Pro is available as a monthly, yearly, or lifetime purchase via the App Store.
+> New Petwell Pro purchases are paused. Current app features and data export do not require a new subscription. Existing customers can restore purchases and manage subscriptions through their store.
 >
 > Petwell is for adults caring for their pets. It provides information and guidance only — not veterinary advice — and is not for emergencies. Always consult your veterinarian for diagnosis and treatment.
 
@@ -97,7 +97,7 @@ Alternate (≤80): `Track your pet's health honestly: care, triage, records & fo
 > Petwell's AI helpers are opt-in. When enabled in Settings, they explain a result or help summarize a record or report — always a draft you review, never a source of truth for urgent safety. Document processing is a separate opt-in.
 >
 > **Petwell Pro**
-> The core app is free, including free report export. Pro adds unlimited scans, advanced Ask follow-ups, trend correlations, wearable integrations, advanced vet reports, and multi-pet family sharing. Honest pricing, cancel anytime — monthly, yearly, or lifetime via Google Play.
+> New Petwell Pro purchases are paused. Current app features and data export do not require a new subscription. Existing customers can restore purchases and manage subscriptions through their store.
 >
 > Petwell is for adults caring for their pets. It is informational guidance only, not veterinary advice, and not for emergencies. Always consult your veterinarian.
 
@@ -298,7 +298,7 @@ Paste into App Store Connect "App Review Information → Notes" and Play Console
 >
 > **AI keys are server-side:** No model API key ships in the app. AI requests go to Supabase Edge Functions that call the provider (OpenAI) with a server-only secret. If AI is not deployed/keyed in the review environment, AI buttons return a graceful "AI is currently turned off" message — this is expected, not an error.
 >
-> **Subscriptions (Petwell Pro):** Pro uses native in-app purchases via RevenueCat (monthly / yearly / lifetime), with **Restore Purchases** and **Manage subscription** in the app. To test purchases, use a **sandbox Apple ID** (iOS) or a **license-tested account on a Play test track** (Android); real charges are not incurred in sandbox. The core app and data export remain free without a subscription. On platforms where IAP isn't available (e.g. web), the app shows a graceful "subscriptions available in the iOS/Android app" state.
+> New Petwell Pro purchases are paused. Current app features and data export do not require a new subscription. Existing customers can restore purchases and manage subscriptions through their store.
 >
 > **Privacy:** Users can export all data as JSON (free), delete stored scan photos, and delete their account and data in-app. We don't sell health data, show ads, or use data for tracking; crash reporting runs with PII disabled.
 >

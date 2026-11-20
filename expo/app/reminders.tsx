@@ -1,14 +1,16 @@
 import { Stack } from "expo-router";
 import { Bell, Clock, Plus, Repeat } from "lucide-react-native";
 import React, { useCallback, useState } from "react";
-import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
+import { Alert, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 
 import { useQueryClient } from "@tanstack/react-query";
 
 import { NoPetSelected } from "@/components/NoPetSelected";
 import { PetSwitcher } from "@/components/PetSwitcher";
+import { SaveStatus } from "@/components/SaveStatus";
 import { Card, PrimaryButton } from "@/components/ui";
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
+import { useSaveAction } from "@/hooks/useSaveAction";
 import { usePets } from "@/providers/PetProvider";
 import { remindersService, syncReminder } from "@/services";
 import type { Reminder } from "@/types/pet";
@@ -20,19 +22,20 @@ export default function RemindersScreen() {
   const [addOpen, setAddOpen] = useState<boolean>(false);
   const [label, setLabel] = useState<string>("");
   const [time, setTime] = useState<string>("");
+  const { saving, saveError, runSave } = useSaveAction();
   // Locally-added reminders are scoped per pet so they don't bleed across the
   // in-screen PetSwitcher.
   const [extraByPet, setExtraByPet] = useState<Record<string, Reminder[]>>({});
   const [extraEnabled, setExtraEnabled] = useState<Record<string, boolean>>({});
 
-  const save = useCallback(async () => {
+  const save = useCallback(() => runSave(async () => {
     if (!selectedPet) return;
     const lbl = label.trim();
     if (!lbl) {
       setAddOpen(false);
       return;
     }
-    const reminder: Reminder = {
+    let reminder: Reminder = {
       id: `local-${Date.now()}`,
       label: lbl,
       detail: "Custom reminder",
@@ -41,27 +44,25 @@ export default function RemindersScreen() {
       enabled: true,
     };
     if (mode === "remote") {
-      try {
-        await remindersService.createReminder(selectedPet.id, {
-          label: lbl,
-          time: reminder.time,
-          repeat: "Daily",
-          detail: reminder.detail,
-        });
-        queryClient.invalidateQueries({ queryKey: ["reminders", selectedPet.id] });
-      } catch (e) {
-        console.warn("[petwell] add reminder failed:", e);
-      }
+      reminder = await remindersService.createReminder(selectedPet.id, {
+        label: lbl,
+        time: reminder.time,
+        repeat: "Daily",
+        detail: reminder.detail,
+      });
+      void queryClient.invalidateQueries({ queryKey: ["reminders", selectedPet.id] });
     } else {
       setExtraByPet((prev) => ({ ...prev, [selectedPet.id]: [...(prev[selectedPet.id] ?? []), reminder] }));
       setExtraEnabled((prev) => ({ ...prev, [reminder.id]: true }));
     }
     // Schedule a daily device notification for the new reminder (no-op on web).
-    syncReminder(reminder, true).catch(() => {});
+    if (!(await syncReminder(reminder, true).catch(() => false)) && Platform.OS !== "web") {
+      Alert.alert("Reminder saved", "A notification could not be scheduled on this device. Check app notification permissions and the reminder time.");
+    }
     setLabel("");
     setTime("");
     setAddOpen(false);
-  }, [label, time, mode, selectedPet, queryClient]);
+  }), [label, time, mode, selectedPet, queryClient, runSave]);
 
   if (!selectedPet) return <NoPetSelected />;
 
@@ -108,11 +109,17 @@ export default function RemindersScreen() {
             </View>
             <Switch
               value={r.enabled}
-              onValueChange={(v) => {
-                if (local) setExtraEnabled((prev) => ({ ...prev, [r.id]: v }));
-                else toggleReminder(`${selectedPet.id}:${r.id}`, v);
-                // Schedule/cancel a device notification (no-op on web).
-                syncReminder(r, v).catch(() => {});
+              onValueChange={async (v) => {
+                try {
+                  if (local) setExtraEnabled((prev) => ({ ...prev, [r.id]: v }));
+                  else await toggleReminder(`${selectedPet.id}:${r.id}`, v);
+                  const scheduled = await syncReminder(r, v);
+                  if (v && !scheduled && Platform.OS !== "web") {
+                    Alert.alert("Reminder enabled", "A notification could not be scheduled on this device.");
+                  }
+                } catch {
+                  Alert.alert("Could not update reminder", "Please try again.");
+                }
               }}
               trackColor={{ true: Colors.teal500, false: Colors.hairline }}
               thumbColor="#fff"
@@ -126,8 +133,8 @@ export default function RemindersScreen() {
         <Text style={styles.addText}>Add a reminder</Text>
       </Pressable>
 
-      <Modal visible={addOpen} transparent animationType="fade" onRequestClose={() => setAddOpen(false)}>
-        <Pressable style={styles.modalBackdrop} onPress={() => setAddOpen(false)}>
+      <Modal visible={addOpen} transparent animationType="fade" onRequestClose={() => { if (!saving) setAddOpen(false); }}>
+        <Pressable style={styles.modalBackdrop} onPress={() => { if (!saving) setAddOpen(false); }}>
           <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
             <Text style={Fonts.h2}>New reminder</Text>
             <TextInput
@@ -146,9 +153,10 @@ export default function RemindersScreen() {
               style={styles.modalInput}
             />
             <View style={styles.modalBtns}>
-              <PrimaryButton label="Cancel" variant="outline" onPress={() => setAddOpen(false)} style={{ flex: 1 }} />
-              <PrimaryButton label="Add reminder" variant="primary" onPress={save} style={{ flex: 1 }} />
+              <PrimaryButton label="Cancel" variant="outline" onPress={() => setAddOpen(false)} disabled={saving} style={{ flex: 1 }} />
+              <PrimaryButton label="Add reminder" variant="primary" onPress={save} disabled={saving || !label.trim()} style={{ flex: 1 }} />
             </View>
+            <SaveStatus saving={saving} saveError={saveError} />
           </Pressable>
         </Pressable>
       </Modal>

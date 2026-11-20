@@ -62,6 +62,17 @@ export interface NewPetInput {
 }
 
 export const petsService = {
+  async uploadPetPhoto(uri: string): Promise<string> {
+    const ownerId = requireUserId();
+    const { photoJpeg } = await import("@/lib/photoUpload");
+    const bytes = await photoJpeg(uri);
+    if (requireUserId() !== ownerId) throw new Error("The signed-in account changed.");
+    const path = `${ownerId}/profile-${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
+    const { data, error } = await supabase.storage.from("pet-photos").upload(path, bytes, { contentType: "image/jpeg" });
+    if (error) throw error;
+    return data.path;
+  },
+
   async listPets(): Promise<Pet[]> {
     const { data, error } = await supabase
       .from("pet_profiles")
@@ -72,33 +83,10 @@ export const petsService = {
   },
 
   async createPet(input: NewPetInput): Promise<Pet> {
-    const owner_id = requireUserId();
-    const { data, error } = await supabase
-      .from("pet_profiles")
-      .insert({
-        owner_id,
-        name: input.name,
-        species: input.species,
-        breed: input.breed ?? "",
-        age_years: input.ageYears ?? 0,
-        sex: input.sex ?? null,
-        weight_lb: input.weightLb ?? 0,
-        photo_url: input.photo ?? null,
-        status: "stable",
-        status_note: "New",
-        recent_change: "Profile created",
-        risk_watch: "Nothing flagged yet",
-      })
-      .select(PET_SELECT)
-      .single();
+    requireUserId();
+    const { data, error } = await supabase.rpc("create_pet_with_conditions", { input: { ...input } });
     if (error) throw error;
-
-    const conditions = (input.conditions ?? []).filter((c) => c.trim().length > 0);
-    if (conditions.length > 0) {
-      await supabase
-        .from("pet_conditions")
-        .insert(conditions.map((label) => ({ pet_id: (data as PetRow).id, label })));
-    }
+    if (!data) throw new Error("The server did not confirm this pet was saved. Please try again.");
     return mapPet(data as PetRow);
   },
 
@@ -139,7 +127,7 @@ export const petsService = {
   },
 
   async setCareItemDone(itemId: string, done: boolean): Promise<void> {
-    const { error } = await supabase.from("care_tasks").update({ done }).eq("id", itemId);
+    const { error } = await supabase.from("care_tasks").update({ done }).eq("id", itemId).select("id").single();
     if (error) throw error;
   },
 
