@@ -30,6 +30,7 @@ import {
 } from "../lib/telehealth";
 import {
   applyAnswer,
+  buildOutcome,
   computeUrgency,
   emptyContext,
   nextQuestion,
@@ -82,7 +83,7 @@ const pet = (o: any = {}): any => ({
   if (!found) return;
 
   let ctx = emptyContext(p);
-  ctx = applyAnswer(ctx, found.q, found.red);
+  ctx = applyAnswer(ctx, found.q, [found.red]);
   const after = computeUrgency(found.module, ctx);
   ck("1 red flag escalates urgency to red", after.urgency === "red");
   ck("1 red flag is reported", after.redFlags.length > 0);
@@ -99,7 +100,7 @@ const pet = (o: any = {}): any => ({
     }
   }
   if (benign) {
-    ctx = applyAnswer(ctx, benign.q, benign.o);
+    ctx = applyAnswer(ctx, benign.q, [benign.o]);
     const after2 = computeUrgency(found.module, ctx);
     ck("1 benign answer cannot downgrade a red flag", after2.urgency === "red");
   } else {
@@ -114,6 +115,20 @@ const pet = (o: any = {}): any => ({
   const ctx = emptyContext(p);
   const first = nextQuestion(m, ctx);
   ck("2 triage asks a follow-up question from an empty context", !!first && !!first.text);
+})();
+
+(() => {
+  const module = MODULES.find((item) => item.id === "diarrhea")!;
+  const question = module.questions.find((item) => item.id === "exposure")!;
+  const [food, toxin, none] = question.options;
+  const ctx = applyAnswer(emptyContext(pet()), question, [food, toxin, none, food]);
+  const outcome = buildOutcome(module, ctx);
+  const followUp = module.questions.find((item) => item.id === "social")!;
+
+  ck("2 multiple selections are deduplicated and exclude the negative answer", ctx.picked.exposure.length === 2);
+  ck("2 a red flag in a multi-answer question still escalates urgency", outcome.urgency === "red");
+  ck("2 adaptive follow-ups see a red flag among multiple selections", followUp.when?.(ctx) === false);
+  ck("2 intake summary includes each selected answer", outcome.summary.includes(food.label) && outcome.summary.includes(toxin.label));
 })();
 
 // ── 3. Food: purity confidence is driven by lab evidence only ────────────────

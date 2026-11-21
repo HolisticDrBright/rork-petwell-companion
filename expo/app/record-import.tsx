@@ -1,11 +1,13 @@
 import { FormScrollView } from "@/components/FormScrollView";
 import { NoPetSelected } from "@/components/NoPetSelected";
 import { SaveStatus } from "@/components/SaveStatus";
+import { AiPhotoSettingsLink } from "@/components/ai/AiBits";
 import { Card, PrimaryButton } from "@/components/ui";
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
 import { useSaveAction } from "@/hooks/useSaveAction";
 import { getUserId } from "@/lib/backend";
 import { usePets } from "@/providers/PetProvider";
+import { aiService } from "@/services/aiService";
 import { recordIngestionKey, recordIngestionService, type RecordField } from "@/services/recordIngestionService";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
@@ -69,6 +71,7 @@ export default function RecordImportScreen() {
   const [uri, setUri] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [aiNeedsSettings, setAiNeedsSettings] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
   const [savedFields, setSavedFields] = useState<RecordField[] | null>(null);
   const upload = useRef<{ uri: string; path: string; pet: string; owner: string } | null>(null);
@@ -77,6 +80,7 @@ export default function RecordImportScreen() {
   async function choose(camera: boolean) {
     if (busy) return;
     setError(null);
+    setAiNeedsSettings(false);
     try {
       if (camera && !(await ImagePicker.requestCameraPermissionsAsync()).granted) {
         setError("Allow camera access or choose a photo from your library.");
@@ -94,7 +98,14 @@ export default function RecordImportScreen() {
     pending.current = true;
     setBusy(true);
     setError(null);
+    setAiNeedsSettings(false);
     try {
+      const availability = await aiService.availability({ needsDocs: true });
+      if (!availability.ok) {
+        setError(availability.reason);
+        setAiNeedsSettings(!!availability.settingsRequired);
+        return;
+      }
       const cached = upload.current;
       const path = cached?.uri === uri && cached.owner === owner && cached.pet === petId ? cached.path : await recordIngestionService.upload(uri);
       upload.current = { uri, path, owner, pet: petId };
@@ -128,6 +139,7 @@ export default function RecordImportScreen() {
             <PrimaryButton label={busy ? "Reading document…" : "Read document"} disabled={busy} onPress={extract} />
           </> : null}
           {error ? <Text accessibilityRole="alert" style={Fonts.small}>{error}</Text> : null}
+          {aiNeedsSettings ? <AiPhotoSettingsLink vetDocument /> : null}
         </Card>
         {proposals.isError ? <PrimaryButton label="Reload saved proposals" variant="outline" onPress={() => { void proposals.refetch(); }} /> : null}
         {savedFields ? <Card style={styles.card}>

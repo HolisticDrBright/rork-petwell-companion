@@ -134,11 +134,12 @@ const DIARRHEA: ConcernModule = {
       text: "Anything new — food, treats, trash, plants, or medication?",
       why: "Recent diet or toxin exposure is the most common cause — and the most fixable.",
       kind: "core",
+      multiple: true,
       allowUnsure: true,
       options: [
         { id: "treats", label: "New treats or food", causeWeights: { diet: 3 }, support: "Started after a diet change" },
         { id: "toxin", label: "Trash, chemicals, toxic plant, or human meds", redFlag: "toxin", causeWeights: { serious: 2 } },
-        { id: "none", label: "Nothing new", causeWeights: { gi: 1 } },
+        { id: "none", label: "Nothing new", causeWeights: { gi: 1 }, exclusive: true },
       ],
     },
     {
@@ -147,7 +148,7 @@ const DIARRHEA: ConcernModule = {
       why: "Group settings and travel raise the chance of infectious or parasitic causes.",
       kind: "refine",
       allowUnsure: true,
-      when: (ctx) => !ctx.picked.exposure || ctx.picked.exposure.id !== "toxin",
+      when: (ctx) => !ctx.picked.exposure?.some((opt) => opt.id === "toxin"),
       options: [
         { id: "yes", label: "Yes, recently", causeWeights: { parasite: 2, infection: 2 } },
         { id: "no", label: "No", causeWeights: { diet: 1 } },
@@ -245,10 +246,11 @@ const VOMITING: ConcernModule = {
       text: "Any new food, or scavenging in the trash/yard?",
       why: "A recent diet change or scavenging is a very common, fixable trigger.",
       kind: "core",
+      multiple: true,
       options: [
         { id: "food", label: "New food or treats", causeWeights: { diet: 2 }, support: "Started after a diet change" },
         { id: "scav", label: "Got into trash / scavenged", causeWeights: { gi: 2, diet: 1 } },
-        { id: "none", label: "Nothing new", causeWeights: { gi: 1 } },
+        { id: "none", label: "Nothing new", causeWeights: { gi: 1 }, exclusive: true },
       ],
     },
   ],
@@ -311,13 +313,14 @@ const SKIN: ConcernModule = {
     },
     {
       id: "where",
-      text: "Where is the itching mostly?",
+      text: "Where are you noticing itching?",
       why: "Location points us toward allergy vs. a localized or infectious problem.",
       kind: "core",
+      multiple: true,
       options: [
         { id: "paws", label: "Paws / licking feet", causeWeights: { allergy: 2 }, support: "Paw-focused licking — a classic allergy pattern" },
         { id: "belly", label: "Belly or armpits", causeWeights: { allergy: 2 } },
-        { id: "all", label: "All over", causeWeights: { allergy: 1, flea: 1 } },
+        { id: "all", label: "All over", causeWeights: { allergy: 1, flea: 1 }, exclusive: true },
         { id: "spot", label: "One focused spot", causeWeights: { hotspot: 2 } },
       ],
     },
@@ -326,12 +329,14 @@ const SKIN: ConcernModule = {
       text: "Any redness, hair loss, odor, scabs, or fleas?",
       why: "These signs separate a simple itch from an infection or flea problem.",
       kind: "core",
+      multiple: true,
       allowUnsure: true,
       options: [
-        { id: "red", label: "Redness only", causeWeights: { allergy: 1 } },
+        { id: "red", label: "Redness", causeWeights: { allergy: 1 } },
+        { id: "hair-scabs", label: "Hair loss or scabs" },
         { id: "odor", label: "Odor or greasy skin", points: 1, causeWeights: { yeast: 3 }, support: "Odor/greasy skin points toward a skin infection" },
         { id: "fleas", label: "Fleas or flea dirt", causeWeights: { flea: 3 } },
-        { id: "none", label: "None of these" },
+        { id: "none", label: "None of these", exclusive: true },
       ],
     },
     {
@@ -339,12 +344,13 @@ const SKIN: ConcernModule = {
       text: "Anything new — food, treats, shampoo, bedding, or more time on grass?",
       why: "New contact items and foods are frequent triggers we can remove.",
       kind: "core",
+      multiple: true,
       allowUnsure: true,
       options: [
         { id: "food", label: "New food or treats", causeWeights: { food: 3 }, support: "New food/treats — a possible trigger" },
         { id: "product", label: "New shampoo or bedding", causeWeights: { allergy: 1, hotspot: 1 } },
         { id: "grass", label: "More time on grass / outdoors", causeWeights: { allergy: 2 } },
-        { id: "none", label: "Nothing new" },
+        { id: "none", label: "Nothing new", exclusive: true },
       ],
     },
     {
@@ -432,6 +438,7 @@ const URINARY: ConcernModule = {
       text: "What does the urinating look like?",
       why: "The pattern helps separate infection, inflammation, and stones.",
       kind: "core",
+      multiple: true,
       options: [
         { id: "freq", label: "More often, small amounts", causeWeights: { uti: 2, fic: 2 } },
         { id: "accidents", label: "Accidents in the house", causeWeights: { uti: 1, fic: 1 } },
@@ -507,10 +514,11 @@ const EYE: ConcernModule = {
       text: "What does the discharge look like?",
       why: "Discharge type helps separate allergy, irritation, and infection.",
       kind: "core",
+      multiple: true,
       options: [
         { id: "clear", label: "Clear and watery", causeWeights: { allergy: 2, conjunctivitis: 1 }, support: "Clear, watery discharge" },
         { id: "thick", label: "Thick yellow or green", points: 1, causeWeights: { infection: 3 } },
-        { id: "none", label: "Little or none" },
+        { id: "none", label: "Little or no discharge", exclusive: true },
       ],
     },
     {
@@ -584,6 +592,7 @@ const EAR: ConcernModule = {
       text: "What are you noticing about the ear?",
       why: "Odor and discharge usually mean infection; redness alone can be early.",
       kind: "core",
+      multiple: true,
       options: [
         { id: "shake", label: "Head shaking / scratching", causeWeights: { infection: 2, allergy: 1 } },
         { id: "odor", label: "Odor or discharge", points: 1, causeWeights: { infection: 3 }, support: "Odor/discharge suggests an ear infection" },
@@ -606,11 +615,12 @@ const EAR: ConcernModule = {
       text: "Any history of allergies/skin issues, or recent swimming/baths?",
       why: "Both are common setups for ear infections, and it guides prevention.",
       kind: "refine",
+      multiple: true,
       allowUnsure: true,
       options: [
         { id: "allergy", label: "Allergies or skin issues", causeWeights: { allergy: 2 } },
         { id: "water", label: "Recent water / bath", causeWeights: { infection: 2 } },
-        { id: "neither", label: "Neither" },
+        { id: "neither", label: "Neither", exclusive: true },
       ],
     },
   ],
@@ -658,6 +668,7 @@ const TEETH: ConcernModule = {
       text: "What are you seeing in the mouth?",
       why: "These signs separate routine tartar from a painful or broken tooth.",
       kind: "core",
+      multiple: true,
       options: [
         { id: "breath", label: "Bad breath / tartar", causeWeights: { dental: 3 }, support: "Tartar and bad breath point to dental disease" },
         { id: "gum", label: "Red, swollen gums", causeWeights: { gingivitis: 2 } },
@@ -842,11 +853,12 @@ const APPETITE: ConcernModule = {
       text: "Anything new — food change, stress, or mouth pain?",
       why: "These are common, fixable reasons a pet goes off food.",
       kind: "refine",
+      multiple: true,
       allowUnsure: true,
       options: [
         { id: "diet", label: "New food or stress/change", causeWeights: { pickiness: 2, stress: 2 } },
         { id: "mouth", label: "Seems like mouth/teeth hurt", causeWeights: { dental: 2 } },
-        { id: "none", label: "Nothing obvious", causeWeights: { illness: 1 } },
+        { id: "none", label: "Nothing obvious", causeWeights: { illness: 1 }, exclusive: true },
       ],
     },
   ],
@@ -910,11 +922,12 @@ const ENERGY: ConcernModule = {
       text: "Any other signs?",
       why: "A second sign helps point us toward the cause.",
       kind: "core",
+      multiple: true,
       options: [
         { id: "gi", label: "Also vomiting or diarrhea", causeWeights: { gi: 2 } },
         { id: "pain", label: "Limping or seems sore", causeWeights: { pain: 2 } },
         { id: "heat", label: "Hot day or hard exercise first", causeWeights: { mild: 2 }, support: "Recent heat or hard exercise can explain tiredness" },
-        { id: "none", label: "Nothing else obvious", causeWeights: { illness: 1 } },
+        { id: "none", label: "Nothing else obvious", causeWeights: { illness: 1 }, exclusive: true },
       ],
     },
     {

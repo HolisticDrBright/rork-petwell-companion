@@ -30,8 +30,8 @@ export const triageService = {
     return data.id;
   },
 
-  async addAnswer(sessionId: string, a: AnswerInput): Promise<void> {
-    const { error } = await supabase.from("symptom_answers").insert({
+  async addAnswers(sessionId: string, answers: AnswerInput[]): Promise<void> {
+    const { error } = await supabase.from("symptom_answers").insert(answers.map((a) => ({
       session_id: sessionId,
       question_id: a.questionId,
       question_text: a.questionText,
@@ -39,7 +39,7 @@ export const triageService = {
       answer_label: a.answerLabel ?? null,
       is_red_flag: a.isRedFlag ?? false,
       sort: a.sort ?? 0,
-    });
+    })));
     if (error) throw error;
   },
 
@@ -86,10 +86,16 @@ export const triageService = {
       concernLabel = sess?.concern_label ?? null;
       const { data: a } = await supabase
         .from("symptom_answers")
-        .select("question_text, answer_label")
+        .select("question_id, question_text, answer_label")
         .eq("session_id", res.session_id)
         .order("sort", { ascending: true });
-      answers = (a ?? []).map((x) => ({ question: x.question_text, answer: x.answer_label ?? "—" }));
+      const byQuestion = new Map<string, { question: string; labels: string[] }>();
+      for (const row of a ?? []) {
+        const entry = byQuestion.get(row.question_id) ?? { question: row.question_text, labels: [] };
+        entry.labels.push(row.answer_label ?? "—");
+        byQuestion.set(row.question_id, entry);
+      }
+      answers = Array.from(byQuestion.values(), ({ question, labels }) => ({ question, answer: labels.join("; ") }));
     }
     return {
       concernLabel,

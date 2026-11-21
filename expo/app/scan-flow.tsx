@@ -109,13 +109,13 @@ export default function ScanFlowScreen() {
       />
 
       <PrimaryButton
-        label="Analyze photo"
+        label="Continue to scan preview"
         variant="coral"
         onPress={analyze}
         style={{ marginTop: Space.lg }}
       />
       <Text style={styles.footNote}>
-        You&apos;ll be able to correct anything we get wrong on the next screen.
+        On the next screen, you can read a photo with AI or start a guided symptom check.
       </Text>
     </FormScrollView>
   );

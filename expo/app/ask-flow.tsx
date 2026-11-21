@@ -1,11 +1,12 @@
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
-import { ChevronLeft, HelpCircle, Info, ShieldAlert } from "lucide-react-native";
+import { Check, ChevronLeft, HelpCircle, Info, ShieldAlert } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { NoPetSelected } from "@/components/NoPetSelected";
+import { PrimaryButton } from "@/components/ui";
 import Colors, { Fonts, Radius, Space, cardShadow } from "@/constants/colors";
 import { estimateTotal, nextQuestion, personalize } from "@/lib/triage/engine";
 import { getModule } from "@/lib/triage/modules";
@@ -18,6 +19,7 @@ export default function AskFlowScreen() {
   const router = useRouter();
   const { concern } = useLocalSearchParams<{ concern: string }>();
   const { selectedPet } = usePets();
+  const petId = selectedPet?.id;
 
   const module = useMemo(() => getModule(concern ?? "other"), [concern]);
 
@@ -30,7 +32,9 @@ export default function AskFlowScreen() {
   const finish = useTriage((s) => s.finish);
 
   const [whyOpen, setWhyOpen] = useState<boolean>(false);
+  const [draft, setDraft] = useState<{ questionId: string; options: AnswerOption[] } | null>(null);
   const navigatedRef = useRef<boolean>(false);
+  const scrollView = useRef<ScrollView>(null);
   const petRef = useRef(selectedPet);
   petRef.current = selectedPet;
 
@@ -38,36 +42,63 @@ export default function AskFlowScreen() {
   // on the pet id (not the object) so a background refetch can't reset it.
   useEffect(() => {
     navigatedRef.current = false;
+    setDraft(null);
     if (!petRef.current) return;
     start(petRef.current, concern ?? "other");
-  }, [concern, selectedPet, start]);
+  }, [concern, petId, start]);
 
   const ready = storeModuleId === module.id && ctx?.pet.id === selectedPet?.id;
   const q = ready && ctx ? nextQuestion(module, ctx) : null;
+  const selected = draft && draft.questionId === q?.id ? draft.options : [];
 
-  // When no question remains, compute + persist the result and show it.
   useEffect(() => {
-    if (!selectedPet) return;
+    scrollView.current?.scrollTo({ y: 0, animated: false });
+  }, [q?.id]);
+
+  // The result is computed before cloud saves, so urgent guidance can show immediately.
+  useEffect(() => {
+    if (!petId) return;
     if (!ready || !ctx || q || navigatedRef.current) return;
     if (ctx.order.length === 0) return; // nothing answered yet
     navigatedRef.current = true;
-    finish(selectedPet.id).finally(() => router.replace("/triage-result"));
-  }, [ready, ctx, q, finish, selectedPet, router]);
+    void finish(petId);
+    router.replace("/triage-result");
+  }, [ready, ctx, q, finish, petId, router]);
 
   const onAnswer = useCallback(
-    (option: AnswerOption | null) => {
+    (options: AnswerOption[]) => {
       if (!q) return;
       if (Platform.OS !== "web") Haptics.selectionAsync();
       setWhyOpen(false);
-      answer(q, option);
+      setDraft(null);
+      answer(q, options);
     },
     [q, answer]
   );
 
+  const choose = (opt: AnswerOption) => {
+    if (!q?.multiple) {
+      onAnswer([opt]);
+      return;
+    }
+    setDraft((previous) => {
+      const options = previous?.questionId === q.id ? previous.options : [];
+      if (options.some((item) => item.id === opt.id)) {
+        return { questionId: q.id, options: options.filter((item) => item.id !== opt.id) };
+      }
+      return { questionId: q.id, options: opt.exclusive ? [opt] : [...options.filter((item) => !item.exclusive), opt] };
+    });
+  };
+
   const goBack = useCallback(() => {
     setWhyOpen(false);
-    if (!back()) router.back();
-  }, [back, router]);
+    const previousId = ctx?.order.at(-1);
+    if (previousId && back()) {
+      setDraft({ questionId: previousId, options: ctx?.picked[previousId] ?? [] });
+    } else {
+      router.back();
+    }
+  }, [back, ctx, router]);
 
   if (!selectedPet) return <NoPetSelected />;
 
@@ -96,6 +127,7 @@ export default function AskFlowScreen() {
       </View>
 
       <ScrollView
+        ref={scrollView}
         contentContainerStyle={{ padding: Space.md, paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
       >
@@ -113,6 +145,7 @@ export default function AskFlowScreen() {
               </View>
             ) : null}
             <Text style={styles.question}>{personalize(q.text, selectedPet)}</Text>
+            {q.multiple ? <Text style={styles.selectionHint}>Select all that apply, then tap Continue.</Text> : null}
 
             <Pressable style={styles.whyRow} onPress={() => setWhyOpen((v) => !v)} testID="ask-why">
               <Info size={15} color={Colors.teal700} />
@@ -125,25 +158,40 @@ export default function AskFlowScreen() {
             ) : null}
 
             <View style={styles.options}>
-              {q.options.map((opt) => (
-                <Pressable
-                  key={opt.id}
-                  testID={`ask-opt-${opt.id}`}
-                  onPress={() => onAnswer(opt)}
-                  style={({ pressed }) => [
-                    styles.option,
-                    opt.redFlag && styles.optionFlag,
-                    pressed && { opacity: 0.8, transform: [{ scale: 0.99 }] },
-                  ]}
-                >
-                  <Text style={[styles.optionText, opt.redFlag && styles.optionTextFlag]}>
-                    {opt.label}
-                  </Text>
-                </Pressable>
-              ))}
+              {q.options.map((opt) => {
+                const checked = selected.some((item) => item.id === opt.id);
+                return (
+                  <Pressable
+                    key={opt.id}
+                    testID={`ask-opt-${opt.id}`}
+                    accessibilityRole={q.multiple ? "checkbox" : "button"}
+                    aria-checked={q.multiple ? checked : undefined}
+                    onPress={() => choose(opt)}
+                    style={({ pressed }) => [
+                      styles.option,
+                      opt.redFlag && styles.optionFlag,
+                      checked && styles.optionSelected,
+                      pressed && { opacity: 0.8, transform: [{ scale: 0.99 }] },
+                    ]}
+                  >
+                    <Text style={[styles.optionText, opt.redFlag && styles.optionTextFlag]}>
+                      {opt.label}
+                    </Text>
+                    {q.multiple ? (
+                      <View style={[styles.checkbox, checked && styles.checkboxChecked]}>
+                        {checked ? <Check size={15} color="#fff" /> : null}
+                      </View>
+                    ) : null}
+                  </Pressable>
+                );
+              })}
+              {q.multiple ? (
+                <PrimaryButton label="Continue" disabled={selected.length === 0} onPress={() => onAnswer(selected)} />
+              ) : null}
               {q.allowUnsure ? (
                 <Pressable
-                  onPress={() => onAnswer(null)}
+                  accessibilityRole="button"
+                  onPress={() => onAnswer([])}
                   style={({ pressed }) => [styles.unsure, pressed && { opacity: 0.7 }]}
                 >
                   <HelpCircle size={16} color={Colors.inkSoft} />
@@ -199,6 +247,7 @@ const styles = StyleSheet.create({
   },
   safetyTagText: { fontSize: 11.5, fontWeight: "800", color: Colors.coral600, letterSpacing: 0.2 },
   question: { fontSize: 22, fontWeight: "800", color: Colors.ink, lineHeight: 29, letterSpacing: -0.3 },
+  selectionHint: { ...Fonts.small, marginTop: 6 },
   whyRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 14, alignSelf: "flex-start" },
   whyLabel: { ...Fonts.small, color: Colors.teal700 },
   whyBox: {
@@ -212,6 +261,9 @@ const styles = StyleSheet.create({
   whyText: { fontSize: 13.5, lineHeight: 20, color: Colors.teal900, fontWeight: "500" },
   options: { gap: 10, marginTop: Space.lg },
   option: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
     backgroundColor: Colors.cream,
     borderRadius: Radius.md,
     paddingVertical: 16,
@@ -220,8 +272,19 @@ const styles = StyleSheet.create({
     borderColor: Colors.hairline,
   },
   optionFlag: { borderColor: Colors.amber100, backgroundColor: Colors.amber100 },
-  optionText: { ...Fonts.h3, fontSize: 15.5 },
+  optionSelected: { borderColor: Colors.teal700, backgroundColor: Colors.teal50 },
+  optionText: { ...Fonts.h3, flex: 1, fontSize: 15.5 },
   optionTextFlag: { color: Colors.amber600 },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderWidth: 1.5,
+    borderColor: Colors.teal700,
+    borderRadius: 5,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  checkboxChecked: { backgroundColor: Colors.teal700 },
   unsure: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 12 },
   unsureText: { ...Fonts.small },
   safetyNote: { ...Fonts.small, color: Colors.inkFaint, marginTop: Space.lg, lineHeight: 19, textAlign: "center" },

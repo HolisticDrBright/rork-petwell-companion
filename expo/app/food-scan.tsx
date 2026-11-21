@@ -14,7 +14,7 @@ import {
 } from "react-native";
 
 import { FormScrollView } from "@/components/FormScrollView";
-import { AiDisabledNote, AiSparkleButton } from "@/components/ai/AiBits";
+import { AiDisabledNote, AiPhotoSettingsLink, AiSparkleButton } from "@/components/ai/AiBits";
 import { NoPetSelected } from "@/components/NoPetSelected";
 import { Card, PrimaryButton } from "@/components/ui";
 import Colors, { Fonts, Radius, Space, cardShadow } from "@/constants/colors";
@@ -53,6 +53,7 @@ export default function FoodScanScreen() {
   const [ocrUnavailable, setOcrUnavailable] = useState<boolean>(false);
   const [aiBusy, setAiBusy] = useState<boolean>(false);
   const [aiNote, setAiNote] = useState<string | null>(null);
+  const [aiNeedsSettings, setAiNeedsSettings] = useState(false);
   const [busy, setBusy] = useState<boolean>(false);
   const [status, setStatus] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
@@ -151,6 +152,7 @@ export default function FoodScanScreen() {
       const { text, available } = await extractLabelText(uri);
       setOcrBusy(false);
       setAiNote(null);
+      setAiNeedsSettings(false);
       if (available && text.trim()) {
         setLabelText(text);
         setOcrUnavailable(false);
@@ -174,27 +176,30 @@ export default function FoodScanScreen() {
     if (!photoUri) return;
     setAiBusy(true);
     setAiNote(null);
-    const avail = await aiService.availability({ needsDocs: true });
-    if (!avail.ok) {
+    setAiNeedsSettings(false);
+    try {
+      const avail = await aiService.availability({ needsDocs: true, needsScanStorage: true });
+      if (!avail.ok) {
+        setAiNeedsSettings(!!avail.settingsRequired);
+        return setAiNote(avail.reason);
+      }
+      const path = await aiService.uploadScanImage(photoUri);
+      if (!path) return setAiNote("Couldn't upload the photo. Please try again.");
+      const res = await aiService.visionLabel({ imagePath: path, productHint: nameHint.trim() || undefined });
+      if (res.disabled) return setAiNote(res.disabledReason ?? "AI features are off.");
+      if (!res.ok || !res.data) return setAiNote(res.error ?? "Couldn't read the label. Type it in below instead.");
+      const d = res.data;
+      const ga = d.guaranteedAnalysis.map((g) => `${g.name}: ${g.value}`).join(", ");
+      const composed = [d.ingredientsText, ga].filter((s) => s && s.trim()).join("\n");
+      if (composed.trim()) setLabelText(composed);
+      const hint = [d.brand, d.productName].filter(Boolean).join(" ");
+      if (hint) setNameHint(hint);
+      setAiNote("AI transcribed the label below — review and fix any errors, then Analyze. A photo can't detect contaminants.");
+    } catch {
+      setAiNote("Couldn’t read the label. Try again or type it in below.");
+    } finally {
       setAiBusy(false);
-      return setAiNote(avail.reason ?? "AI features are off.");
     }
-    const path = await aiService.uploadScanImage(photoUri);
-    if (!path) {
-      setAiBusy(false);
-      return setAiNote("Couldn't upload the photo. Make sure you're signed in.");
-    }
-    const res = await aiService.visionLabel({ imagePath: path, productHint: nameHint.trim() || undefined });
-    setAiBusy(false);
-    if (res.disabled) return setAiNote(res.disabledReason ?? "AI features are off.");
-    if (!res.ok || !res.data) return setAiNote(res.error ?? "Couldn't read the label. Type it in below instead.");
-    const d = res.data;
-    const ga = d.guaranteedAnalysis.map((g) => `${g.name}: ${g.value}`).join(", ");
-    const composed = [d.ingredientsText, ga].filter((s) => s && s.trim()).join("\n");
-    if (composed.trim()) setLabelText(composed);
-    const hint = [d.brand, d.productName].filter(Boolean).join(" ");
-    if (hint) setNameHint(hint);
-    setAiNote("AI transcribed the label below — review and fix any errors, then Analyze. A photo can't detect contaminants.");
   }, [photoUri, nameHint]);
 
   /** Shared by Photo + Paste: normalize → parse → match against the catalog. */
@@ -311,6 +316,7 @@ export default function FoodScanScreen() {
             <View style={{ gap: 6, marginTop: 4 }}>
               <AiSparkleButton label="Use AI to read this label" onPress={useAiLabel} loading={aiBusy} />
               {aiNote ? <AiDisabledNote reason={aiNote} /> : null}
+              {aiNeedsSettings ? <AiPhotoSettingsLink /> : null}
             </View>
           ) : null}
 

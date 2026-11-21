@@ -38,11 +38,7 @@ export async function getAiPreferences(): Promise<AiPreferences> {
 }
 
 export async function setAiPreferences(prefs: AiPreferences): Promise<void> {
-  try {
-    await AsyncStorage.setItem(KEY, JSON.stringify(prefs));
-  } catch {
-    // best-effort; preference is non-critical
-  }
+  await AsyncStorage.setItem(KEY, JSON.stringify(prefs));
 }
 
 /** What gets shown to the user about where their data goes when AI is on. */

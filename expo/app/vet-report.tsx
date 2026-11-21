@@ -92,7 +92,7 @@ export default function VetReportScreen() {
       .map((qid) => {
         const q = getQuestion(tModule, qid);
         if (!q) return null;
-        return { question: q.text, answer: tCtx.picked[qid]?.label ?? "Not sure" };
+        return { question: q.text, answer: tCtx.picked[qid]?.map((opt) => opt.label).join("; ") ?? "Not sure" };
       })
       .filter(Boolean) as { question: string; answer: string }[];
     return {

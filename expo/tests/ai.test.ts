@@ -221,7 +221,7 @@ ck("16 symptom function reviews output + neutralizes forbidden claims", /reviewO
 ck("16 symptom function is needs_review + scoped to owner", /needs_review/.test(symFnSrc) && /startsWith\(`\$\{ctx\.caller\.userId\}\//.test(symFnSrc));
 
 // Client: opt-in gated, and the UI hands off to the REAL rule-based triage.
-ck("16 observeSymptomPhoto gates on document opt-in", /observeSymptomPhoto[\s\S]*?gate<SymptomObservation>\(\{ needsDocs: true \}\)/.test(aiServiceSrc));
+ck("16 observeSymptomPhoto gates on document opt-in", /observeSymptomPhoto[\s\S]*?gate\(\{ needsDocs: true \}\)/.test(aiServiceSrc));
 const scanResultSrc = read("../app/scan-result.tsx");
 ck("16 scan-result hands off to guided triage (ask-flow)", /ai-vision-symptom|observeSymptomPhoto/.test(scanResultSrc) && /pathname: "\/ask-flow"/.test(scanResultSrc));
 const aiTypesSrc = read("../lib/ai/types.ts");
