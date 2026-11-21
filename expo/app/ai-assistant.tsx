@@ -1,3 +1,4 @@
+import { useHeaderHeight } from "@react-navigation/elements";
 import { Stack, useRouter } from "expo-router";
 import { AlertTriangle, FileText, Send, Sparkles } from "lucide-react-native";
 import React, { useCallback, useRef, useState } from "react";
@@ -36,6 +37,7 @@ const GREETING =
 export default function AiAssistantScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const headerHeight = useHeaderHeight();
   const { selectedPet, mode } = usePets();
   const [messages, setMessages] = useState<ChatMsg[]>([{ role: "assistant", text: GREETING }]);
   const [input, setInput] = useState("");
@@ -90,9 +92,15 @@ export default function AiAssistantScreen() {
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={90}
+        keyboardVerticalOffset={headerHeight}
       >
-        <ScrollView ref={scrollRef} contentContainerStyle={{ padding: Space.md, paddingBottom: 16 }}>
+        <ScrollView
+          ref={scrollRef}
+          style={{ flex: 1 }}
+          contentContainerStyle={{ padding: Space.md, paddingBottom: 16 }}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+        >
           <CapabilityDisclosure feature="chat" remote={mode === "remote"} />
           <View style={styles.intro}>
             <Sparkles size={16} color={Colors.teal700} />

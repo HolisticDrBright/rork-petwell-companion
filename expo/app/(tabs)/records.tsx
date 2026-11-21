@@ -24,6 +24,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { KeyboardModalLayout } from "@/components/KeyboardModalLayout";
 import { NoPetSelected } from "@/components/NoPetSelected";
 import { SaveStatus } from "@/components/SaveStatus";
 import { useSaveAction } from "@/hooks/useSaveAction";
@@ -369,24 +370,26 @@ export default function RecordsScreen() {
 
       {/* Quick-add modal */}
       <Modal visible={addCategory !== null} transparent animationType="fade" onRequestClose={() => setAddCategory(null)}>
-        <Pressable style={styles.modalBackdrop} onPress={() => setAddCategory(null)}>
-          <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
-            <Text style={Fonts.h2}>Add {(addCategory ?? "record").toLowerCase()}</Text>
-            <TextInput
-              value={addTitle}
-              onChangeText={setAddTitle}
-              placeholder="Title (e.g. Rabies certificate)"
-              placeholderTextColor={Colors.inkFaint}
-              style={styles.modalInput}
-              autoFocus
-            />
-            <View style={styles.modalBtns}>
-              <PrimaryButton label="Cancel" variant="outline" onPress={() => setAddCategory(null)} style={{ flex: 1 }} />
-              <PrimaryButton label="Add" variant="primary" disabled={recordSave.saving || !addTitle.trim()} onPress={saveRecord} style={{ flex: 1 }} />
-            </View>
-            <SaveStatus saving={recordSave.saving} saveError={recordSave.saveError} />
+        <KeyboardModalLayout>
+          <Pressable style={styles.modalBackdrop} onPress={() => setAddCategory(null)}>
+            <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
+              <Text style={Fonts.h2}>Add {(addCategory ?? "record").toLowerCase()}</Text>
+              <TextInput
+                value={addTitle}
+                onChangeText={setAddTitle}
+                placeholder="Title (e.g. Rabies certificate)"
+                placeholderTextColor={Colors.inkFaint}
+                style={styles.modalInput}
+                autoFocus
+              />
+              <View style={styles.modalBtns}>
+                <PrimaryButton label="Cancel" variant="outline" onPress={() => setAddCategory(null)} style={{ flex: 1 }} />
+                <PrimaryButton label="Add" variant="primary" disabled={recordSave.saving || !addTitle.trim()} onPress={saveRecord} style={{ flex: 1 }} />
+              </View>
+              <SaveStatus saving={recordSave.saving} saveError={recordSave.saveError} />
+            </Pressable>
           </Pressable>
-        </Pressable>
+        </KeyboardModalLayout>
       </Modal>
     </ScrollView>
   );
@@ -483,7 +486,7 @@ const styles = StyleSheet.create({
     padding: Space.md,
   },
   trustText: { ...Fonts.small, color: Colors.teal900, flex: 1, lineHeight: 18 },
-  modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.35)", justifyContent: "center", padding: Space.lg },
+  modalBackdrop: { flexGrow: 1, backgroundColor: "rgba(0,0,0,0.35)", justifyContent: "center", padding: Space.lg },
   modalCard: { backgroundColor: Colors.surface, borderRadius: Radius.lg, padding: Space.lg, gap: 14 },
   modalInput: {
     backgroundColor: Colors.cream,

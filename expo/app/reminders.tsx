@@ -5,6 +5,7 @@ import { Alert, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text
 
 import { useQueryClient } from "@tanstack/react-query";
 
+import { KeyboardModalLayout } from "@/components/KeyboardModalLayout";
 import { NoPetSelected } from "@/components/NoPetSelected";
 import { PetSwitcher } from "@/components/PetSwitcher";
 import { CareScheduleChecklist } from "@/components/CareScheduleChecklist";
@@ -140,31 +141,33 @@ export default function RemindersScreen() {
       </Pressable>
 
       <Modal visible={addOpen} transparent animationType="fade" onRequestClose={() => { if (!saving) setAddOpen(false); }}>
-        <Pressable style={styles.modalBackdrop} onPress={() => { if (!saving) setAddOpen(false); }}>
-          <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
-            <Text style={Fonts.h2}>New reminder</Text>
-            <TextInput
-              value={label}
-              onChangeText={setLabel}
-              placeholder="What to remember (e.g. Give Apoquel)"
-              placeholderTextColor={Colors.inkFaint}
-              style={styles.modalInput}
-              autoFocus
-            />
-            <TextInput
-              value={time}
-              onChangeText={setTime}
-              placeholder="Time (e.g. 8:00a)"
-              placeholderTextColor={Colors.inkFaint}
-              style={styles.modalInput}
-            />
-            <View style={styles.modalBtns}>
-              <PrimaryButton label="Cancel" variant="outline" onPress={() => setAddOpen(false)} disabled={saving} style={{ flex: 1 }} />
-              <PrimaryButton label="Add reminder" variant="primary" onPress={save} disabled={saving || !label.trim()} style={{ flex: 1 }} />
-            </View>
-            <SaveStatus saving={saving} saveError={saveError} />
+        <KeyboardModalLayout>
+          <Pressable style={styles.modalBackdrop} onPress={() => { if (!saving) setAddOpen(false); }}>
+            <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
+              <Text style={Fonts.h2}>New reminder</Text>
+              <TextInput
+                value={label}
+                onChangeText={setLabel}
+                placeholder="What to remember (e.g. Give Apoquel)"
+                placeholderTextColor={Colors.inkFaint}
+                style={styles.modalInput}
+                autoFocus
+              />
+              <TextInput
+                value={time}
+                onChangeText={setTime}
+                placeholder="Time (e.g. 8:00a)"
+                placeholderTextColor={Colors.inkFaint}
+                style={styles.modalInput}
+              />
+              <View style={styles.modalBtns}>
+                <PrimaryButton label="Cancel" variant="outline" onPress={() => setAddOpen(false)} disabled={saving} style={{ flex: 1 }} />
+                <PrimaryButton label="Add reminder" variant="primary" onPress={save} disabled={saving || !label.trim()} style={{ flex: 1 }} />
+              </View>
+              <SaveStatus saving={saving} saveError={saveError} />
+            </Pressable>
           </Pressable>
-        </Pressable>
+        </KeyboardModalLayout>
       </Modal>
     </ScrollView>
   );
@@ -200,7 +203,7 @@ const styles = StyleSheet.create({
     borderStyle: "dashed",
   },
   addText: { ...Fonts.h3, color: Colors.teal700 },
-  modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.35)", justifyContent: "center", padding: Space.lg },
+  modalBackdrop: { flexGrow: 1, backgroundColor: "rgba(0,0,0,0.35)", justifyContent: "center", padding: Space.lg },
   modalCard: { backgroundColor: Colors.surface, borderRadius: Radius.lg, padding: Space.lg, gap: 12 },
   modalInput: {
     backgroundColor: Colors.cream,

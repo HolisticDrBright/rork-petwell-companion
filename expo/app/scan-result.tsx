@@ -1,9 +1,10 @@
 import { useSaveAction } from "@/hooks/useSaveAction";
+import { FormScrollView } from "@/components/FormScrollView";
 import { SaveStatus } from "@/components/SaveStatus";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { AlertTriangle, BookOpen, FileText, Link2, Pencil, Save, Sparkles } from "lucide-react-native";
 import React, { useCallback, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { NoPetSelected } from "@/components/NoPetSelected";
 import { Card, Disclaimer, PrimaryButton, UrgencyBand } from "@/components/ui";
@@ -190,7 +191,7 @@ export default function ScanResultScreen() {
   if (!selectedPet) return <NoPetSelected />;
 
   return (
-    <ScrollView
+    <FormScrollView
       style={styles.container}
       contentContainerStyle={{ padding: Space.md, paddingBottom: 50 }}
       showsVerticalScrollIndicator={false}
@@ -434,7 +435,7 @@ export default function ScanResultScreen() {
       <View style={{ marginTop: Space.lg }}>
         <Disclaimer />
       </View>
-    </ScrollView>
+    </FormScrollView>
   );
 }
 

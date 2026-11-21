@@ -3,6 +3,7 @@ import { AlertTriangle, ChevronRight, Search, ShieldAlert } from "lucide-react-n
 import React, { useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
+import { FormScrollView } from "@/components/FormScrollView";
 import { Card, Disclaimer } from "@/components/ui";
 import { EmergencyContacts } from "@/components/EmergencyContacts";
 import { NoPetSelected } from "@/components/NoPetSelected";
@@ -62,10 +63,9 @@ export default function ToxinsScreen() {
   return (
     <View style={styles.container}>
       <Stack.Screen options={{ title: "Is it toxic?" }} />
-      <ScrollView
+      <FormScrollView
         contentContainerStyle={{ padding: Space.md, paddingBottom: 60 }}
         showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
       >
         {/* Emergency contacts — always visible, top of screen */}
         <View style={styles.emergencyCard}>
@@ -189,7 +189,7 @@ export default function ToxinsScreen() {
         <View style={{ marginTop: Space.md }}>
           <Disclaimer />
         </View>
-      </ScrollView>
+      </FormScrollView>
     </View>
   );
 }

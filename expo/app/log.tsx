@@ -1,4 +1,5 @@
 import { useSaveAction } from "@/hooks/useSaveAction";
+import { FormScrollView } from "@/components/FormScrollView";
 import { SaveStatus } from "@/components/SaveStatus";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
@@ -215,11 +216,10 @@ export default function LogScreen() {
   if (!selectedPet) return <NoPetSelected />;
 
   return (
-    <ScrollView
+    <FormScrollView
       style={styles.container}
       contentContainerStyle={{ padding: Space.md, paddingBottom: 60 }}
       showsVerticalScrollIndicator={false}
-      keyboardShouldPersistTaps="handled"
     >
       <Stack.Screen options={{ title: "Add a log" }} />
 
@@ -399,7 +399,7 @@ export default function LogScreen() {
         style={[{ marginTop: Space.lg }, !valid && styles.disabled]}
       />
       <Text style={styles.footNote}>Logs are yours — saved straight to {selectedPet.name}&apos;s timeline.</Text>
-    </ScrollView>
+    </FormScrollView>
   );
 }
 

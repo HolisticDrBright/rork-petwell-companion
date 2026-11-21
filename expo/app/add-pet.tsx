@@ -3,8 +3,9 @@ import * as ImagePicker from "expo-image-picker";
 import { Stack, useRouter } from "expo-router";
 import { Camera, Cat, Dog, PawPrint } from "lucide-react-native";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
+import { FormScrollView } from "@/components/FormScrollView";
 import { PrimaryButton } from "@/components/ui";
 import Colors, { Fonts, Radius, Space, cardShadow } from "@/constants/colors";
 import { BREED_FIT_GUIDANCE_LABEL, type BreedFitRow } from "@/lib/food/breedFit";
@@ -133,11 +134,10 @@ export default function AddPetScreen() {
   }, [canSave, addPet, mode, name, species, breed, age, weight, photo, conditions, router]);
 
   return (
-    <ScrollView
+    <FormScrollView
       style={styles.container}
       contentContainerStyle={{ padding: Space.md, paddingBottom: 50 }}
       showsVerticalScrollIndicator={false}
-      keyboardShouldPersistTaps="handled"
     >
       <Stack.Screen options={{ title: "Add a pet" }} />
 
@@ -235,7 +235,7 @@ export default function AddPetScreen() {
         style={[{ marginTop: Space.xl }, !canSave && { opacity: 0.6 }]}
       />
       <Text style={styles.note}>Your pet is saved to Petwell and synced across your screens.</Text>
-    </ScrollView>
+    </FormScrollView>
   );
 }
 

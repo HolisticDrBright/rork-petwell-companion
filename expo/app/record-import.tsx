@@ -1,3 +1,4 @@
+import { FormScrollView } from "@/components/FormScrollView";
 import { NoPetSelected } from "@/components/NoPetSelected";
 import { SaveStatus } from "@/components/SaveStatus";
 import { Card, PrimaryButton } from "@/components/ui";
@@ -11,7 +12,7 @@ import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { Stack, useRouter } from "expo-router";
 import { useRef, useState } from "react";
-import { ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { StyleSheet, Text, TextInput, View } from "react-native";
 
 function DocumentPhoto({ path }: { path: string }) {
   const { data, isError } = useQuery({
@@ -113,7 +114,7 @@ export default function RecordImportScreen() {
   const suggestions = savedFields?.filter(field => field.key === "medication_name" ||
     (field.key === "vaccine_name" && savedFields?.some(f => f.key === "vaccine_due" && f.group === field.group))) ?? [];
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <FormScrollView style={styles.screen} contentContainerStyle={styles.content}>
       <Stack.Screen options={{ title: "Import vet document" }} />
       <Text style={Fonts.h2}>Import a record for {selectedPet.name}</Text>
       {mode !== "remote" ? <Text style={Fonts.small}>Sign in to import documents.</Text> : <>
@@ -157,7 +158,7 @@ export default function RecordImportScreen() {
             onPress={() => setPreview(preview === item.id ? null : item.id)} />
         </Card>)}
       </>}
-    </ScrollView>
+    </FormScrollView>
   );
 }
 

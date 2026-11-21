@@ -45,3 +45,30 @@ test("Pro makes no unsupported sales promise and invalid reset links cannot chan
   await expect(page.getByText(/Open the reset link from your email/)).toBeVisible();
   await expect(page.getByRole("button", { name: "Update password" })).toHaveCount(0);
 });
+
+test("the chat composer and reminder dialog work with a short viewport", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 740 });
+  await page.addInitScript(() => localStorage.setItem("petwell.onboarded.v1", "true"));
+  await page.goto("/ai-assistant");
+  const message = page.getByPlaceholder("Ask about your pet…");
+  await message.fill("Draft question for the veterinarian");
+  await page.setViewportSize({ width: 390, height: 360 });
+  await expect(message).toBeInViewport({ ratio: 1 });
+  await expect(message).toHaveValue("Draft question for the veterinarian");
+  await expect(page.getByRole("button", { name: "Send message" })).toBeInViewport({ ratio: 1 });
+
+  await page.setViewportSize({ width: 390, height: 740 });
+  await page.goto("/add-pet");
+  await page.getByLabel("Name", { exact: true }).fill("Scout");
+  await page.getByTestId("add-pet-save").click();
+  await expect(page.getByTestId("pet-switcher")).toContainText("Scout");
+  await page.goto("/reminders");
+  await page.getByText("Add a reminder", { exact: true }).click();
+  await page.getByPlaceholder(/What to remember/).fill("Evening walk");
+  await page.setViewportSize({ width: 390, height: 300 });
+  const time = page.getByPlaceholder(/Time \(e.g./);
+  await time.fill("8:00p");
+  await expect(time).toBeInViewport({ ratio: 1 });
+  await page.getByRole("button", { name: "Add reminder" }).click();
+  await expect(page.getByText("Evening walk", { exact: true })).toBeVisible();
+});

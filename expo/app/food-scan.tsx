@@ -7,13 +7,13 @@ import {
   ActivityIndicator,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
 
+import { FormScrollView } from "@/components/FormScrollView";
 import { AiDisabledNote, AiSparkleButton } from "@/components/ai/AiBits";
 import { NoPetSelected } from "@/components/NoPetSelected";
 import { Card, PrimaryButton } from "@/components/ui";
@@ -228,10 +228,9 @@ export default function FoodScanScreen() {
   if (!selectedPet) return <NoPetSelected />;
 
   return (
-    <ScrollView
+    <FormScrollView
       style={styles.container}
       contentContainerStyle={{ padding: Space.md, paddingBottom: 60 }}
-      keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
     >
       <Stack.Screen options={{ title: "Food Intelligence" }} />
@@ -418,7 +417,7 @@ export default function FoodScanScreen() {
         Reviews are personalized to {selectedPet.name}&apos;s allergies and conditions. Guidance only, not a diagnosis —
         and you can correct any match on the next screen.
       </Text>
-    </ScrollView>
+    </FormScrollView>
   );
 }
 

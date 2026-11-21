@@ -3,8 +3,9 @@ import { requestPasswordReset } from "@/lib/authRecovery";
 import { Stack, useRouter } from "expo-router";
 import { Check, LogOut, Mail, ShieldCheck } from "lucide-react-native";
 import React, { useCallback, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
+import { FormScrollView } from "@/components/FormScrollView";
 import { Card, PrimaryButton } from "@/components/ui";
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
 import { usePets } from "@/providers/PetProvider";
@@ -94,10 +95,9 @@ export default function AccountScreen() {
   );
 
   return (
-    <ScrollView
+    <FormScrollView
       style={styles.container}
       contentContainerStyle={{ padding: Space.md, paddingBottom: 50 }}
-      keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
     >
       <Stack.Screen options={{ title: "Account" }} />
@@ -247,7 +247,7 @@ export default function AccountScreen() {
           </Text>
         </>
       )}
-    </ScrollView>
+    </FormScrollView>
   );
 }
 

@@ -1,3 +1,4 @@
+import { FormScrollView } from "@/components/FormScrollView";
 import { NoPetSelected } from "@/components/NoPetSelected";
 import { SaveStatus } from "@/components/SaveStatus";
 import { Card, PrimaryButton } from "@/components/ui";
@@ -9,7 +10,7 @@ import { careScheduleService, localDateLabel, RECURRENCES, SCHEDULE_KINDS, sched
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Stack, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
+import { Pressable, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 
 function startFields(draft?: CareSchedule) {
   return {
@@ -127,7 +128,7 @@ export default function CareSchedulesScreen() {
   });
   if (!selectedPet) return <NoPetSelected />;
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <FormScrollView style={styles.screen} contentContainerStyle={styles.content}>
       <Stack.Screen options={{ title: "Recurring schedules" }} />
       <Text style={Fonts.h2}>{selectedPet.name}’s schedules</Text>
       <Text style={Fonts.bodySoft}>Recurring tasks appear on Today, Reminders, and the shared checklist for people who have access.</Text>
@@ -147,7 +148,7 @@ export default function CareSchedulesScreen() {
             <PrimaryButton label="Add recurring schedule" onPress={() => setEditor("new")} />}
         </>
       )}
-    </ScrollView>
+    </FormScrollView>
   );
 }
 
