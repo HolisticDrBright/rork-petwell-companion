@@ -1,0 +1,39 @@
+name: Nightly health scores
+
+on:
+  schedule:
+    - cron: "15 9 * * *"
+  workflow_dispatch:
+
+permissions: {}
+concurrency: nightly-health-scores
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PROJECT_URL: ${{ vars.PETWELL_SUPABASE_URL }}
+      JOB_TOKEN: ${{ secrets.PETWELL_HEALTH_SNAPSHOT_SECRET }}
+    steps:
+      - name: Save a daily score for eligible pets
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "$PROJECT_URL" || -z "$JOB_TOKEN" ]]; then
+            echo 'Snapshot job is disabled until its project URL and secret are configured.'
+            exit 0
+          fi
+          [[ "$PROJECT_URL" =~ ^https://[a-z0-9]+\.supabase\.co$ ]] || exit 1
+          cursor=null
+          saved=0
+          while true; do
+            body="$(jq -cn --argjson after "$cursor" '{after:$after}')"
+            result="$(curl --fail --silent --show-error --max-time 120 --retry 2               -H "Content-Type: application/json" -H "x-petwell-job-token: $JOB_TOKEN"               --data "$body" "$PROJECT_URL/functions/v1/health-snapshots")"
+            saved=$((saved + $(jq -er '.saved | numbers' <<< "$result")))
+            next="$(jq -c '.next' <<< "$result")"
+            if [[ "$next" == null ]]; then break; fi
+            [[ "$next" != "$cursor" ]] || exit 1
+            cursor="$next"
+          done
+          echo "Saved $saved score snapshots."

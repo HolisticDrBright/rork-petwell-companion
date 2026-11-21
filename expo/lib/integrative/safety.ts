@@ -21,15 +21,8 @@ export const ASK_VET_FIRST_COPY =
 export const NOT_ENOUGH_INFO_COPY =
   "Petwell does not have enough safety information to recommend this for your pet. Ask your vet first.";
 
-export type LifeStage = "puppy_kitten" | "adult" | "senior";
-
-export function lifeStage(species: "dog" | "cat", ageYears: number): LifeStage {
-  if (ageYears < 1) return "puppy_kitten";
-  // Cats and small dogs are considered senior a little earlier in practice; we
-  // use a simple, conservative cutoff.
-  const seniorAt = species === "cat" ? 10 : 8;
-  return ageYears >= seniorAt ? "senior" : "adult";
-}
+import { lifeStage } from "../../../supabase/functions/_shared/petLifeStage";
+export { lifeStage, type LifeStage } from "../../../supabase/functions/_shared/petLifeStage";
 
 /**
  * Household / dietary toxins. These are absolute "never" items — they are not

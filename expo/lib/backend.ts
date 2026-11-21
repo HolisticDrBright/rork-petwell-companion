@@ -212,6 +212,13 @@ export async function signInWithEmail(email: string, password: string): Promise<
       email: email.trim().toLowerCase(),
       password,
     });
+    if (error?.code === "email_not_confirmed") {
+      return {
+        ok: false,
+        needsConfirmation: true,
+        error: "Confirm your email before signing in.",
+      };
+    }
     if (error) throw error;
     if (data.user) applyUser(data.user as SbUser);
     await ensureProfile();
@@ -219,6 +226,18 @@ export async function signInWithEmail(email: string, password: string): Promise<
   } catch (err) {
     return { ok: false, error: authMessage(err) };
   }
+}
+
+export async function resendSignupConfirmation(email: string, emailRedirectTo: string): Promise<void> {
+  if (!isSupabaseConfigured) throw new Error("Account services are unavailable. Please try again later.");
+  const { error } = await supabase.auth.resend({
+    type: "signup",
+    email: email.trim().toLowerCase(),
+    options: { emailRedirectTo },
+  });
+  if (!error) return;
+  if (error.status === 429) throw new Error("Please wait a minute before requesting another email.");
+  throw new Error("Couldn’t resend the confirmation email. Please try again in a moment.");
 }
 
 /**

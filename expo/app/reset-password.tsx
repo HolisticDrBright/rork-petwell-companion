@@ -1,6 +1,7 @@
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
-import { ScrollView, Text, TextInput } from "react-native";
+import { Text, TextInput } from "react-native";
+import { FormScrollView } from "@/components/FormScrollView";
 import { Card, PrimaryButton } from "@/components/ui";
 import Colors, { Fonts, Space } from "@/constants/colors";
 import { acceptRecoveryCode, finishPasswordReset } from "@/lib/authRecovery";
@@ -39,7 +40,7 @@ export default function ResetPasswordScreen() {
     } catch (e) { setError(e instanceof Error ? e.message : "Could not update your password. Please try again."); }
     finally { saving.current = false; setBusy(false); }
   };
-  return <ScrollView style={{ backgroundColor: Colors.cream }} contentContainerStyle={{ padding: Space.md }} keyboardShouldPersistTaps="handled">
+  return <FormScrollView style={{ backgroundColor: Colors.cream }} contentContainerStyle={{ padding: Space.md }}>
     <Stack.Screen options={{ title: "Reset password" }} />
     <Card style={{ gap: 16 }}>
       <Text style={Fonts.h3}>{done ? "Password updated" : "Choose a new password"}</Text>
@@ -54,5 +55,5 @@ export default function ResetPasswordScreen() {
         <PrimaryButton label="Back to sign in" variant="outline" onPress={() => router.replace("/account")} />
       </>}
     </Card>
-  </ScrollView>;
+  </FormScrollView>;
 }

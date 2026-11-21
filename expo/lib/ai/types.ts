@@ -113,6 +113,7 @@ export interface CarePlanDraft {
 }
 
 export interface ChatReply {
+  citations?: import("../../../supabase/functions/_shared/grounding").VetCitation[];
   reply: string;
   contextUsed: string[];
   suggestedVetReport: boolean;

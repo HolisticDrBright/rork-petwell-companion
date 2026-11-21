@@ -26,18 +26,21 @@ import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { photoJpeg } from "@/lib/photoUpload";
 import { privacyService } from "./privacyService";
 
-function disabled<T>(reason: string): AiEnvelope<T> {
-  return { ok: false, disabled: true, disabledReason: reason };
+type AiGate = { ok: false; disabled: true; disabledReason: string; settingsRequired?: true };
+
+function disabled(reason: string, settingsRequired?: true): AiGate {
+  return { ok: false, disabled: true, disabledReason: reason, settingsRequired };
 }
 
-async function gate<T>(opts: { needsDocs?: boolean } = {}): Promise<AiEnvelope<T> | null> {
-  if (!isSupabaseConfigured || getMode() !== "remote") {
-    return disabled<T>("AI features need the Petwell backend and an account.");
+async function gate(opts: { needsDocs?: boolean } = {}): Promise<AiGate | null> {
+  if (!isSupabaseConfigured) return disabled("AI is unavailable in this build.");
+  if (getMode() !== "remote") {
+    return disabled("Sign in to your Petwell account to use AI.");
   }
   const prefs = await getAiPreferences();
-  if (!prefs.enabled) return disabled<T>("Turn on AI features in Settings → AI to use this.");
+  if (!prefs.enabled) return disabled("Turn on Enable AI features in Settings & privacy.", true);
   if (opts.needsDocs && !prefs.allowDocumentProcessing) {
-    return disabled<T>("Allow AI document processing in Settings → AI to use this.");
+    return disabled("Turn on Allow AI to process my documents in Settings & privacy.", true);
   }
   return null;
 }
@@ -60,9 +63,15 @@ export const aiService = {
   assessInput,
 
   /** Whether an AI feature is usable now (backend + opt-ins). Avoids wasted work. */
-  async availability(opts: { needsDocs?: boolean } = {}): Promise<{ ok: boolean; reason?: string }> {
+  async availability(opts: { needsDocs?: boolean; needsScanStorage?: boolean } = {}): Promise<
+    { ok: true } | { ok: false; reason: string; settingsRequired?: true }
+  > {
     const blocked = await gate(opts);
-    return blocked ? { ok: false, reason: blocked.disabledReason } : { ok: true };
+    if (blocked) return { ok: false, reason: blocked.disabledReason, settingsRequired: blocked.settingsRequired };
+    if (opts.needsScanStorage && !(await privacyService.getPrefs()).store_photos) {
+      return { ok: false, reason: "Turn on Store scan photos in the cloud to read this photo.", settingsRequired: true };
+    }
+    return { ok: true };
   },
 
   /** Upload a transient scan image to the private documents bucket; returns its path.
@@ -85,7 +94,7 @@ export const aiService = {
   },
 
   async rewriteVetReport(report: unknown): Promise<AiEnvelope<VetReportRewrite>> {
-    return (await gate<VetReportRewrite>()) ?? invokeAi<VetReportRewrite>("ai-vet-report-rewrite", { report });
+    return (await gate()) ?? invokeAi<VetReportRewrite>("ai-vet-report-rewrite", { report });
   },
 
   async summarizeRecord(input: {
@@ -93,7 +102,7 @@ export const aiService = {
     petId?: string | null;
     recordType?: string | null;
   }): Promise<AiEnvelope<RecordSummary>> {
-    return (await gate<RecordSummary>({ needsDocs: true })) ?? invokeAi<RecordSummary>("ai-record-summary", input);
+    return (await gate({ needsDocs: true })) ?? invokeAi<RecordSummary>("ai-record-summary", input);
   },
 
   async extractCoa(input: {
@@ -102,7 +111,7 @@ export const aiService = {
     brandHint?: string | null;
     productHint?: string | null;
   }): Promise<AiEnvelope<CoaExtraction>> {
-    return (await gate<CoaExtraction>({ needsDocs: true })) ?? invokeAi<CoaExtraction>("ai-coa-extract", input);
+    return (await gate({ needsDocs: true })) ?? invokeAi<CoaExtraction>("ai-coa-extract", input);
   },
 
   async visionLabel(input: {
@@ -110,7 +119,7 @@ export const aiService = {
     petId?: string | null;
     productHint?: string | null;
   }): Promise<AiEnvelope<LabelExtraction>> {
-    return (await gate<LabelExtraction>({ needsDocs: true })) ?? invokeAi<LabelExtraction>("ai-vision-label", input);
+    return (await gate({ needsDocs: true })) ?? invokeAi<LabelExtraction>("ai-vision-label", input);
   },
 
   /** Describe observable features in a symptom photo (never a diagnosis/score).
@@ -121,11 +130,11 @@ export const aiService = {
     petId?: string | null;
     notes?: string | null;
   }): Promise<AiEnvelope<SymptomObservation>> {
-    return (await gate<SymptomObservation>({ needsDocs: true })) ?? invokeAi<SymptomObservation>("ai-vision-symptom", input);
+    return (await gate({ needsDocs: true })) ?? invokeAi<SymptomObservation>("ai-vision-symptom", input);
   },
 
   async explain(input: { feature: string; result: unknown }): Promise<AiEnvelope<ExplainReply>> {
-    return (await gate<ExplainReply>()) ?? invokeAi<ExplainReply>("ai-explain", input);
+    return (await gate()) ?? invokeAi<ExplainReply>("ai-explain", input);
   },
 
   async carePlan(input: {
@@ -133,7 +142,7 @@ export const aiService = {
     issue: string;
     plan: unknown;
   }): Promise<AiEnvelope<CarePlanDraft>> {
-    return (await gate<CarePlanDraft>()) ?? invokeAi<CarePlanDraft>("ai-care-plan", input);
+    return (await gate()) ?? invokeAi<CarePlanDraft>("ai-care-plan", input);
   },
 
   async chat(input: {
@@ -142,7 +151,7 @@ export const aiService = {
     message: string;
     includeContext?: boolean;
   }): Promise<AiEnvelope<ChatReply>> {
-    return (await gate<ChatReply>()) ?? invokeAi<ChatReply>("ai-chat", input);
+    return (await gate()) ?? invokeAi<ChatReply>("ai-chat", input);
   },
 
   // ── Privacy: history controls ──────────────────────────────

@@ -166,7 +166,7 @@ ck("12 chat prompt: emergency leads, poison hotline", /426-4435|764-7661/.test(c
 const chatFnSrc = has("../../supabase/functions/ai-chat/index.ts") ? read("../../supabase/functions/ai-chat/index.ts") : "";
 ck("12 chat runs deterministic safety BEFORE the model", /assessInput\(message\)/.test(chatFnSrc) && chatFnSrc.indexOf("assessInput(message)") < chatFnSrc.indexOf("provider.generate"));
 ck("12 chat prepends deterministic banner to reply", /safety\.banner.*\n?.*reply =/s.test(chatFnSrc) || /\$\{safety\.banner\}/.test(chatFnSrc));
-ck("12 chat reviews + refuses forbidden output", /reviewOutput\(reply\)/.test(chatFnSrc) && /refusalFor/.test(chatFnSrc));
+ck("12 chat reviews + refuses forbidden output", /reviewOutput\(reply\)/.test(chatFnSrc) && /groundedReply/.test(chatFnSrc) && /safety\.banner \? null/.test(chatFnSrc));
 
 // ── 13. Care plan: gated, suppresses gentle options on red flags ─────────────
 const planPrompt = has("../../prompts/care-plan-v1.md") ? read("../../prompts/care-plan-v1.md") : "";
@@ -189,8 +189,8 @@ ck("15 migration 0018 references pet_profiles, not pets", /references public\.pe
 ck("15 ai-chat queries pet_profiles, not pets", /from\("pet_profiles"\)/.test(chatFnSrc) && !/from\("pets"\)/.test(chatFnSrc));
 // Care-plan red-flag gate must catch vet-first (orange/red), not just emergencyOverride.
 ck("15 care-plan gate catches orange/red urgency", /urgency.{0,12}(orange|red)/i.test(planFnSrc));
-// Chat poison banner must key on hotline numbers, not the generic word "emergency".
-ck("15 chat banner gate keys on hotline numbers", /426-4435/.test(chatFnSrc) && /764-7661/.test(chatFnSrc));
+// The deterministic poison banner is rendered directly.
+ck("15 chat uses deterministic poison guidance without a model call", /safety\.banner \? null/.test(chatFnSrc) && /safety\.banner \?\? grounded\?\.reply/.test(chatFnSrc));
 // searchToxins must guard short aliases against substring-matching any query.
 const searchSrc = read("../lib/toxins/search.ts");
 ck("15 searchToxins guards short-alias substring match", /a\.length >= 3 && q\.includes\(a\)/.test(searchSrc));
@@ -221,7 +221,7 @@ ck("16 symptom function reviews output + neutralizes forbidden claims", /reviewO
 ck("16 symptom function is needs_review + scoped to owner", /needs_review/.test(symFnSrc) && /startsWith\(`\$\{ctx\.caller\.userId\}\//.test(symFnSrc));
 
 // Client: opt-in gated, and the UI hands off to the REAL rule-based triage.
-ck("16 observeSymptomPhoto gates on document opt-in", /observeSymptomPhoto[\s\S]*?gate<SymptomObservation>\(\{ needsDocs: true \}\)/.test(aiServiceSrc));
+ck("16 observeSymptomPhoto gates on document opt-in", /observeSymptomPhoto[\s\S]*?gate\(\{ needsDocs: true \}\)/.test(aiServiceSrc));
 const scanResultSrc = read("../app/scan-result.tsx");
 ck("16 scan-result hands off to guided triage (ask-flow)", /ai-vision-symptom|observeSymptomPhoto/.test(scanResultSrc) && /pathname: "\/ask-flow"/.test(scanResultSrc));
 const aiTypesSrc = read("../lib/ai/types.ts");

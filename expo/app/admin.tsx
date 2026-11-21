@@ -1,8 +1,9 @@
 import { Stack, useRouter } from "expo-router";
 import { BookOpen, Check, ChevronRight, Database, FlaskConical, ShieldCheck, X } from "lucide-react-native";
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
+import { FormScrollView } from "@/components/FormScrollView";
 import { AiDisclaimer, AiDisabledNote, AiSparkleButton } from "@/components/ai/AiBits";
 import { Card } from "@/components/ui";
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
@@ -122,7 +123,7 @@ export default function AdminScreen() {
   return (
     <View style={styles.container}>
       <Stack.Screen options={{ title: "Admin · data quality" }} />
-      <ScrollView contentContainerStyle={{ padding: Space.md, paddingBottom: 50 }}>
+      <FormScrollView contentContainerStyle={{ padding: Space.md, paddingBottom: 50 }}>
         {state === "loading" ? (
           <ActivityIndicator color={Colors.teal700} style={{ marginTop: 40 }} />
         ) : state === "no-backend" ? (
@@ -321,7 +322,7 @@ export default function AdminScreen() {
             )}
           </>
         )}
-      </ScrollView>
+      </FormScrollView>
     </View>
   );
 }

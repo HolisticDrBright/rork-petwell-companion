@@ -3,6 +3,7 @@ import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect } from "react";
+import { Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import { BackendRequired } from "@/components/BackendRequired";
@@ -14,8 +15,10 @@ import { PetProvider } from "@/providers/PetProvider";
 import { initNotificationLinkHandler } from "@/services/notificationsService";
 import { SubscriptionProvider } from "@/providers/SubscriptionProvider";
 
-// Start crash/error reporting as early as possible (no-op without a DSN).
-initSentry();
+// A shared link contains a bearer credential in its fragment. The viewer
+// deliberately starts without telemetry.
+const webPath = Platform.OS === "web" && typeof window !== "undefined" ? window.location?.pathname : undefined;
+if (!webPath || !/\/vet-visit-share\/?$/.test(webPath)) initSentry();
 
 SplashScreen.preventAutoHideAsync();
 
@@ -45,8 +48,12 @@ function RootLayoutNav() {
       <Stack.Screen name="food-result" options={{ headerShown: false, presentation: "card" }} />
       <Stack.Screen name="food-trust" options={{ title: "How we score food", presentation: "card" }} />
       <Stack.Screen name="vet-report" options={{ title: "Vet-ready summary", presentation: "modal" }} />
+      <Stack.Screen name="vet-visit-share" options={{ title: "Petwell vet visit", presentation: "card" }} />
       <Stack.Screen name="ai-assistant" options={{ title: "Pet assistant", presentation: "card" }} />
       <Stack.Screen name="reminders" options={{ title: "Reminders", presentation: "card" }} />
+      <Stack.Screen name="care-schedules" options={{ title: "Recurring schedules", presentation: "card" }} />
+      <Stack.Screen name="record-import" options={{ title: "Import vet document", presentation: "card" }} />
+      <Stack.Screen name="export-pet" options={{ title: "Export pet records", presentation: "card" }} />
       <Stack.Screen name="care-circle" options={{ title: "Care Circle", presentation: "card" }} />
       <Stack.Screen name="telehealth" options={{ title: "Vet telehealth", presentation: "card" }} />
       <Stack.Screen name="join-circle" options={{ title: "Shared with me", presentation: "card" }} />

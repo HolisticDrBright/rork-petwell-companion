@@ -76,3 +76,86 @@ test("production exposes recovery and preserves the reset form on delivery failu
   await expect(page.getByPlaceholder("you@example.com")).toHaveValue("test@example.invalid");
   await expect(page.getByRole("button", { name: "Send reset link" })).toBeEnabled();
 });
+
+test("signup and unconfirmed sign-in both offer to resend confirmation", async ({ page }) => {
+  const email = "test@example.invalid";
+  let resendCount = 0;
+  await page.route("https://petwell-test.supabase.co/auth/v1/**", async route => {
+    const path = new URL(route.request().url()).pathname;
+    const contentType = "application/json";
+    if (path === "/auth/v1/token") {
+      return route.fulfill({
+        status: 400,
+        contentType,
+        headers: { "x-supabase-api-version": "2024-01-01", "access-control-expose-headers": "x-supabase-api-version" },
+        json: { code: "email_not_confirmed", msg: "Email not confirmed" },
+      });
+    }
+    if (path === "/auth/v1/signup") {
+      return route.fulfill({ status: 200, contentType, json: { id: "signup-test", email } });
+    }
+    if (path === "/auth/v1/resend") {
+      expect(route.request().postDataJSON()).toMatchObject({ type: "signup", email });
+      resendCount++;
+    }
+    await route.fulfill({ status: 200, contentType, json: {} });
+  });
+
+  await page.goto("/account");
+  const resend = page.getByRole("button", { name: "Resend confirmation email" });
+  await expect(resend).toHaveCount(0);
+  await page.getByRole("button", { name: "Create account", exact: true }).click();
+  await page.getByPlaceholder("you@example.com").fill(email);
+  await page.getByPlaceholder("At least 8 characters").fill("test-password");
+  await page.getByRole("button", { name: "Create account", exact: true }).last().click();
+  await expect(resend).toBeVisible();
+  await expect(page.getByPlaceholder("At least 8 characters")).toHaveValue("");
+  await resend.click();
+  await expect(page.getByText(/Petwell will send another email/)).toBeVisible();
+
+  await page.reload();
+  await page.getByPlaceholder("you@example.com").fill(email);
+  await page.getByPlaceholder("Password", { exact: true }).fill("test-password");
+  await page.getByRole("button", { name: "Sign in", exact: true }).last().click();
+  await expect(page.getByRole("alert")).toHaveText("Confirm your email before signing in.");
+  await resend.click();
+  await expect(page.getByText(/Petwell will send another email/)).toBeVisible();
+  expect(resendCount).toBe(2);
+
+  await page.getByPlaceholder("you@example.com").fill("other@example.invalid");
+  await expect(resend).toHaveCount(0);
+});
+
+test("a veterinarian can see an active visit link while signed out", async ({ page }) => {
+  const token = "a".repeat(64);
+  let active = true;
+  let lookups = 0;
+  await page.route("https://petwell-test.supabase.co/**", async route => {
+    const path = new URL(route.request().url()).pathname;
+    let data: unknown = [];
+    if (path === "/rest/v1/rpc/get_vet_visit_package") {
+      lookups++;
+      expect(route.request().postDataJSON()).toEqual({ p_token: token });
+      data = active ? {
+        version: 1,
+        report: {
+          generatedAt: "2026-11-19", pet: { name: "Ginger", species: "cat", breed: "", ageYears: 3, sex: "", weightLb: 9, photo: "", status: "", statusNote: "" },
+          allergies: [], conditions: [], concernSummary: null, triage: null, redFlagsPresent: [], redFlagsAbsent: [],
+          scans: [], foodChanges: [], medications: [], timeline: [{ date: "2026-11-19", title: "Recent symptom", category: "symptom" }],
+          loggingSummary: null, questions: [],
+        },
+        photos: [], citations: [], score_history: [], schedules: [], weight_history: [],
+      } : null;
+    }
+    await route.fulfill({ contentType: "application/json", body: JSON.stringify(data) });
+  });
+  await page.goto(`/vet-visit-share#${token}`);
+  await expect(page.getByText("Ginger’s vet visit summary")).toBeVisible();
+  await expect(page.getByText(/Recent symptom/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Open PDF export" })).toBeVisible();
+  active = false;
+  await page.reload();
+  await expect(page.getByText("This link is invalid, expired, or revoked.")).toBeVisible();
+  await expect(page.getByText("Ginger’s vet visit summary")).toHaveCount(0);
+  expect(lookups).toBe(2);
+});

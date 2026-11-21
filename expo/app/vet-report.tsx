@@ -1,4 +1,4 @@
-import { Stack } from "expo-router";
+import { Stack, useLocalSearchParams } from "expo-router";
 import { Check, Download, FileText, HelpCircle, Minus, Share2, X } from "lucide-react-native";
 import React, { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -6,6 +6,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-nat
 import { EmergencyContacts } from "@/components/EmergencyContacts";
 import { NoPetSelected } from "@/components/NoPetSelected";
 import { PetPhoto } from "@/components/PetPhoto";
+import { VetVisitActions } from "@/components/VetVisitActions";
 import { AiDisclaimer, AiDisabledNote, AiSparkleButton } from "@/components/ai/AiBits";
 import { Card, Disclaimer, PrimaryButton } from "@/components/ui";
 import type { VetReportRewrite } from "@/lib/ai/types";
@@ -52,7 +53,8 @@ function toTimelineItems(timeline: TimelineEntry[]) {
 }
 
 export default function VetReportScreen() {
-  const { selectedPet, timeline, mode } = usePets();
+  const { prepare } = useLocalSearchParams<{ prepare?: string }>();
+  const { selectedPet, timeline, mode, todayIso } = usePets();
   const [data, setData] = useState<ReportData | null>(null);
   const [saved, setSaved] = useState<boolean>(false);
   const [status, setStatus] = useState<string | null>(null);
@@ -90,7 +92,7 @@ export default function VetReportScreen() {
       .map((qid) => {
         const q = getQuestion(tModule, qid);
         if (!q) return null;
-        return { question: q.text, answer: tCtx.picked[qid]?.label ?? "Not sure" };
+        return { question: q.text, answer: tCtx.picked[qid]?.map((opt) => opt.label).join("; ") ?? "Not sure" };
       })
       .filter(Boolean) as { question: string; answer: string }[];
     return {
@@ -131,7 +133,7 @@ export default function VetReportScreen() {
         const g = await reportService.gather(selectedPet.id).catch(() => null);
         input = {
           ...base,
-          triage: g?.triage ?? storeTriage,
+          triage: storeTriage ?? g?.triage ?? null,
           scans: (g?.scans ?? []).map((s) => ({
             type: s.scan_type,
             score: null,
@@ -541,6 +543,7 @@ export default function VetReportScreen() {
         </Card>
 
         {/* Export actions */}
+        <VetVisitActions key={selectedPet.id} petId={selectedPet.id} data={data} timeline={timeline} today={todayIso} remote={mode === "remote"} autoPrepare={prepare === "1"} />
         <View style={styles.actions}>
           <PrimaryButton
             label={saved ? "Saved · Export PDF" : "Export PDF"}

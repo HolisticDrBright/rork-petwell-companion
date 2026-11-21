@@ -3,7 +3,8 @@
  * AI disclaimer, an emergency/poison safety banner, and a disabled note. Keeping
  * these in one place means every AI surface carries the same safety framing.
  */
-import { AlertTriangle, Sparkles } from "lucide-react-native";
+import { Link } from "expo-router";
+import { AlertTriangle, Settings, Sparkles } from "lucide-react-native";
 import React from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -58,6 +59,17 @@ export function AiSafetyBanner({ banner }: { banner: string | null | undefined }
 /** Friendly note when an AI feature is unavailable (off / no key / over budget). */
 export function AiDisabledNote({ reason }: { reason?: string }) {
   return <Text style={styles.disabledNote}>{reason || "AI features are turned off."}</Text>;
+}
+
+export function AiPhotoSettingsLink({ vetDocument = false }: { vetDocument?: boolean }) {
+  return (
+    <Link href={{ pathname: "/settings", params: { setup: vetDocument ? "vet-photo" : "scan-photo" } }} asChild>
+      <Pressable accessibilityRole="link" style={styles.btn}>
+        <Settings size={16} color={Colors.teal700} />
+        <Text style={styles.btnText}>Open photo settings</Text>
+      </Pressable>
+    </Link>
+  );
 }
 
 const styles = StyleSheet.create({

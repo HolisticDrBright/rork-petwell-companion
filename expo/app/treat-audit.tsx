@@ -1,8 +1,9 @@
 import { Stack } from "expo-router";
 import { AlertTriangle, Check, Cookie, Flame, Repeat, ShieldAlert, Sparkles } from "lucide-react-native";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
+import { FormScrollView } from "@/components/FormScrollView";
 import { Card } from "@/components/ui";
 import { NoPetSelected } from "@/components/NoPetSelected";
 import { InfoNote, ScreenHeader } from "@/components/integrative";
@@ -145,10 +146,9 @@ export default function TreatAuditScreen() {
     <View style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
       <ScreenHeader title="Treat audit" subtitle={`Checked for ${selectedPet.name}`} />
-      <ScrollView
+      <FormScrollView
         contentContainerStyle={{ padding: Space.md, paddingBottom: 60 }}
         showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
       >
         <InfoNote>
           Check any treat against {selectedPet.name}&apos;s allergies, weight, and conditions. Pick a common treat or
@@ -208,7 +208,7 @@ export default function TreatAuditScreen() {
         </View>
 
         {result ? <ResultCard r={result} /> : null}
-      </ScrollView>
+      </FormScrollView>
     </View>
   );
 }

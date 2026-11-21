@@ -3,11 +3,13 @@ import { requestPasswordReset } from "@/lib/authRecovery";
 import { Stack, useRouter } from "expo-router";
 import { Check, LogOut, Mail, ShieldCheck } from "lucide-react-native";
 import React, { useCallback, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
+import { FormScrollView } from "@/components/FormScrollView";
 import { Card, PrimaryButton } from "@/components/ui";
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
 import { usePets } from "@/providers/PetProvider";
+import { resendSignupConfirmation } from "@/lib/backend";
 import { exportJson } from "@/lib/report/export";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -22,10 +24,20 @@ export default function AccountScreen() {
   const [busy, setBusy] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  const [confirmationEmail, setConfirmationEmail] = useState<string | null>(null);
 
   const emailValid = EMAIL_RE.test(email.trim());
   const passwordValid = mode === "reset" || password.length >= (mode === "signup" ? 8 : 6);
   const canSubmit = emailValid && passwordValid && !busy;
+  const showConfirmation = mode !== "reset" && confirmationEmail === email.trim().toLowerCase();
+
+  const changeMode = (nextMode: typeof mode) => {
+    if (nextMode === mode) return;
+    setMode(nextMode);
+    setPassword("");
+    setError(null);
+    setInfo(null);
+  };
 
   const submit = useCallback(async () => {
     if (!canSubmit) return;
@@ -39,10 +51,11 @@ export default function AccountScreen() {
         return;
       }
       const res = mode === "signup" ? await signUp(email, password, Linking.createURL("account")) : await signIn(email, password);
+      if (res.needsConfirmation) setConfirmationEmail(email.trim().toLowerCase());
       if (!res.ok) { setError(res.error ?? "Something went wrong."); return; }
       if (res.needsConfirmation) {
-        setInfo("Check your email to confirm your account, then sign in.");
-        setMode("signin"); setPassword(""); return;
+        setPassword("");
+        return;
       }
       setPassword("");
       router.replace("/");
@@ -50,6 +63,21 @@ export default function AccountScreen() {
       setError(e instanceof Error ? e.message : "Account services are unavailable. Please try again.");
     } finally { setBusy(false); }
   }, [canSubmit, mode, email, password, signUp, signIn, router]);
+
+  const resendConfirmation = async () => {
+    if (!showConfirmation || !emailValid || busy) return;
+    setBusy(true);
+    setError(null);
+    setInfo(null);
+    try {
+      await resendSignupConfirmation(email, Linking.createURL("account"));
+      setInfo("If this address is awaiting confirmation, Petwell will send another email.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn’t resend the confirmation email.");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const doSignOut = useCallback(async () => {
     setBusy(true);
@@ -67,10 +95,9 @@ export default function AccountScreen() {
   );
 
   return (
-    <ScrollView
+    <FormScrollView
       style={styles.container}
       contentContainerStyle={{ padding: Space.md, paddingBottom: 50 }}
-      keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
     >
       <Stack.Screen options={{ title: "Account" }} />
@@ -130,7 +157,8 @@ export default function AccountScreen() {
           {/* Mode toggle */}
           <View style={styles.toggle}>
             <Pressable
-              onPress={() => { setMode("signup"); setError(null); }}
+              onPress={() => changeMode("signup")}
+              disabled={busy}
               style={[styles.toggleBtn, mode === "signup" && styles.toggleActive]}
               accessibilityRole="button"
               accessibilityState={{ selected: mode === "signup" }}
@@ -138,7 +166,8 @@ export default function AccountScreen() {
               <Text style={[styles.toggleText, mode === "signup" && styles.toggleTextActive]}>Create account</Text>
             </Pressable>
             <Pressable
-              onPress={() => { setMode("signin"); setError(null); }}
+              onPress={() => changeMode("signin")}
+              disabled={busy}
               style={[styles.toggleBtn, mode === "signin" && styles.toggleActive]}
               accessibilityRole="button"
               accessibilityState={{ selected: mode === "signin" }}
@@ -154,7 +183,13 @@ export default function AccountScreen() {
               <Text style={styles.label}>Email</Text>
               <TextInput
                 value={email}
-                onChangeText={setEmail}
+                onChangeText={(value) => {
+                  setEmail(value);
+                  setConfirmationEmail(null);
+                  setError(null);
+                  setInfo(null);
+                }}
+                editable={!busy}
                 placeholder="you@example.com"
                 placeholderTextColor={Colors.inkFaint}
                 keyboardType="email-address"
@@ -169,6 +204,7 @@ export default function AccountScreen() {
               <TextInput
                 value={password}
                 onChangeText={setPassword}
+                editable={!busy}
                 placeholder={mode === "signup" ? "At least 8 characters" : "Password"}
                 placeholderTextColor={Colors.inkFaint}
                 secureTextEntry
@@ -180,8 +216,11 @@ export default function AccountScreen() {
               />
             </View> : null}
 
-            {error ? <Text style={styles.error}>{error}</Text> : null}
-            {info ? <Text style={styles.info}>{info}</Text> : null}
+            {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
+            {showConfirmation ? (
+              <Text style={styles.body}>Check your inbox and spam folder for Petwell’s confirmation email. Open the link, then sign in.</Text>
+            ) : null}
+            {info ? <Text accessibilityLiveRegion="polite" style={styles.info}>{info}</Text> : null}
 
             <PrimaryButton
               label={busy ? "Please wait…" : mode === "signup" ? "Create account" : mode === "reset" ? "Send reset link" : "Sign in"}
@@ -191,7 +230,14 @@ export default function AccountScreen() {
               disabled={!canSubmit}
               style={!canSubmit ? { opacity: 0.6 } : undefined}
             />
-            {mode !== "reset" ? <Pressable accessibilityRole="button" onPress={() => { setMode("reset"); setPassword(""); setError(null); setInfo(null); }}><Text style={styles.info}>Forgot password?</Text></Pressable> : null}
+            {showConfirmation ? (
+              <PrimaryButton label="Resend confirmation email" variant="outline" onPress={resendConfirmation} disabled={!emailValid || busy} />
+            ) : null}
+            {mode === "signin" ? (
+              <Pressable accessibilityRole="button" disabled={busy} onPress={() => changeMode("reset")}>
+                <Text style={styles.info}>Forgot password?</Text>
+              </Pressable>
+            ) : null}
             {busy ? <ActivityIndicator color={Colors.teal700} /> : null}
           </Card>
 
@@ -201,7 +247,7 @@ export default function AccountScreen() {
           </Text>
         </>
       )}
-    </ScrollView>
+    </FormScrollView>
   );
 }
 

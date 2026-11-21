@@ -1,4 +1,4 @@
-import { Stack, useRouter } from "expo-router";
+import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Bell,
@@ -23,10 +23,10 @@ import {
   Users,
   Video,
 } from "lucide-react-native";
-import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { ActivityIndicator, Linking, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 
-import { Card } from "@/components/ui";
+import { Card, PrimaryButton } from "@/components/ui";
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
 import { clearDeletedSession, isCurrentUserAdmin } from "@/lib/backend";
 import { config } from "@/lib/config";
@@ -50,17 +50,26 @@ const PERMISSIONS: Toggle[] = [
 
 export default function SettingsScreen() {
   const router = useRouter();
+  const { setup } = useLocalSearchParams<{ setup?: string }>();
+  const photoSetup = setup === "scan-photo" || setup === "vet-photo";
   const queryClient = useQueryClient();
   const { deviceData, mode, authEmail, isAuthenticated, canUseAuth, loadDemoProfile, clearDeviceData } = usePets();
-  const { isPro, isSupported, manageSubscription, restore } = useSubscription();
+  const { isPro, isSupported, restore } = useSubscription();
+  const storeSubscriptions = Platform.OS === "ios" ? "https://apps.apple.com/account/subscriptions" :
+    Platform.OS === "android" ? "https://play.google.com/store/account/subscriptions" : null;
 
   const [prefs, setPrefs] = useState<PrivacyPrefs>(DEFAULT_PRIVACY);
+  const [prefsReady, setPrefsReady] = useState(false);
+  const [prefsError, setPrefsError] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [accountDeleted, setAccountDeleted] = useState(false);
   const [busy, setBusy] = useState<boolean>(false);
   const [confirm, setConfirm] = useState<"images" | "account" | "aiHistory" | null>(null);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [aiPrefs, setAiPrefs] = useState<AiPreferences>(DEFAULT_AI_PREFS);
+  const [aiPrefsReady, setAiPrefsReady] = useState(false);
+  const [savingAiPrefs, setSavingAiPrefs] = useState(false);
+  const savingAiPrefsRef = useRef(false);
 
   useEffect(() => {
     let active = true;
@@ -88,36 +97,58 @@ export default function SettingsScreen() {
   }, [restore]);
 
   useEffect(() => {
+    if (mode !== "remote") return;
     let active = true;
+    setPrefsReady(false);
+    setPrefsError(false);
     privacyService
       .getPrefs()
       .then((p) => {
-        if (active) setPrefs(p);
+        if (active) {
+          setPrefs(p);
+          setPrefsReady(true);
+        }
       })
-      .catch(() => {});
+      .catch(() => { if (active) setPrefsError(true); });
+    return () => {
+      active = false;
+    };
+  }, [mode]);
+
+  useEffect(() => {
+    let active = true;
     getAiPreferences()
       .then((p) => {
-        if (active) setAiPrefs(p);
+        if (active) {
+          setAiPrefs(p);
+          setAiPrefsReady(true);
+        }
       })
-      .catch(() => {});
     return () => {
       active = false;
     };
   }, []);
 
   const toggleAi = useCallback(
-    (key: keyof AiPreferences) => {
-      setAiPrefs((prev) => {
-        // Turning the master switch off also disables document processing.
-        const next: AiPreferences =
-          key === "enabled" && prev.enabled
-            ? { enabled: false, allowDocumentProcessing: false }
-            : { ...prev, [key]: !prev[key] };
-        setAiPreferences(next).catch(() => {});
-        return next;
-      });
+    async (key: keyof AiPreferences, value: boolean) => {
+      if (!aiPrefsReady || savingAiPrefsRef.current) return;
+      savingAiPrefsRef.current = true;
+      setSavingAiPrefs(true);
+      setStatus(null);
+      const next = key === "enabled" && !value
+        ? DEFAULT_AI_PREFS
+        : { ...aiPrefs, [key]: value };
+      try {
+        await setAiPreferences(next);
+        setAiPrefs(next);
+      } catch {
+        setStatus("Couldn’t save this AI setting. Please try again.");
+      } finally {
+        savingAiPrefsRef.current = false;
+        setSavingAiPrefs(false);
+      }
     },
-    [],
+    [aiPrefs, aiPrefsReady],
   );
 
   const onTryDemo = useCallback(async () => {
@@ -202,6 +233,107 @@ export default function SettingsScreen() {
     }
   }, [router, mode, accountDeleted, clearDeviceData]);
 
+  const dataPermissions = (
+    <View style={styles.group}>
+      <Text style={styles.groupTitle}>Data permissions</Text>
+      <Card style={{ gap: 0 }}>
+        {PERMISSIONS.map((t, i) => (
+          <View key={t.key}>
+            {i > 0 ? <View style={styles.divider} /> : null}
+            <View style={styles.toggleRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.rowLabel}>{t.label}</Text>
+                <Text style={styles.rowDetail}>{t.detail}</Text>
+              </View>
+              <Switch
+                accessibilityLabel={t.label}
+                value={prefs[t.key]}
+                onValueChange={(value) => togglePref(t.key, value)}
+                disabled={busy || mode !== "remote" || !prefsReady}
+                trackColor={{ true: Colors.teal600, false: Colors.cream2 }}
+                thumbColor="#fff"
+              />
+            </View>
+          </View>
+        ))}
+        {prefsError ? <Text accessibilityRole="alert" style={styles.aiNotice}>Couldn’t load cloud photo settings. Reopen Settings to try again.</Text> : null}
+      </Card>
+    </View>
+  );
+
+  const aiPermissions = (
+    <View style={styles.group}>
+      <Text style={styles.groupTitle}>AI</Text>
+      <Card style={{ gap: 0 }}>
+        <View style={styles.toggleRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.rowLabel}>Enable AI features</Text>
+            <Text style={styles.rowDetail}>Assistant chat, explanations, label reading, and record summaries. Off by default.</Text>
+          </View>
+          <Switch
+            accessibilityLabel="Enable AI features"
+            value={aiPrefs.enabled}
+            onValueChange={(value) => toggleAi("enabled", value)}
+            disabled={!aiPrefsReady || savingAiPrefs}
+            trackColor={{ true: Colors.teal600, false: Colors.cream2 }}
+            thumbColor="#fff"
+          />
+        </View>
+        <View style={styles.divider} />
+        <View style={styles.toggleRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.rowLabel}>Allow AI to process my documents</Text>
+            <Text style={styles.rowDetail}>Required to read pet photos, food-label photos, and vet documents with AI.</Text>
+          </View>
+          <Switch
+            accessibilityLabel="Allow AI to process my documents"
+            value={aiPrefs.allowDocumentProcessing}
+            onValueChange={(value) => toggleAi("allowDocumentProcessing", value)}
+            disabled={!aiPrefs.enabled || !aiPrefsReady || savingAiPrefs}
+            trackColor={{ true: Colors.teal600, false: Colors.cream2 }}
+            thumbColor="#fff"
+          />
+        </View>
+        {!photoSetup ? (
+          <>
+            <View style={styles.divider} />
+            {confirm === "aiHistory" ? (
+              <ConfirmRow text="Delete all AI chats & history?" onConfirm={onDeleteAiHistory} onCancel={() => setConfirm(null)} />
+            ) : (
+              <ActionRow icon={Trash2} label="Delete AI history" onPress={() => setConfirm("aiHistory")} danger />
+            )}
+          </>
+        ) : null}
+        <Text style={styles.aiNotice}>{AI_DATA_NOTICE}</Text>
+      </Card>
+    </View>
+  );
+
+  if (photoSetup) {
+    return (
+      <ScrollView style={styles.container} contentContainerStyle={{ padding: Space.md, paddingBottom: 50 }}>
+        <Stack.Screen options={{ title: "Photo settings" }} />
+        <Card style={{ gap: Space.sm }}>
+          <Text style={Fonts.h3}>Set up AI photo reading</Text>
+          <Text style={Fonts.body}>
+            Turn on Enable AI features, then Allow AI to process my documents.
+            {setup === "scan-photo" ? " Make sure Store scan photos in the cloud is on as well." : ""}
+          </Text>
+          <Text style={Fonts.small}>Return to your photo when you’re ready. Petwell will send it for AI reading only after you tap the read button.</Text>
+        </Card>
+        {aiPermissions}
+        {setup === "scan-photo" ? dataPermissions : null}
+        {status ? <Text accessibilityRole="alert" style={styles.status}>{status}</Text> : null}
+        <View style={styles.group}>
+          <PrimaryButton label="Back to photo" disabled={savingAiPrefs || busy} onPress={() => {
+            if (router.canGoBack()) router.back();
+            else router.replace("/(tabs)/scan");
+          }} />
+        </View>
+      </ScrollView>
+    );
+  }
+
   return (
     <ScrollView
       style={styles.container}
@@ -261,91 +393,33 @@ export default function SettingsScreen() {
       </View>
 
       {/* Subscription — RevenueCat (hidden on web where purchases aren't supported) */}
-      {isSupported ? (
+      {storeSubscriptions || isSupported ? (
         <View style={styles.group}>
           <Text style={styles.groupTitle}>Subscription</Text>
           <Card style={{ gap: 0 }}>
-            <ActionRow
+            {storeSubscriptions ? <ActionRow
               icon={CreditCard}
-              label={isPro ? "Manage subscription" : "See Petwell Pro plans"}
-              onPress={isPro ? () => { void manageSubscription(); } : () => router.push("/premium")}
-            />
-            <View style={styles.divider} />
-            <ActionRow icon={RefreshCw} label="Restore purchases" onPress={() => { void onRestore(); }} />
+              label="Manage or cancel subscription"
+              onPress={() => { void Linking.openURL(storeSubscriptions).catch(() => setStatus("Open your store account to manage subscriptions.")); }}
+            /> : null}
+            {isSupported ? <>
+              {storeSubscriptions ? <View style={styles.divider} /> : null}
+              <ActionRow icon={RefreshCw} label="Restore purchases" onPress={() => { void onRestore(); }} />
+            </> : null}
           </Card>
         </View>
       ) : null}
 
-      {/* Data permissions */}
-      <View style={styles.group}>
-        <Text style={styles.groupTitle}>Data permissions</Text>
-        <Card style={{ gap: 0 }}>
-          {PERMISSIONS.map((t, i) => (
-            <View key={t.key}>
-              {i > 0 ? <View style={styles.divider} /> : null}
-              <View style={styles.toggleRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.rowLabel}>{t.label}</Text>
-                  <Text style={styles.rowDetail}>{t.detail}</Text>
-                </View>
-                <Switch
-                  value={prefs[t.key]}
-                  onValueChange={(value) => togglePref(t.key, value)}
-                  disabled={busy || mode !== "remote"}
-                  trackColor={{ true: Colors.teal600, false: Colors.cream2 }}
-                  thumbColor="#fff"
-                />
-              </View>
-            </View>
-          ))}
-        </Card>
-      </View>
-
-      {/* AI features */}
-      <View style={styles.group}>
-        <Text style={styles.groupTitle}>AI</Text>
-        <Card style={{ gap: 0 }}>
-          <View style={styles.toggleRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.rowLabel}>Enable AI features</Text>
-              <Text style={styles.rowDetail}>Assistant chat, explanations, label reading, and record summaries. Off by default.</Text>
-            </View>
-            <Switch
-              value={aiPrefs.enabled}
-              onValueChange={() => toggleAi("enabled")}
-              trackColor={{ true: Colors.teal600, false: Colors.cream2 }}
-              thumbColor="#fff"
-            />
-          </View>
-          <View style={styles.divider} />
-          <View style={styles.toggleRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.rowLabel}>Allow AI to process my documents</Text>
-              <Text style={styles.rowDetail}>Needed to summarize uploaded records and read food labels with AI.</Text>
-            </View>
-            <Switch
-              value={aiPrefs.allowDocumentProcessing}
-              onValueChange={() => toggleAi("allowDocumentProcessing")}
-              disabled={!aiPrefs.enabled}
-              trackColor={{ true: Colors.teal600, false: Colors.cream2 }}
-              thumbColor="#fff"
-            />
-          </View>
-          <View style={styles.divider} />
-          {confirm === "aiHistory" ? (
-            <ConfirmRow text="Delete all AI chats & history?" onConfirm={onDeleteAiHistory} onCancel={() => setConfirm(null)} />
-          ) : (
-            <ActionRow icon={Trash2} label="Delete AI history" onPress={() => setConfirm("aiHistory")} danger />
-          )}
-          <Text style={styles.aiNotice}>{AI_DATA_NOTICE}</Text>
-        </Card>
-      </View>
+      {dataPermissions}
+      {aiPermissions}
 
       {/* Your data */}
       <View style={styles.group}>
         <Text style={styles.groupTitle}>Your data</Text>
         <Card style={{ gap: 0 }}>
           <ActionRow icon={Download} label="Export all my data" onPress={onExportAll} />
+          <View style={styles.divider} />
+          <ActionRow icon={Download} label="Export this pet’s records" onPress={() => router.push("/export-pet")} />
           <View style={styles.divider} />
           <ActionRow icon={FileText} label="Build a vet-ready report" onPress={() => router.push("/vet-report")} />
           <View style={styles.divider} />

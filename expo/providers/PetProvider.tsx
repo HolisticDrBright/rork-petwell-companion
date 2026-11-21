@@ -1,3 +1,4 @@
+import { clearRecurringAlerts } from "@/services/recurringAlerts";
 import createContextHook from "@nkzw/create-context-hook";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -354,6 +355,7 @@ export const [PetProvider, usePets] = createContextHook(() => {
   }, [queryClient]);
 
   const clearDeviceData = useCallback(async () => {
+    await clearRecurringAlerts();
     await writeQueue.current.catch(() => {});
     const keys = (await AsyncStorage.getAllKeys()).filter(key => key.startsWith("petwell."));
     await AsyncStorage.multiRemove(keys);
@@ -382,6 +384,7 @@ export const [PetProvider, usePets] = createContextHook(() => {
 
   const signOut = useCallback(async () => {
     await signOutToAnonymous();
+    await clearRecurringAlerts();
     const a = getAuthInfo();
     setAuthInfo(a);
     await queryClient.invalidateQueries();

@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { EmergencyContacts } from "@/components/EmergencyContacts";
+import { CareScheduleChecklist } from "@/components/CareScheduleChecklist";
 import { Card, Pill, SectionTitle } from "@/components/ui";
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
 import { getMode, getUserId } from "@/lib/backend";
@@ -351,6 +352,7 @@ export default function SharedPetScreen() {
                 ))}
               </View>
             ) : null}
+      {sections?.care_protocol && active ? <CareScheduleChecklist petId={petId} canComplete={canLog} /> : null}
             {allergies.length > 0 ? (
               <View>
                 <Text style={Fonts.small}>Allergies</Text>

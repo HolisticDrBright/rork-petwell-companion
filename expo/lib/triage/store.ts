@@ -1,10 +1,10 @@
 import { create } from "zustand";
 
 import { getMode } from "@/lib/backend";
-import { triageService } from "@/services";
+import { triageService, type AnswerInput } from "@/services";
 import type { Pet } from "@/types/pet";
 
-import { applyAnswer, buildOutcome, emptyContext } from "./engine";
+import { applyAnswer, buildOutcome, emptyContext, personalize } from "./engine";
 import { getModule } from "./modules";
 import type { AnswerOption, ConcernModule, Question, TriageContext, TriageOutcome } from "./types";
 
@@ -21,11 +21,11 @@ interface TriageState {
   outcome: TriageOutcome | null;
   outcomePetId: string | null;
   concernLabel: string | null;
-  remoteSessionId: string | null;
+  remoteSession: Promise<string | null> | null;
   finishing: boolean;
 
   start: (pet: Pet, concernId: string) => void;
-  answer: (q: Question, option: AnswerOption | null) => void;
+  answer: (q: Question, options: AnswerOption[]) => void;
   back: () => boolean;
   finish: (petId: string) => Promise<void>;
   reset: () => void;
@@ -38,11 +38,17 @@ export const useTriage = create<TriageState>((set, get) => ({
   outcome: null,
   outcomePetId: null,
   concernLabel: null,
-  remoteSessionId: null,
+  remoteSession: null,
   finishing: false,
 
   start: (pet, concernId) => {
     const module = getModule(concernId);
+    const remoteSession = getMode() === "remote"
+      ? triageService.createSession(pet.id, module.id, module.label).catch((error) => {
+        console.warn("[petwell] triage session create failed:", error);
+        return null;
+      })
+      : null;
     set({
       module,
       ctx: emptyContext(pet),
@@ -50,20 +56,15 @@ export const useTriage = create<TriageState>((set, get) => ({
       outcome: null,
       outcomePetId: null,
       concernLabel: module.label,
-      remoteSessionId: null,
+      remoteSession,
       finishing: false,
     });
-    if (getMode() === "remote") {
-      triageService
-        .createSession(pet.id, module.id, module.label)
-        .then((id) => set({ remoteSessionId: id }))
-        .catch((e) => console.warn("[petwell] triage session create failed:", e));
-    }
   },
 
-  answer: (q, option) =>
-    // Functional update so two rapid taps each apply against the latest state.
-    set((s) => (s.ctx ? { ctx: applyAnswer(s.ctx, q, option), history: [...s.history, s.ctx] } : s)),
+  answer: (q, options) =>
+    set((s) => s.ctx && !s.ctx.order.includes(q.id)
+      ? { ctx: applyAnswer(s.ctx, q, options), history: [...s.history, s.ctx] }
+      : s),
 
   back: () => {
     const { history } = get();
@@ -73,30 +74,33 @@ export const useTriage = create<TriageState>((set, get) => ({
   },
 
   finish: async (petId) => {
-    const { module, ctx, remoteSessionId, finishing } = get();
+    const { module, ctx, remoteSession, finishing } = get();
     if (!module || !ctx || finishing) return;
     set({ finishing: true });
 
     const outcome = buildOutcome(module, ctx);
     set({ outcome, outcomePetId: petId });
 
-    if (getMode() !== "remote") return;
+    if (!remoteSession) return;
     try {
-      let sort = 0;
-      for (const qid of ctx.order) {
-        const question = module.questions.find((q) => q.id === qid);
-        if (!remoteSessionId || !question) continue;
-        const opt = ctx.picked[qid];
-        await triageService.addAnswer(remoteSessionId, {
-          questionId: qid,
-          questionText: question.text,
-          answerId: opt?.id,
-          answerLabel: opt?.label ?? "Not sure",
-          isRedFlag: !!opt?.redFlag,
-          sort: sort++,
-        });
-      }
+      const remoteSessionId = await remoteSession;
       if (remoteSessionId) {
+        const answers: AnswerInput[] = [];
+        for (const qid of ctx.order) {
+          const question = module.questions.find((q) => q.id === qid);
+          if (!question) continue;
+          for (const opt of ctx.picked[qid] ?? [null]) {
+            answers.push({
+              questionId: qid,
+              questionText: personalize(question.text, ctx.pet),
+              answerId: opt?.id,
+              answerLabel: opt?.label ?? "Not sure",
+              isRedFlag: !!opt?.redFlag,
+              sort: answers.length,
+            });
+          }
+        }
+        if (answers.length) await triageService.addAnswers(remoteSessionId, answers);
         await triageService.completeSession(remoteSessionId, outcome.redFlags.length);
       }
       await triageService.saveResult(petId, {
@@ -113,6 +117,7 @@ export const useTriage = create<TriageState>((set, get) => ({
       module: null,
       ctx: null,
       history: [],
+      remoteSession: null,
       finishing: false,
     }),
 }));

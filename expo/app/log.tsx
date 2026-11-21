@@ -1,4 +1,5 @@
 import { useSaveAction } from "@/hooks/useSaveAction";
+import { FormScrollView } from "@/components/FormScrollView";
 import { SaveStatus } from "@/components/SaveStatus";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
@@ -11,12 +12,12 @@ import {
   Pill,
   Scale,
   Sparkles,
+  Stethoscope,
 } from "lucide-react-native";
 import React, { useCallback, useMemo, useState } from "react";
 import {
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -31,11 +32,12 @@ import Colors, { Fonts, Radius, Space, cardShadow } from "@/constants/colors";
 import { RECORDS } from "@/constants/mockData";
 import { shouldShowDemoData } from "@/lib/dataMode";
 import { usePets } from "@/providers/PetProvider";
+import { localDateLabel } from "@/services/careScheduleService";
 import type { LogCategory, TimelineEntry } from "@/types/pet";
 
 type LogKind = Extract<
   LogCategory,
-  "food" | "stool" | "skin" | "weight" | "activity" | "meds" | "symptom"
+  "food" | "stool" | "skin" | "weight" | "activity" | "meds" | "symptom" | "vet"
 >;
 
 const KINDS: {
@@ -51,6 +53,7 @@ const KINDS: {
   { id: "activity", label: "Activity", icon: Activity, color: Colors.coral500 },
   { id: "meds", label: "Meds", icon: Pill, color: Colors.teal700 },
   { id: "symptom", label: "Symptom", icon: HeartPulse, color: Colors.red500 },
+  { id: "vet", label: "Vet visit", icon: Stethoscope, color: Colors.teal900 },
 ];
 
 const MEALS = ["Breakfast", "Dinner", "Treat", "Snack"];
@@ -90,6 +93,10 @@ export default function LogScreen() {
   const [actType, setActType] = useState<string>("Walk");
   const [med, setMed] = useState<string>("");
   const [symptom, setSymptom] = useState<string>("");
+  const [visitReason, setVisitReason] = useState("");
+  const [visitClinic, setVisitClinic] = useState("");
+  const [visitDate, setVisitDate] = useState(() => localDateLabel(new Date()));
+  const [visitDateError, setVisitDateError] = useState(false);
   const [notes, setNotes] = useState<string>("");
 
   // Medication-name autocomplete hints. Demo records are only consulted in
@@ -116,10 +123,12 @@ export default function LogScreen() {
         return med.trim().length > 0;
       case "symptom":
         return symptom.trim().length > 0;
+      case "vet":
+        return visitReason.trim().length > 0;
       default:
         return true; // stool / skin always have a value
     }
-  }, [kind, food, weight, minutes, med, symptom]);
+  }, [kind, food, weight, minutes, med, symptom, visitReason]);
 
   const buildEntry = useCallback((): TimelineEntry | undefined => {
     if (!selectedPet) return undefined;
@@ -185,6 +194,15 @@ export default function LogScreen() {
           title: symptom.trim(),
           detail: note || undefined,
         };
+      case "vet":
+        return {
+          ...base,
+          date: visitDate.trim(),
+          time: "",
+          category: "vet",
+          title: `Vet visit: ${visitReason.trim()}`,
+          detail: [visitClinic.trim(), note].filter(Boolean).join(" · ") || undefined,
+        };
     }
   }, [
     kind,
@@ -201,25 +219,35 @@ export default function LogScreen() {
     minutes,
     med,
     symptom,
+    visitReason,
+    visitClinic,
+    visitDate,
   ]);
 
   const save = useCallback(() => runSave(async () => {
     if (!valid || !selectedPet) return;
+    if (kind === "vet") {
+      const date = visitDate.trim();
+      const day = new Date(`${date}T00:00:00Z`);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(day.getTime()) || day.toISOString().slice(0, 10) !== date) {
+        setVisitDateError(true);
+        return;
+      }
+    }
     const entry = buildEntry();
     if (!entry) return;
     await addLog(selectedPet.id, entry);
     if (Platform.OS !== "web") void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     router.replace("/(tabs)/timeline");
-  }), [runSave, valid, addLog, selectedPet, buildEntry, router]);
+  }), [runSave, valid, kind, visitDate, addLog, selectedPet, buildEntry, router]);
 
   if (!selectedPet) return <NoPetSelected />;
 
   return (
-    <ScrollView
+    <FormScrollView
       style={styles.container}
       contentContainerStyle={{ padding: Space.md, paddingBottom: 60 }}
       showsVerticalScrollIndicator={false}
-      keyboardShouldPersistTaps="handled"
     >
       <Stack.Screen options={{ title: "Add a log" }} />
 
@@ -227,18 +255,15 @@ export default function LogScreen() {
       <Text style={styles.subtitle}>For {selectedPet.name} · saves straight to the timeline</Text>
 
       {/* Category selector */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ gap: 8, paddingVertical: 4 }}
-        style={{ marginHorizontal: -Space.md, paddingHorizontal: Space.md, marginTop: Space.md }}
-      >
+      <View style={styles.kindOptions} accessibilityRole="radiogroup" accessibilityLabel="Log type">
         {KINDS.map((k) => {
           const on = k.id === kind;
           return (
             <Pressable
               key={k.id}
               testID={`log-kind-${k.id}`}
+              accessibilityRole="radio"
+              aria-checked={on}
               onPress={() => setKind(k.id)}
               style={[styles.kindChip, on && { backgroundColor: k.color, borderColor: k.color }]}
             >
@@ -247,7 +272,7 @@ export default function LogScreen() {
             </Pressable>
           );
         })}
-      </ScrollView>
+      </View>
 
       {/* Contextual input card */}
       <View style={styles.card}>
@@ -376,30 +401,68 @@ export default function LogScreen() {
             </Text>
           </>
         ) : null}
+        {kind === "vet" ? (
+          <>
+            <Label>Reason for visit</Label>
+            <TextInput
+              accessibilityLabel="Reason for visit"
+              value={visitReason}
+              onChangeText={setVisitReason}
+              placeholder="e.g. Annual checkup or ear recheck"
+              placeholderTextColor={Colors.inkFaint}
+              style={styles.input}
+            />
+            <Label>Visit date (YYYY-MM-DD)</Label>
+            <TextInput
+              accessibilityLabel="Visit date"
+              value={visitDate}
+              onChangeText={(date) => {
+                setVisitDate(date);
+                setVisitDateError(false);
+              }}
+              autoCorrect={false}
+              maxLength={10}
+              placeholder="YYYY-MM-DD"
+              placeholderTextColor={Colors.inkFaint}
+              style={styles.input}
+            />
+            {visitDateError ? <Text accessibilityRole="alert" style={Fonts.small}>Enter a real date using YYYY-MM-DD.</Text> : null}
+            <Label>Vet or clinic (optional)</Label>
+            <TextInput
+              accessibilityLabel="Vet or clinic"
+              value={visitClinic}
+              onChangeText={setVisitClinic}
+              placeholder="e.g. Greenfield Animal Hospital"
+              placeholderTextColor={Colors.inkFaint}
+              style={styles.input}
+            />
+          </>
+        ) : null}
       </View>
 
       {/* Shared notes */}
       <Label style={{ marginTop: Space.lg }}>Notes (optional)</Label>
       <TextInput
+        accessibilityLabel="Notes"
         value={notes}
         onChangeText={setNotes}
-        placeholder="Anything else worth remembering…"
+        placeholder={kind === "vet" ? "Findings, treatment, or follow-up instructions…" : "Anything else worth remembering…"}
         placeholderTextColor={Colors.inkFaint}
         multiline
         style={[styles.input, styles.multiline]}
       />
 
       <SaveStatus saving={saving} saveError={saveError} />
-        <PrimaryButton
+      <PrimaryButton
         testID="log-save"
-        label="Save to timeline"
+        label={kind === "vet" ? "Save vet visit" : "Save to timeline"}
         icon={<Check size={18} color="#fff" />}
         variant="coral"
         onPress={save}
         style={[{ marginTop: Space.lg }, !valid && styles.disabled]}
       />
       <Text style={styles.footNote}>Logs are yours — saved straight to {selectedPet.name}&apos;s timeline.</Text>
-    </ScrollView>
+    </FormScrollView>
   );
 }
 
@@ -494,6 +557,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.cream },
   title: { ...Fonts.title },
   subtitle: { ...Fonts.bodySoft, marginTop: 2 },
+  kindOptions: { flexDirection: "row", flexWrap: "wrap", gap: 8, paddingVertical: 4, marginTop: Space.md },
   kindChip: {
     flexDirection: "row",
     alignItems: "center",

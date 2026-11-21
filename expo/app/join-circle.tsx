@@ -1,8 +1,9 @@
 import { Stack, useRouter } from "expo-router";
 import { ChevronRight, KeyRound, PawPrint } from "lucide-react-native";
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
+import { FormScrollView } from "@/components/FormScrollView";
 import { Card, PrimaryButton, SectionTitle } from "@/components/ui";
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
 import { getMode } from "@/lib/backend";
@@ -113,7 +114,7 @@ export default function JoinCircleScreen() {
   }
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <FormScrollView style={styles.screen} contentContainerStyle={styles.content}>
       <Stack.Screen options={{ title: "Shared with me" }} />
 
       {claimed ? (
@@ -200,7 +201,7 @@ export default function JoinCircleScreen() {
           ))}
         </Card>
       )}
-    </ScrollView>
+    </FormScrollView>
   );
 }
 

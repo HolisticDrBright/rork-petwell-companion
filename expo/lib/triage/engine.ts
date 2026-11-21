@@ -35,10 +35,14 @@ export function getQuestion(module: ConcernModule, id: string): Question | undef
   return module.questions.find((q) => q.id === id);
 }
 
-/** Record an answer (opt === null means "I'm not sure"). Immutable. */
-export function applyAnswer(ctx: TriageContext, q: Question, opt: AnswerOption | null): TriageContext {
+/** Record the selected options. An empty selection means "I'm not sure". */
+export function applyAnswer(ctx: TriageContext, q: Question, options: AnswerOption[]): TriageContext {
   const picked = { ...ctx.picked };
-  if (opt) picked[q.id] = opt;
+  const ids = new Set(options.map((opt) => opt.id));
+  const matching = q.options.filter((opt) => ids.has(opt.id));
+  const compatible = matching.filter((opt) => !opt.exclusive);
+  const selected = q.multiple && compatible.length > 0 ? compatible : matching.slice(0, 1);
+  if (selected.length) picked[q.id] = selected;
   else delete picked[q.id];
   const order = ctx.order.includes(q.id) ? ctx.order : [...ctx.order, q.id];
   return { ...ctx, picked, order };
@@ -48,8 +52,9 @@ export function applyAnswer(ctx: TriageContext, q: Question, opt: AnswerOption |
 function emergencyTriggered(module: ConcernModule, ctx: TriageContext): boolean {
   return module.questions.some((q) => {
     if (!q.shortCircuit) return false;
-    const opt = ctx.picked[q.id];
-    return !!opt?.redFlag && redFlagUrgencyFor(opt.redFlag, ctx.pet) === "red";
+    return ctx.picked[q.id]?.some(
+      (opt) => !!opt.redFlag && redFlagUrgencyFor(opt.redFlag, ctx.pet) === "red"
+    );
   });
 }
 
@@ -92,11 +97,10 @@ export function computeUrgency(
   const seen = new Set<string>();
 
   for (const qid of ctx.order) {
-    const opt = ctx.picked[qid];
-    if (!opt) continue;
-    if (opt.points) points += opt.points;
-    if (opt.urgencyFloor) urgency = maxUrgency(urgency, opt.urgencyFloor);
-    if (opt.redFlag) {
+    for (const opt of ctx.picked[qid] ?? []) {
+      points += opt.points ?? 0;
+      if (opt.urgencyFloor) urgency = maxUrgency(urgency, opt.urgencyFloor);
+      if (!opt.redFlag) continue;
       urgency = maxUrgency(urgency, redFlagUrgencyFor(opt.redFlag, ctx.pet));
       const label = redFlagLabelFor(opt.redFlag, ctx.pet);
       if (!seen.has(label)) {
@@ -139,9 +143,9 @@ function scoreCauses(module: ConcernModule, ctx: TriageContext): ScoredCause[] {
     }
   }
   for (const qid of ctx.order) {
-    const w = ctx.picked[qid]?.causeWeights;
-    if (!w) continue;
-    for (const [k, v] of Object.entries(w)) scores[k] = (scores[k] ?? 0) + v;
+    for (const opt of ctx.picked[qid] ?? []) {
+      for (const [k, v] of Object.entries(opt.causeWeights ?? {})) scores[k] = (scores[k] ?? 0) + v;
+    }
   }
   return module.causes
     .map((c) => ({ id: c.id, name: c.name, note: c.note, score: scores[c.id] ?? 0 }))
@@ -162,8 +166,9 @@ function computeConfidence(ctx: TriageContext, scored: ScoredCause[]): Confidenc
 function collectSupports(ctx: TriageContext): string[] {
   const out: string[] = [];
   for (const qid of ctx.order) {
-    const s = ctx.picked[qid]?.support;
-    if (s && !out.includes(s)) out.push(s);
+    for (const opt of ctx.picked[qid] ?? []) {
+      if (opt.support && !out.includes(opt.support)) out.push(opt.support);
+    }
   }
   return out.slice(0, 6);
 }
@@ -213,10 +218,10 @@ function buildSummary(
   const flags = redFlags.length ? redFlags.join("; ") : "none reported";
   const answers = ctx.order
     .map((qid) => {
-      const opt = ctx.picked[qid];
+      const labels = ctx.picked[qid]?.map((opt) => opt.label);
       const q = getQuestion(module, qid);
       if (!q) return null;
-      return `${q.text} — ${opt ? opt.label : "unsure"}`;
+      return `${personalize(q.text, ctx.pet)} — ${labels?.join("; ") || "unsure"}`;
     })
     .filter(Boolean) as string[];
 

@@ -1,9 +1,11 @@
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
+import { FormScrollView } from "@/components/FormScrollView";
+import { CapabilityDisclosure } from "@/components/CapabilityDisclosure";
 import { Camera, ImagePlus, Lightbulb, Target, Upload } from "lucide-react-native";
 import React, { useCallback, useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { NoPetSelected } from "@/components/NoPetSelected";
 import { PrimaryButton } from "@/components/ui";
@@ -20,7 +22,7 @@ const GUIDANCE = [
 export default function ScanFlowScreen() {
   const router = useRouter();
   const { type } = useLocalSearchParams<{ type: string }>();
-  const { selectedPet } = usePets();
+  const { selectedPet, mode } = usePets();
   const [photo, setPhoto] = useState<string | null>(null);
   const [notes, setNotes] = useState<string>("");
 
@@ -48,12 +50,13 @@ export default function ScanFlowScreen() {
   if (!selectedPet) return <NoPetSelected />;
 
   return (
-    <ScrollView
+    <FormScrollView
       style={styles.container}
       contentContainerStyle={{ padding: Space.md, paddingBottom: 60 }}
       showsVerticalScrollIndicator={false}
     >
       <Stack.Screen options={{ title: category?.label ?? "Scan" }} />
+      <CapabilityDisclosure feature="scan" remote={mode === "remote"} />
 
       <Text style={styles.title}>{category?.label ?? "Scan"}</Text>
       <Text style={styles.subtitle}>
@@ -106,15 +109,15 @@ export default function ScanFlowScreen() {
       />
 
       <PrimaryButton
-        label="Analyze photo"
+        label="Continue to scan preview"
         variant="coral"
         onPress={analyze}
         style={{ marginTop: Space.lg }}
       />
       <Text style={styles.footNote}>
-        You&apos;ll be able to correct anything we get wrong on the next screen.
+        On the next screen, you can read a photo with AI or start a guided symptom check.
       </Text>
-    </ScrollView>
+    </FormScrollView>
   );
 }
 

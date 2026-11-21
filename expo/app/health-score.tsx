@@ -1,9 +1,12 @@
 import { Stack, useRouter } from "expo-router";
 import { Activity, Bone, Brain, Droplets, HeartPulse, Scale, Smile, Sparkles, Stethoscope } from "lucide-react-native";
-import React, { memo, useEffect, useRef } from "react";
+import React, { memo, useEffect, useMemo } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { Card, LoadFailed } from "@/components/ui";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { LineChart } from "@/components/Charts";
+import { CapabilityDisclosure } from "@/components/CapabilityDisclosure";
 import { NoPetSelected } from "@/components/NoPetSelected";
 import { InfoNote, ScreenHeader } from "@/components/integrative";
 import Colors, { Fonts, Radius, Space } from "@/constants/colors";
@@ -75,21 +78,25 @@ const SubScoreCard = memo(function SubScoreCard({ s }: { s: SystemSubScore }) {
 
 export default function HealthScoreScreen() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { selectedPet, timeline, trends, mode, timelineFailed, timelineLoading, todayIso, retryTimeline } = usePets();
+  const petId = selectedPet?.id ?? "";
+  const score = useMemo(() => selectedPet ? computeHealthScore(selectedPet, timeline, trends, todayIso) : null,
+    [selectedPet, timeline, trends, todayIso]);
+  const { data: history, isError: historyFailed } = useQuery({
+    queryKey: ["health-score-history", petId],
+    enabled: !!petId && mode === "remote",
+    queryFn: () => integrativeService.healthScoreHistory(petId),
+  });
 
-  // Best-effort: snapshot the score once per pet in remote mode (no-op locally).
-  const savedRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!selectedPet) return;
-    if (mode !== "remote" || timelineFailed || timelineLoading) return;
-    if (savedRef.current === selectedPet.id) return;
-    const s = computeHealthScore(selectedPet, timeline, trends, todayIso);
-    if (s.overall === null) return;
-    savedRef.current = selectedPet.id;
-    integrativeService.saveHealthScore(selectedPet.id, s).catch(() => {});
-  }, [mode, selectedPet, timeline, trends, todayIso, timelineFailed, timelineLoading]);
+    if (!petId || !score || score.overall === null || mode !== "remote" || timelineFailed || timelineLoading) return;
+    void integrativeService.saveHealthScore(petId, score)
+      .then(() => queryClient.invalidateQueries({ queryKey: ["health-score-history", petId] }))
+      .catch(() => {});
+  }, [mode, petId, score, timelineFailed, timelineLoading, queryClient]);
 
-  if (!selectedPet) return <NoPetSelected />;
+  if (!selectedPet || !score) return <NoPetSelected />;
 
   // The score is computed from the logs. With none loaded it would still
   // render a number and a headline — "doing great across the board" — about a
@@ -112,14 +119,21 @@ export default function HealthScoreScreen() {
     );
   }
 
-  const score = computeHealthScore(selectedPet, timeline, trends, todayIso);
   const color = BAND_COLOR[score.band];
+  const coverageRows = [
+    ["Weight measurements", score.coverage.weight, "60 days"],
+    ["Symptom and wellness logs", score.coverage.symptoms, "30 days"],
+    ["Activity logs", score.coverage.activity, "30 days"],
+    ["Medication logs", score.coverage.medicationLogs, "30 days"],
+    ["Vet visit logs", score.coverage.vetVisits, "30 days"],
+  ] as const;
 
   return (
     <View style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
       <ScreenHeader title="Petwell Health Score" subtitle={`${selectedPet.name} · updated ${score.generatedAt}`} />
       <ScrollView contentContainerStyle={{ padding: Space.md, paddingBottom: 50 }} showsVerticalScrollIndicator={false}>
+        <CapabilityDisclosure feature="score" remote={mode === "remote"} />
         {/* Overall ring */}
         <Card style={styles.overallCard}>
           <View style={[styles.ring, { borderColor: color }]}>
@@ -132,10 +146,36 @@ export default function HealthScoreScreen() {
             </View>
             <Text style={styles.headline}>{score.headline}</Text>
             <Text style={styles.signals}>
-              {score.loggedSignals} of 8 systems have recent log data.
+              {score.loggedSignals} of 7 trackable systems contributed.
             </Text>
           </View>
         </Card>
+
+        <Text style={styles.sectionTitle}>How your score was calculated</Text>
+        <Card style={styles.subCard}>
+          <Text style={Fonts.body}>Log coverage: {score.confidence}</Text>
+          <Text style={Fonts.small}>Each logged system carries equal weight. At least two systems are needed. Coverage describes the logs and does not establish clinical accuracy.</Text>
+          {score.inputs.map(input => (
+            <View key={input.key} style={{ gap: 3 }}>
+              <Text style={Fonts.h3}>{input.label} · {input.contribution} points</Text>
+              <Text style={Fonts.small}>System score {input.rawValue}/100 · {(input.weight * 100).toFixed(1)}% weight</Text>
+              <Text style={Fonts.small}>{input.observations.join(" · ")}</Text>
+            </View>
+          ))}
+          <Text style={Fonts.small}>Contributions are shown as whole points. Medication and visit counts give context and do not affect the score.</Text>
+          {coverageRows.map(([label, count, window]) => (
+            <Text key={label} style={Fonts.small}>{label} ({window}) · {count}</Text>
+          ))}
+        </Card>
+
+        {mode === "remote" ? <Card style={styles.subCard}>
+          <Text style={Fonts.h3}>Score history</Text>
+          {historyFailed ? <Text style={Fonts.small}>Couldn’t load score history.</Text> :
+            (history?.length ?? 0) < 2 ? <Text style={Fonts.small}>At least two saved days are needed for a trend.</Text> : (
+              <><LineChart width={250} height={80} values={history!.map(s => s.overall)} />
+                <Text style={Fonts.small}>{history![0].generated_at} to {history!.at(-1)?.generated_at}</Text></>
+            )}
+        </Card> : null}
 
         <Text style={styles.sectionTitle}>System sub-scores</Text>
         {score.systems.map((s) => (

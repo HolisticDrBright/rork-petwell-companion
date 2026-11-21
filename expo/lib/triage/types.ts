@@ -42,12 +42,14 @@ export interface AnswerEffect {
 export interface AnswerOption extends AnswerEffect {
   id: string;
   label: string;
+  /** Selecting this answer clears other selections on a multiple-choice question. */
+  exclusive?: boolean;
 }
 
 export interface TriageContext {
   pet: Pet;
-  /** questionId -> chosen option (the "I'm not sure" choice is omitted). */
-  picked: Record<string, AnswerOption>;
+  /** questionId -> chosen options (the "I'm not sure" choice is omitted). */
+  picked: Record<string, AnswerOption[]>;
   /** ordered list of answered question ids (for adaptive flow + report). */
   order: string[];
 }
@@ -58,6 +60,7 @@ export interface Question {
   why: string;
   kind: "redflag" | "core" | "refine";
   options: AnswerOption[];
+  multiple?: boolean;
   allowUnsure?: boolean;
   /** Adaptive: only ask when this predicate passes (default: always). */
   when?: (ctx: TriageContext) => boolean;

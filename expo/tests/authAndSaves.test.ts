@@ -10,6 +10,9 @@ let rpcError: Error | null = null;
 let exchangeCalls = 0;
 let updateCalls = 0;
 let signupRedirect: string | undefined;
+let signInError: { code: string } | null = null;
+let resendError: { status: number } | null = null;
+let resendInput: unknown;
 const callbacks = new Set<(event: string, session: { user: User } | null) => void>();
 const emit = (event: string) => callbacks.forEach(fn => fn(event, user ? { user } : null));
 mock.module("../lib/config", () => ({ config: { isProduction: true, useApi: true } }));
@@ -19,9 +22,15 @@ mock.module("../lib/supabase", () => ({ isSupabaseConfigured: true, supabase: {
     async getSession() { return { data: { session: user ? { user } : null }, error: null }; },
     async getUser() { return { data: { user }, error: null }; },
     async signInAnonymously() { anonymousCalls++; throw new Error("Anonymous disabled"); },
-    async signInWithPassword() { user = { id: "account-a", email: "test@example.invalid" }; emit("SIGNED_IN"); return { data: { user, session: { user } }, error: null }; },
+    async signInWithPassword() {
+      if (signInError) return { data: { user: null, session: null }, error: signInError };
+      user = { id: "account-a", email: "test@example.invalid" };
+      emit("SIGNED_IN");
+      return { data: { user, session: { user } }, error: null };
+    },
     async signOut() { user = null; emit("SIGNED_OUT"); return { error: null }; },
     async signUp(input: { options?: { emailRedirectTo?: string } }) { signupRedirect = input.options?.emailRedirectTo; return { data: { user: null, session: null }, error: null }; },
+    async resend(input: unknown) { resendInput = input; return { error: resendError }; },
     async resetPasswordForEmail() { return { error: resetError }; },
     async exchangeCodeForSession(code: string) {
       exchangeCalls++;
@@ -58,6 +67,24 @@ assert.equal(backend.getUserId(), null);
 assert.equal(anonymousCalls, 0);
 assert.equal((await backend.signUpWithEmail("test@example.invalid", "password", "petwell://account")).needsConfirmation, true);
 assert.equal(signupRedirect, "petwell://account");
+signInError = { code: "email_not_confirmed" };
+assert.deepEqual(await backend.signInWithEmail("test@example.invalid", "password"), {
+  ok: false,
+  needsConfirmation: true,
+  error: "Confirm your email before signing in.",
+});
+assert.equal(backend.getUserId(), null);
+signInError = null;
+await backend.resendSignupConfirmation(" Test@example.invalid ", "petwell://account");
+assert.deepEqual(resendInput, {
+  type: "signup",
+  email: "test@example.invalid",
+  options: { emailRedirectTo: "petwell://account" },
+});
+resendError = { status: 429 };
+await assert.rejects(backend.resendSignupConfirmation("test@example.invalid", "petwell://account"), /wait a minute/);
+resendError = { status: 500 };
+await assert.rejects(backend.resendSignupConfirmation("test@example.invalid", "petwell://account"), /Couldn’t resend/);
 const { redirectSystemPath } = await import("../app/+native-intent");
 assert.equal(redirectSystemPath({ path: "petwell://account?code=signup", initial: true }), "/account");
 assert.equal(redirectSystemPath({ path: "petwell:///reset-password?code=recovery", initial: true }), "/reset-password?code=recovery");

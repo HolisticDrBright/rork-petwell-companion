@@ -35,6 +35,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MiniTrend } from "@/components/Charts";
 import { NoPetSelected } from "@/components/NoPetSelected";
 import { PetSwitcher } from "@/components/PetSwitcher";
+import { CareScheduleChecklist } from "@/components/CareScheduleChecklist";
 import { WeeklyDigestCard } from "@/components/WeeklyDigestCard";
 import { scheduleWeeklyDigest } from "@/services/notificationsService";
 import { recallAlertService } from "@/services/recallAlertService";
@@ -143,6 +144,7 @@ export default function TodayScreen() {
     isLoading,
     todayIso,
     timelineFailed,
+    mode,
   } = usePets();
   const [fabOpen, setFabOpen] = useState<boolean>(false);
 
@@ -296,6 +298,10 @@ export default function TodayScreen() {
             ))}
           </Card>
         </View>
+
+        {mode === "remote" ? <View style={styles.section}>
+          <CareScheduleChecklist petId={selectedPet.id} canComplete onManage={() => router.push("/care-schedules")} />
+        </View> : null}
 
         {/* Weekly digest + streak (honest counts of what was logged) */}
         <View style={styles.section}>

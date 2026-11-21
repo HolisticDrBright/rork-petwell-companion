@@ -1,7 +1,8 @@
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
+import { FormScrollView } from "@/components/FormScrollView";
 import { PrimaryButton } from "@/components/ui";
 import Colors, { Fonts, Radius, Space, cardShadow } from "@/constants/colors";
 import { isCurrentUserAdmin } from "@/lib/backend";
@@ -118,10 +119,9 @@ export default function AdminKbEditScreen() {
   }
 
   return (
-    <ScrollView
+    <FormScrollView
       style={styles.container}
       contentContainerStyle={{ padding: Space.md, paddingBottom: 60 }}
-      keyboardShouldPersistTaps="handled"
     >
       <Stack.Screen options={{ title: id ? "Edit entry" : "Add entry" }} />
 
@@ -160,7 +160,7 @@ export default function AdminKbEditScreen() {
           ? "Edits keep the current review status — re-toggle in the review list if needed."
           : "New entries are saved as pending vet review."}
       </Text>
-    </ScrollView>
+    </FormScrollView>
   );
 }
 

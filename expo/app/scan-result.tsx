@@ -1,9 +1,11 @@
 import { useSaveAction } from "@/hooks/useSaveAction";
+import { FormScrollView } from "@/components/FormScrollView";
 import { SaveStatus } from "@/components/SaveStatus";
+import { AiPhotoSettingsLink } from "@/components/ai/AiBits";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { AlertTriangle, BookOpen, FileText, Link2, Pencil, Save, Sparkles } from "lucide-react-native";
 import React, { useCallback, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { NoPetSelected } from "@/components/NoPetSelected";
 import { Card, Disclaimer, PrimaryButton, UrgencyBand } from "@/components/ui";
@@ -54,10 +56,10 @@ const KB_URGENCY_BG: Record<KbUrgency, string> = {
 };
 
 // Symptom areas the vision model can observe, and the real triage concern each
-// hands off to. teeth/weight have no observation/concern → fall back to generic.
+// hands off to. Scan types without a matching concern fall back to the general check.
 const AI_AREAS = ["poop", "skin", "ear", "eye", "teeth"] as const;
 type AiArea = (typeof AI_AREAS)[number];
-const CONCERN_FOR: Record<string, string> = { poop: "diarrhea", skin: "skin", ear: "ear", eye: "eye" };
+const CONCERN_FOR: Record<string, string> = { poop: "diarrhea", skin: "skin", ear: "ear", eye: "eye", teeth: "teeth" };
 
 export default function ScanResultScreen() {
   const { saving, saveError, runSave } = useSaveAction();
@@ -83,6 +85,7 @@ export default function ScanResultScreen() {
   const [aiObs, setAiObs] = useState<SymptomObservation | null>(null);
   const [aiBanner, setAiBanner] = useState<string | null>(null);
   const [aiNote, setAiNote] = useState<string | null>(null);
+  const [aiNeedsSettings, setAiNeedsSettings] = useState(false);
   const [kbMatches, setKbMatches] = useState<SymptomKbEntry[]>([]);
   const [uploadedPath, setUploadedPath] = useState<string | null>(null);
 
@@ -90,11 +93,13 @@ export default function ScanResultScreen() {
     if (!selectedPet || !aiArea || !photo) return;
     setAiBusy(true);
     setAiNote(null);
+    setAiNeedsSettings(false);
     setKbMatches([]);
     try {
-      const availability = await aiService.availability({ needsDocs: true });
-      if (!availability.ok || !(await privacyService.getPrefs()).store_photos) {
-        setAiNote(availability.reason ?? "Enable cloud storage for scan photos in Settings to use photo analysis.");
+      const availability = await aiService.availability({ needsDocs: true, needsScanStorage: true });
+      if (!availability.ok) {
+        setAiNote(availability.reason);
+        setAiNeedsSettings(!!availability.settingsRequired);
         return;
       }
       const path = uploadedPath ?? (await aiService.uploadScanImage(photo));
@@ -190,7 +195,7 @@ export default function ScanResultScreen() {
   if (!selectedPet) return <NoPetSelected />;
 
   return (
-    <ScrollView
+    <FormScrollView
       style={styles.container}
       contentContainerStyle={{ padding: Space.md, paddingBottom: 50 }}
       showsVerticalScrollIndicator={false}
@@ -199,7 +204,7 @@ export default function ScanResultScreen() {
 
       <View style={styles.headerRow}>
         <View style={{ flex: 1 }}>
-          <Text style={Fonts.tiny}>{mockScan ? "ANALYSIS COMPLETE" : "PHOTO SAVED · PREVIEW"}</Text>
+          <Text style={Fonts.tiny}>{mockScan ? "ANALYSIS COMPLETE" : "SCAN PREVIEW"}</Text>
           <Text style={styles.title}>{result.title}</Text>
           <Text style={Fonts.bodySoft}>For {selectedPet.name}</Text>
         </View>
@@ -334,12 +339,13 @@ export default function ScanResultScreen() {
                     <Text style={styles.previewCtaText}>Read photo (observations only)</Text>
                   )}
                 </Pressable>
-                {aiNote ? <Text style={styles.aiNote}>{aiNote}</Text> : null}
+                {aiNote ? <Text accessibilityRole="alert" style={styles.aiNote}>{aiNote}</Text> : null}
+                {aiNeedsSettings ? <AiPhotoSettingsLink /> : null}
               </View>
             )
           ) : (
             <View style={styles.previewBanner}>
-              <Text style={styles.previewTitle}>Photo saved</Text>
+              <Text style={styles.previewTitle}>{photo ? "Photo preview" : "Scan notes"}</Text>
               <Text style={styles.previewBody}>
                 Petwell won&apos;t invent a score from a photo. Use the guided check for real, adaptive
                 symptom guidance — it routes urgent cases to a vet. You can keep the photo on the timeline
@@ -423,10 +429,10 @@ export default function ScanResultScreen() {
           style={{ flex: 1 }}
         />
         <PrimaryButton
-          label="Add to report"
+          label="Prepare for vet visit"
           icon={<FileText size={18} color={Colors.teal800} />}
           variant="outline"
-          onPress={() => router.replace("/vet-report")}
+          onPress={() => router.replace({ pathname: "/vet-report", params: { prepare: "1" } })}
           style={{ flex: 1 }}
         />
       </View>
@@ -434,7 +440,7 @@ export default function ScanResultScreen() {
       <View style={{ marginTop: Space.lg }}>
         <Disclaimer />
       </View>
-    </ScrollView>
+    </FormScrollView>
   );
 }
 

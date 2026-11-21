@@ -1,8 +1,9 @@
 import { Stack } from "expo-router";
 import { AlertTriangle, CalendarPlus, ExternalLink, Video, XCircle } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
+import { FormScrollView } from "@/components/FormScrollView";
 import { EmergencyContacts } from "@/components/EmergencyContacts";
 import { InfoNote, ScreenHeader } from "@/components/integrative";
 import { Card } from "@/components/ui";
@@ -118,7 +119,7 @@ export default function TelehealthScreen() {
     <View style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
       <ScreenHeader title="Vet telehealth" subtitle="Video visits with a licensed veterinarian" />
-      <ScrollView contentContainerStyle={{ padding: Space.md, paddingBottom: 60 }} showsVerticalScrollIndicator={false}>
+      <FormScrollView contentContainerStyle={{ padding: Space.md, paddingBottom: 60 }} showsVerticalScrollIndicator={false}>
         {!remote ? (
           <Card>
             <Text style={styles.body}>
@@ -278,7 +279,7 @@ export default function TelehealthScreen() {
         <View style={{ marginTop: Space.sm }}>
           <InfoNote>{TELEHEALTH_SCOPE_NOTE}</InfoNote>
         </View>
-      </ScrollView>
+      </FormScrollView>
     </View>
   );
 }
